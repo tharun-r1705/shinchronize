@@ -32,12 +32,6 @@
       "dest": "/dist/index.html"
     }
   ],
-  "functions": {
-    "backend/server.js": {
-      "memory": 512,
-      "maxDuration": 10
-    }
-  },
   "env": {
     "NODE_ENV": "production"
   },
