@@ -44,6 +44,7 @@ const ReadinessReport = () => {
             <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
             <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
             <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
+            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
             <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
             <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>

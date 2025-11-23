@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, Users, BarChart3, Award } from "lucide-react";
+import { TrendingUp, Users, BarChart3, Award, CalendarX2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -69,8 +69,10 @@ const Index = () => {
                   <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="font-semibold mb-2 text-muted-foreground">Traditional Approach</h3>
                   <p className="text-sm text-muted-foreground">One-day exam snapshot</p>
-                  <div className="mt-4 h-24 flex items-end justify-center">
-                    <div className="w-16 h-16 bg-muted rounded" />
+                  <div className="mt-6 flex justify-center">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                      <CalendarX2 className="w-8 h-8 text-muted-foreground" />
+                    </div>
                   </div>
                 </motion.div>
 

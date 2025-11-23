@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useEffect, useState } from "react";
 import { studentApi } from "@/lib/api";
+import MockInterviewChatbot from "@/components/MockInterviewChatbot";
 import { useToast } from "@/hooks/use-toast";
 
 interface MentorSuggestions {
@@ -791,6 +792,7 @@ const StudentDashboard = () => {
             <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
             <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
             <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
+            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
             <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
             <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -838,6 +840,23 @@ const StudentDashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mb-8"
+        >
+          <MockInterviewChatbot variant="panel" displayMode="graph-only" />
+          <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-muted-foreground">
+            <span>
+              Track your interview learning curve and share the graph with recruiters instantly.
+            </span>
+            <Button variant="link" className="px-0" onClick={() => navigate('/student/mock-interview')}>
+              Open full workspace →
+            </Button>
+          </div>
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-6 mb-6">

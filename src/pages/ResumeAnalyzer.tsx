@@ -42,6 +42,8 @@ interface ResumeAnalysis {
     score: number;
     issues: string[];
   };
+  atsScore?: number;
+  atsInsights?: string[];
 }
 
 export default function ResumeAnalyzer() {
@@ -82,41 +84,24 @@ export default function ResumeAnalyzer() {
     setIsExtracting(true);
 
     try {
+      setResumeText('');
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/student/login');
         return;
       }
 
-      // Create FormData to send file
-      const formData = new FormData();
-      formData.append('resume', file);
-
-      const response = await fetch('http://localhost:5000/api/students/extract-resume-text', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          message: 'Failed to extract text from PDF',
-          details: 'Please try a different PDF or use the "Paste Text" option'
-        }));
-        const errorMsg = errorData.details 
-          ? `${errorData.message}. ${errorData.details}`
-          : errorData.message;
-        throw new Error(errorMsg);
+      const data = await studentApi.extractResumeText(file, token);
+      if (!data?.text) {
+        throw new Error('The server did not return any extracted text. Please try another PDF or use Paste Text.');
       }
-
-      const data = await response.json();
       console.log('Text extracted successfully:', data.text.substring(0, 100) + '...');
       setResumeText(data.text);
     } catch (err: any) {
       console.error('PDF extraction error:', err);
-      console.error('Full error details:', err);
+      console.error('Error message:', err.message);
+      console.error('Error response:', err.response);
+      console.error('Full error object:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
       
       let userMessage = 'Failed to extract text from PDF. ';
       
@@ -140,8 +125,21 @@ export default function ResumeAnalyzer() {
   const handleRemoveFile = () => {
     setUploadedFile(null);
     setResumeText('');
+    setError('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadClick = () => {
+    // Clear previous state before opening file picker
+    setUploadedFile(null);
+    setResumeText('');
+    setError('');
+    setAnalysis(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
     }
   };
 
@@ -200,6 +198,7 @@ export default function ResumeAnalyzer() {
             <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
             <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
             <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
+            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
             <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
             <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -271,7 +270,7 @@ export default function ResumeAnalyzer() {
                       
                       {!uploadedFile ? (
                         <div
-                          onClick={() => fileInputRef.current?.click()}
+                          onClick={handleUploadClick}
                           className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors bg-muted/30"
                         >
                           <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
@@ -288,6 +287,7 @@ export default function ResumeAnalyzer() {
                             accept=".pdf"
                             onChange={handleFileUpload}
                             className="hidden"
+                            key={uploadedFile ? 'has-file' : 'no-file'}
                           />
                         </div>
                       ) : (
@@ -453,6 +453,42 @@ export default function ResumeAnalyzer() {
                     <Progress value={analysis.overallScore} className="h-3" />
                   </CardContent>
                 </Card>
+
+                {typeof analysis.atsScore === "number" && (
+                  <Card className="shadow-card">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-secondary" />
+                          ATS Compatibility
+                        </span>
+                        <span className={`text-3xl font-semibold ${getScoreColor(analysis.atsScore)}`}>
+                          {analysis.atsScore}%
+                        </span>
+                      </CardTitle>
+                      <CardDescription>
+                        Higher scores mean better keyword coverage, structure, and parsing for applicant tracking systems.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Progress value={analysis.atsScore} className="h-2 mb-4" />
+                      {analysis.atsInsights && analysis.atsInsights.length > 0 ? (
+                        <ul className="space-y-2 text-sm text-muted-foreground">
+                          {analysis.atsInsights.map((insight, index) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <Sparkles className="w-4 h-4 text-secondary mt-0.5" />
+                              <span>{insight}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No ATS notes were provided. Try re-running the analysis if you expected keyword feedback.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Strengths */}
                 <Card className="shadow-card">

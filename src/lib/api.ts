@@ -74,6 +74,37 @@ export interface StudentProfileDTO {
   };
 }
 
+export interface LinkedInExperienceEntry {
+  role?: string;
+  organization?: string;
+  duration?: string;
+  summary?: string;
+}
+
+export interface LinkedInEducationEntry {
+  institution?: string;
+  degree?: string;
+  duration?: string;
+  summary?: string;
+}
+
+export interface LinkedInProfileAutofill {
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  headline?: string;
+  location?: string;
+  email?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  websites?: string[];
+  summary?: string;
+  skills?: string[];
+  experience?: LinkedInExperienceEntry[];
+  education?: LinkedInEducationEntry[];
+  confidence?: number;
+}
+
 export interface UpdateStudentProfileResponse {
   student: StudentProfileDTO;
   readiness: {
@@ -91,6 +122,86 @@ export interface SyncCodingActivityResponse {
     breakdown: Record<string, number>;
   };
   codingProfiles: CodingProfilesPayload;
+}
+
+export interface InterviewRubric {
+  clarity: number;
+  technicalAccuracy: number;
+  communication: number;
+  relevance: number;
+  confidence: number;
+}
+
+export interface InterviewTurnOption {
+  key: string;
+  text: string;
+}
+
+export interface InterviewTurnDTO {
+  _id: string;
+  question: string;
+  focusAreas: string[];
+  difficulty: "easy" | "medium" | "hard" | "expert";
+  answer?: string;
+  feedback?: string;
+  coachTips?: string[];
+  askedAt?: string;
+  answeredAt?: string;
+  rubric?: InterviewRubric;
+  options?: InterviewTurnOption[];
+  selectedOptionKey?: string;
+  correctOptionKey?: string;
+  isCorrect?: boolean;
+}
+
+export interface InterviewLearningPoint {
+  turnId?: string;
+  turnIndex: number;
+  clarity: number;
+  technicalAccuracy: number;
+  communication: number;
+  relevance: number;
+  confidence: number;
+  overall: number;
+  difficulty: "easy" | "medium" | "hard" | "expert";
+  createdAt?: string;
+}
+
+export interface InterviewSessionDTO {
+  _id: string;
+  role: string;
+  roleLevel: string;
+  status: "active" | "paused" | "completed";
+  overallScore: number;
+  currentDifficulty: "easy" | "medium" | "hard" | "expert";
+  turns?: InterviewTurnDTO[];
+  learningCurve: InterviewLearningPoint[];
+  proficiencyVector?: {
+    technicalDepth?: number;
+    problemSolving?: number;
+    communication?: number;
+  };
+  meta?: {
+    totalQuestions: number;
+    totalAnswers: number;
+    maxQuestions: number;
+  };
+  maxQuestions?: number;
+  mode?: "practice" | "test";
+  summary?: {
+    highlights?: string[];
+    improvements?: string[];
+    recommendation?: string;
+    overallFeedback?: string;
+    scorePercent?: number;
+  };
+  testStats?: {
+    correctAnswers: number;
+    incorrectAnswers: number;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+  student?: Pick<StudentProfileDTO, "_id" | "name" | "college" | "readinessScore" | "avatarUrl">;
 }
 
 interface RequestOptions extends RequestInit {
@@ -111,9 +222,14 @@ class ApiClient {
     const { token, ...fetchOptions } = options;
 
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
       ...fetchOptions.headers,
     };
+
+    const isFormData = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
+
+    if (!isFormData && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -139,17 +255,19 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, data?: unknown, token?: string): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: isFormData ? data : data ? JSON.stringify(data) : undefined,
       token,
     });
   }
 
   async put<T>(endpoint: string, data?: unknown, token?: string): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
     return this.request<T>(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: isFormData ? data : data ? JSON.stringify(data) : undefined,
       token,
     });
   }
@@ -201,6 +319,23 @@ export const studentApi = {
 
   analyzeResume: (data: { resumeText: string; targetRole?: string }, token: string) =>
     api.post('/students/analyze-resume', data, token),
+
+  importLinkedInProfile: (formData: FormData, token: string) =>
+    api.post<{ profile: LinkedInProfileAutofill; meta?: { pages: number; fieldsDetected?: string[] } }>(
+      '/students/profile/linkedin-import',
+      formData,
+      token
+    ),
+
+  extractResumeText: (file: File, token: string) => {
+    const formData = new FormData();
+    formData.append('resume', file);
+    return api.post<{ message: string; text: string; pages?: number }>(
+      '/students/extract-resume-text',
+      formData,
+      token
+    );
+  },
 
   // Public leaderboard
   getLeaderboard: (limit?: number) =>
@@ -324,6 +459,88 @@ export const adminApi = {
   getAllStudents: (token: string) => api.get('/admin/students', token),
 
   getAllRecruiters: (token: string) => api.get('/admin/recruiters', token),
+};
+
+export const interviewApi = {
+  startSession: (
+    data: {
+      role: string;
+      roleLevel?: "basic" | "intermediate" | "advanced";
+      focusAreas?: string[];
+      baselineSkillNotes?: string;
+      studentId?: string;
+      mode?: "practice" | "test";
+      questionCount?: number;
+    },
+    token: string
+  ) => api.post<{ session: InterviewSessionDTO }>('/interviews/session', data, token),
+
+  requestQuestion: (sessionId: string, token: string) =>
+    api.post<{ turn: InterviewTurnDTO; coachingTip?: string; session: Partial<InterviewSessionDTO> }>(
+      `/interviews/${sessionId}/question`,
+      {},
+      token
+    ),
+
+  submitAnswer: (
+    params: { sessionId: string; turnId?: string; answer: string; selectedOptionKey: string },
+    token: string
+  ) => {
+    const endpoint = params.turnId
+      ? `/interviews/${params.sessionId}/turns/${params.turnId}/answer`
+      : `/interviews/${params.sessionId}/answer`;
+
+    return api.post<{
+      turn: InterviewTurnDTO;
+      evaluation: {
+        feedback: string;
+        rubric: InterviewRubric;
+        overall: number;
+        improvements: string[];
+        nextDifficulty: string;
+        coaching: string[];
+        isCorrect?: boolean;
+        correctOptionKey?: string;
+        rationale?: string;
+      };
+      session: Partial<InterviewSessionDTO> & {
+        learningCurve: InterviewLearningPoint[];
+      };
+    }>(endpoint, { answer: params.answer, selectedOptionKey: params.selectedOptionKey }, token);
+  },
+
+  getSessionSummary: (sessionId: string, token: string) =>
+    api.get<{ session: InterviewSessionDTO }>(`/interviews/${sessionId}`, token),
+
+  getStudentHistory: (
+    studentId: string,
+    params: { limit?: number; status?: string } = {},
+    token: string
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params.limit) searchParams.set('limit', String(params.limit));
+    if (params.status) searchParams.set('status', params.status);
+    return api.get<{ sessions: InterviewSessionDTO[] }>(
+      `/interviews/student/${studentId}/history${searchParams.toString() ? `?${searchParams.toString()}` : ''}`,
+      token
+    );
+  },
+
+  getActiveSession: (token: string) =>
+    api.get<{ session: InterviewSessionDTO | null }>('/interviews/student/me/active', token),
+
+  getRecruiterSessions: (
+    recruiterId: string,
+    params: { limit?: number } = {},
+    token: string
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params.limit) searchParams.set('limit', String(params.limit));
+    return api.get<{ sessions: InterviewSessionDTO[] }>(
+      `/interviews/recruiter/${recruiterId}/candidates${searchParams.toString() ? `?${searchParams.toString()}` : ''}`,
+      token
+    );
+  },
 };
 
 export default api;

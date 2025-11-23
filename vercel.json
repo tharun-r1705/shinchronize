@@ -13,10 +13,7 @@
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
-          "backend/controllers/**",
-          "backend/models/**",
-          "backend/routes/**",
-          "backend/utils/**"
+          "backend/**/*"
         ]
       }
     }
@@ -35,9 +32,16 @@
       "dest": "/dist/index.html"
     }
   ],
+  "functions": {
+    "backend/server.js": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  },
   "env": {
     "NODE_ENV": "production"
   },
+  "framework": "vite",
   "installCommand": "npm install && npm install --prefix backend",
   "buildCommand": "npm run build"
 }

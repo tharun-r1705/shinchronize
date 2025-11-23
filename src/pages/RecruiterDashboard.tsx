@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useEffect, useState } from "react";
-import { recruiterApi } from "@/lib/api";
+import { recruiterApi, interviewApi, InterviewSessionDTO } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import AIRecruiterAssistant from "@/components/AIRecruiterAssistant";
 
@@ -30,6 +30,8 @@ const RecruiterDashboard = () => {
   const [minProjects, setMinProjects] = useState("");
   const [minCGPA, setMinCGPA] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [interviewSessions, setInterviewSessions] = useState<InterviewSessionDTO[]>([]);
+  const [selectedInterview, setSelectedInterview] = useState<InterviewSessionDTO | null>(null);
 
   // Predefined trending skills
   const trendingSkills = [
@@ -80,6 +82,25 @@ const RecruiterDashboard = () => {
 
     fetchStudents();
   }, [navigate, toast, selectedSkills, minScore, maxScore, minProjects, minCGPA, searchQuery]);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const response = await interviewApi.getRecruiterSessions('me', { limit: 10 }, token);
+        const sessions = response.sessions || [];
+        setInterviewSessions(sessions);
+        if (sessions.length > 0) {
+          setSelectedInterview(sessions[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load interview sessions', error);
+      }
+    };
+
+    fetchSessions();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -286,6 +307,11 @@ const RecruiterDashboard = () => {
   const studentAName = comparedStudents[0]?.name || "Student A";
   const studentBName = comparedStudents[1]?.name || "Student B";
   const studentCName = comparedStudents[2]?.name || "Student C";
+
+  const interviewChartData = (selectedInterview?.learningCurve || []).map((point, index) => ({
+    turn: index + 1,
+    score: point.overall,
+  }));
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -514,6 +540,82 @@ const RecruiterDashboard = () => {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mb-8 grid gap-6 lg:grid-cols-[2fr_1fr]"
+        >
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Mock interview learning curve</span>
+                <Badge variant="secondary">
+                  {selectedInterview ? selectedInterview.role : 'No session selected'}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Live Groq evaluations are stored for recruiters. Track readiness momentum before scheduling a live screen.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {selectedInterview && interviewChartData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer>
+                    <LineChart data={interviewChartData} margin={{ left: 12, right: 12 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="turn" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}`} tickLine={false} axisLine={false} />
+                      <Tooltip formatter={(value) => [`${value}/100`, 'Score']} />
+                      <Line type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={2} dot />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No mock interview data yet. Encourage candidates to practice so their confidence curve appears here.</p>
+              )}
+              {selectedInterview && (
+                <div className="mt-4 text-sm text-muted-foreground">
+                  <p>Turns completed: {selectedInterview.learningCurve?.length || 0}</p>
+                  <p>Current status: {selectedInterview.status}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>Candidates recently coached</CardTitle>
+              <CardDescription>Tap to view their learning curves.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {interviewSessions.length === 0 && (
+                <p className="text-sm text-muted-foreground">No mock interviews recorded yet.</p>
+              )}
+              {interviewSessions.map((sessionItem) => (
+                <button
+                  key={sessionItem._id}
+                  onClick={() => setSelectedInterview(sessionItem)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                    selectedInterview?._id === sessionItem._id ? 'border-primary bg-primary/5' : 'hover:border-primary/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{sessionItem.student?.name || 'Candidate'}</p>
+                      <p className="text-xs text-muted-foreground">{sessionItem.role}</p>
+                    </div>
+                    <Badge variant="outline">{sessionItem.overallScore || 0}/100</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(sessionItem.createdAt || '').toLocaleDateString()} • {sessionItem.learningCurve?.length || 0} turns
+                  </p>
+                </button>
+              ))}
             </CardContent>
           </Card>
         </motion.div>

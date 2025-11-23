@@ -1,0 +1,145 @@
+EVOLVED (SHINCHRONIZE) WEBSITE OVERVIEW
+=====================================
+
+This document explains what the EvolvEd (aka Shinchronize) platform does, the pages that exist, and how all moving pieces work together so that any reader can understand the full website without opening the code.
+
+PRODUCT PURPOSE
+---------------
+- EvolvEd turns campus placements into an always-on growth story. Students showcase long-term consistency, recruiters see trustworthy signals beyond test scores, and admins keep submissions verified.
+- The stack is React + Vite + TypeScript + Tailwind/shadcn UI on the frontend and Express + MongoDB + Groq integrations on the backend.
+
+PRIMARY PERSONAS AND GOALS
+--------------------------
+- Students: log daily practice, build verified portfolios, run AI mock interviews, analyse resumes, and climb a readiness-driven leaderboard.
+- Recruiters: filter students by readiness, skills, projects, CGPA, and review interview histories with help from an AI recruiter copilot.
+- Admins: verify certificates/projects/events to keep the ecosystem credible and resolve pending submissions.
+
+FRONTEND ROUTE MAP (src/App.tsx)
+--------------------------------
+- / (Landing, src/pages/Index.tsx) – hero section describing EvolvEd vision plus CTA buttons for students and recruiters.
+- /student/login (src/pages/StudentLogin.tsx) – authentication form that stores JWT + role in localStorage.
+- /student/dashboard (src/pages/StudentDashboard.tsx) – personalised home with readiness stats, skills radar, AI mentor, CRUD modals for projects/certs/events, coding logs, and embedded mock interview widget.
+- /student/profile (src/pages/StudentProfile.tsx) – profile builder with LinkedIn PDF import, avatar management, coding profile usernames, and detailed form sections.
+- /student/report (src/pages/ReadinessReport.tsx) – narrative report with growth charts, score breakdown pie, predictive milestones, and AI growth story copy.
+- /student/progress (src/pages/Progress.tsx) – LeetCode analytics dashboard (totals, streak, pie/bar charts, heatmap, weekly trend, recent sessions) auto-synced through backend.
+- /student/resume (src/pages/ResumeAnalyzer.tsx) – PDF/text upload with Groq-powered resume scoring, strengths/weaknesses, keyword analysis, and actionable suggestions.
+- /student/mock-interview (src/pages/MockInterview.tsx) – choose a tech stack, launch MCQ-based adaptive Groq interview via MockInterviewChatbot, review attempt history.
+- /recruiter/login (src/pages/RecruiterLogin.tsx) – recruiter auth flow similar to student login.
+- /recruiter/dashboard (src/pages/RecruiterDashboard.tsx) – candidate discovery workspace with advanced filters, selection + comparison, interview session feed, and AI recruiter assistant panel.
+- /recruiter/student/:studentId (src/pages/StudentProfileView.tsx) – recruiter-friendly read-only profile with readiness charts, project skill distribution, tabs for achievements, and contact links.
+- /leaderboard (src/pages/Leaderboard.tsx) – global leaderboard showing podium, personalised rank card, share-to-social, and profile dialog.
+- /admin/login (src/pages/AdminLogin.tsx) and /admin (src/pages/AdminPanel.tsx) – verification queue for admins.
+- * (src/pages/NotFound.tsx) – catch-all 404 message.
+
+STUDENT EXPERIENCE END-TO-END
+-----------------------------
+1. Onboarding & Authentication
+   - Students sign up/login via /student/login which calls studentApi.signup/login (src/lib/api.ts) and stores JWT plus basic profile in localStorage.
+2. Dashboard Highlights (src/pages/StudentDashboard.tsx)
+   - Hero cards summarise readiness score, streak, verified assets, and growth trends using Recharts.
+   - Skills radar and editing dialog maintain student.skillRadar on Mongo to visualise strengths/gaps.
+   - CRUD dialogs (projects, certifications, events) push entries via studentApi.add*/update*/delete* endpoints; submissions stay pending until admin verification status flips.
+   - Coding logs, sync buttons, and LeetCode/HackerRank integrations call studentApi.syncCodingActivity to keep readiness fresh.
+   - AI Mentor widget hits /api/students/mentor-suggestions which runs backend/utils/aiMentor.js (Groq) to produce overview, strengths, opportunities, and action plan.
+   - Embedded MockInterviewChatbot component lets students resume MCQ sessions without leaving the dashboard.
+3. Profile Builder (src/pages/StudentProfile.tsx)
+   - Sections for personal info, academics, links, skills, summary, and avatars. The LinkedIn PDF import uses backend/utils/linkedinParser.js to autofill experience/education.
+   - Helper functions extract LeetCode/HackerRank usernames from pasted URLs before calling studentApi.updateProfile or updateCodingProfiles.
+   - Real-time toasts confirm saves and readiness recomputation results are displayed.
+4. Progress Analytics (src/pages/Progress.tsx & PORTED_FEATURES.md)
+   - LeetCode stats (total solved, streak, difficulty split, domains, heatmap, weekly submissions, recent sessions) pull from backend/utils/leetcode.js via studentApi.syncCodingActivity.
+   - Visualisations rely on Recharts and highlight top domains plus activity trends.
+5. Readiness Report (src/pages/ReadinessReport.tsx)
+   - Summarises placement readiness with growth curve, score breakdown pie, predictive milestones, and AI-generated narrative referencing actual achievements.
+6. Resume Analyzer (src/pages/ResumeAnalyzer.tsx)
+   - Upload PDF (multer memory storage) or paste text. Backend route /api/students/extract-resume-text parses PDFs then /api/students/analyze-resume sends text to Groq for scoring.
+   - UI shows section-level feedback, keywords (present/missing), formatting warnings, and download/clear controls.
+7. Mock Interview Lab (src/pages/MockInterview.tsx + docs/mock-interview.md)
+   - Students pick stacks (Full-Stack, Data, AI, Cloud) that define role, level, and focus areas before launching MockInterviewChatbot.
+   - Chatbot asks MCQs, enforces max question count, gathers Groq rubric feedback, tracks learning curve, and presents final summary + scorePercent stored in backend/models/InterviewSession.js.
+   - History list shows past attempts with accuracy, question counts, statuses, and summary text.
+8. Leaderboard & Sharing (src/pages/Leaderboard.tsx)
+   - Fetches top 50 readiness scores via GET /api/students/leaderboard, highlights logged-in student (even if outside top 50), supports share via Web Share API/clipboard, and displays achievements/badges.
+
+RECRUITER EXPERIENCE
+--------------------
+- Recruiter Dashboard (src/pages/RecruiterDashboard.tsx)
+  - Uses recruiterApi.listStudents to pull student list filtered by readiness score ranges, skills, projects count, CGPA, and college/name search.
+  - Advanced filters apply simultaneously; trending skills quick-add chips feed skill filter state.
+  - Candidate cards expose readiness score, projects, certifications, streaks, skills, and highlight badges.
+  - Recruiters can select up to three students to compare growth curves (Recharts), metrics, and readiness histories side-by-side.
+  - Interview timeline cards read data from interviewApi.getRecruiterSessions, showing adaptive mock interview learning curves (score per turn) and summaries.
+  - AIRecruiterAssistant (src/components/AIRecruiterAssistant.tsx) floats at bottom-right, summarises dataset context, and forwards recruiter prompts + context to /api/recruiters/ai-assistant (Groq) for recommendations; fallback text is provided if AI is unavailable.
+  - Actions include saving/clearing selections, toggling filters, and logging out.
+- Recruiter Student Profile View (src/pages/StudentProfileView.tsx)
+  - Detailed profile tabs cover overview, academics, projects, certifications, coding activity, skills distribution (pie chart), readiness history (line chart), badges, and contact links.
+  - Handles auth guard (redirect on missing token) and gracefully falls back if profile missing.
+
+ADMIN OPERATIONS
+----------------
+- Admin Panel (src/pages/AdminPanel.tsx)
+  - Displays pending verification queue pulled from adminApi.getPendingVerifications.
+  - Tabs for All, Pending, Certificates, Projects with animated cards showing submission metadata, student name, status badges, and timestamps.
+  - Buttons call adminApi.verifyItem to mark entries verified or rejected, updating Student subdocuments via backend/controllers/adminController (not shown but referenced).
+  - Stats cards summarise counts (pending/verified/rejected) for quick oversight.
+
+AI AND DATA INTELLIGENCE LAYER
+------------------------------
+- Groq integrations:
+  - aiMentor.js: builds structured student context (projects, certifications, events, skill radar, coding logs) and requests JSON-formatted coaching plans.
+  - mockInterview.js: orchestrates adaptive MCQ generation, scoring, and summary prompts described in docs/mock-interview.md.
+  - recruiter AI assistant endpoint synthesises candidate summaries, comparisons, and recommendations for recruiters.
+  - Resume analyzer uses Groq to score resumes per section and highlight keyword gaps.
+- Readiness scoring:
+  - backend/utils/readinessScore.js calculates scores from projects, coding consistency, certifications, events, skill diversity, skill radar averages, skills list, and streak bonus.
+  - SCORING_QUICK_REFERENCE.md captures weighting for recruiter-facing dynamic scoring (skill match, project relevance, base readiness, certifications, consistency, academics).
+
+BACKEND SERVICES AND APIS
+-------------------------
+- Server bootstrap (backend/server.js): Express app with CORS, JSON body parsing, morgan logging, health check route, and routers mounted under /api/students, /api/recruiters, /api/admin, /api/interviews. Connects to MongoDB Atlas via mongoose and optionally seeds demo data.
+- Authentication: backend/utils/authMiddleware.js issues JWT tokens (generateToken) and guard routes by role (authenticate(['student']), etc.).
+- Student Controller (backend/controllers/studentController.js): handles signup/login, profile CRUD, project/cert/event lifecycle, coding logs, coding profile sync, LeetCode stats update, AI mentor generation, resume analysis, LinkedIn PDF import, readiness report retrieval, leaderboard, and admin-only list/delete operations.
+- Recruiter Controller (backend/controllers/recruiterController.js): manages recruiter signup/login, profile, listing students with filters, saving candidates, AI assistant endpoint, and bridging to InterviewSession data.
+- Admin Controller (backend/controllers/adminController.js): surfaces pending verifications, updates statuses, and notifies students.
+- Interview Controller (backend/controllers/interviewController.js): creates test sessions, enforces max question count, fetches next question from Groq, records answers, maintains learning curves, and generates final summaries.
+- Routes folder wires controllers with validation (backend/utils/validation.js) and file upload middleware (multer) for PDFs.
+
+DATA MODELS
+-----------
+- Student model (backend/models/Student.js): embeds projects, coding logs, certifications, events with status fields, skillRadar Map, readinessHistory, codingProfiles, leetcodeStats (calendar, domains, activity), badges, streaks, saved recruiters, etc. Pre-save hooks hash passwords and derived getters convert Maps to plain objects.
+- Recruiter model (backend/models/Recruiter.js): stores company info, filters, saved candidates (not shown but implied).
+- Admin model (backend/models/Admin.js): tracks pendingVerifications array to show queue in AdminPanel.
+- InterviewSession model (backend/models/InterviewSession.js): stores role, mode (test/practice), difficulty progression, turns with MCQ options, rubrics, learningCurve points, summaries, and relationships to students/recruiters.
+
+INTEGRATIONS AND UTILITIES
+--------------------------
+- codingIntegrations.js & leetcode.js: talk to LeetCode/HackerRank to fetch activity/stats for sync and readiness updates.
+- linkedinParser.js: parses uploaded LinkedIn PDF to auto-populate student profile fields.
+- readinessScore.js: central formula applied whenever profile/coding logs/projects change.
+- seedData.js: optional seeding for demo accounts.
+- public integrations: share sheet, Web Share API, clipboard fallback.
+
+HOW EVERYTHING FITS TOGETHER
+----------------------------
+1. Student updates profile or logs coding activity -> backend recalculates readiness (calculateReadinessScore) -> readiness stored on Student document -> recruiter leaderboard and filters instantly reflect new score.
+2. Student submits project/cert/event -> Admin receives pendingVerifications entry -> admin verifies -> Student project status flips to verified, awarding additional readiness points and recruiter trust.
+3. Student runs mock interview -> InterviewSession persists MCQ turns + Groq summaries -> Recruiter dashboard and student history visualise learning curve + scorePercent -> readiness narrative references attempt history.
+4. Resume analyzer and AI mentor both use Groq but for different prompts. Mentor suggestions are cached per student session; resume analysis is on-demand per upload/paste.
+5. Recruiter AI assistant consumes selected student IDs and top candidates to give tailored comparisons or shortlists, reducing manual evaluation time.
+
+LOCAL DEVELOPMENT QUICKSTART
+----------------------------
+- Backend: cd backend && cp .env.example .env, set MONGODB_URI + GROQ_API_KEY, npm install, npm run dev (per docs/mock-interview.md instructions).
+- Frontend: npm install at repo root, npm run dev to launch Vite dev server.
+- Environment variables: VITE_API_URL for frontend, GROQ_API_KEY/GROQ_MODEL for backend AI features, optional SEED_DEMO_DATA to preload demo content.
+
+REFERENCE FILES FOR MORE DETAIL
+--------------------------------
+- docs/mock-interview.md – deep dive on MCQ-based Groq mock interview pipeline.
+- PORTED_FEATURES.md – summary of leaderboard and progress analytics implementation.
+- SCORING_QUICK_REFERENCE.md – recruiter-focused scoring weights.
+- src/lib/api.ts – typed front-end API client describing every available endpoint/DTO.
+- backend/controllers/*.js and backend/routes/*.js – server logic for each persona.
+- backend/utils/*.js – AI helpers, scoring formulas, PDF parsing, coding integrations.
+
+With this single text, a new teammate or stakeholder can understand what EvolvEd offers, how each page behaves, and how data flows across frontend, backend, AI helpers, and MongoDB.
