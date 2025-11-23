@@ -1,0 +1,41 @@
+{
+  "name": "evolved-backend",
+  "version": "1.0.0",
+  "description": "Backend API for the EvolvEd continuous assessment platform",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "keywords": [
+    "express",
+    "mongoose",
+    "education",
+    "placement",
+    "readiness"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.12.2",
+    "bcryptjs": "^2.4.3",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-validator": "^7.0.1",
+    "groq-sdk": "^0.33.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.8.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "node-fetch": "^2.7.0",
+    "pdf-parse": "^2.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
