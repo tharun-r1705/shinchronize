@@ -24,12 +24,11 @@
       "dest": "/backend/server.js"
     },
     {
-      "src": "/(.*)\\.(js|css|json|png|jpg|jpeg|gif|svg|ico|txt|woff|woff2)$",
-      "dest": "/dist/$1"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/index.html"
+      "dest": "/index.html"
     }
   ],
   "env": {
