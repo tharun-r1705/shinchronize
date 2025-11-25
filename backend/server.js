@@ -15,41 +15,47 @@ const app = express();
 
 const isProd = process.env.NODE_ENV === 'production';
 const isVercel = Boolean(process.env.VERCEL);
-let dbConnectionPromise = null;
+let cachedDb = null;
 
-const connectToDatabase = () => {
+const connectToDatabase = async () => {
   if (!process.env.MONGODB_URI) {
     throw new Error('Missing MONGODB_URI environment variable');
   }
 
-  if (mongoose.connection.readyState >= 1) {
-    return Promise.resolve();
+  if (cachedDb && mongoose.connection.readyState === 1) {
+    return cachedDb;
   }
 
-  if (!dbConnectionPromise) {
-    dbConnectionPromise = mongoose.connect(process.env.MONGODB_URI, {
-      autoIndex: true,
-    }).then(() => {
-      if (!isProd) {
-        console.log('✅ Connected to MongoDB Atlas');
-      }
-    }).catch((error) => {
-      dbConnectionPromise = null;
-      console.error('❌ MongoDB connection error:', error.message);
-      throw error;
+  try {
+    const db = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
+    
+    cachedDb = db;
+    if (!isProd) {
+      console.log('✅ Connected to MongoDB Atlas');
+    }
+    return db;
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    cachedDb = null;
+    throw error;
   }
-
-  return dbConnectionPromise;
 };
 
-// Ensure we connect to the database before handling any request
+// Connect to database on first request
 app.use(async (req, res, next) => {
   try {
-    await connectToDatabase();
+    if (mongoose.connection.readyState !== 1) {
+      await connectToDatabase();
+    }
     next();
   } catch (error) {
-    next(error);
+    res.status(500).json({ 
+      message: 'Database connection failed', 
+      error: error.message 
+    });
   }
 });
 
