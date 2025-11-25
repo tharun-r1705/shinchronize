@@ -1,5 +1,12 @@
 // API Configuration and HTTP Client
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = (() => {
+  const fromEnv = import.meta.env.VITE_API_URL?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/$/, '');
+  }
+  // Default to proxy-friendly relative API path so dev + Vercel share config
+  return '/api';
+})();
 
 export interface CodingProfilesPayload {
   leetcode?: string;
