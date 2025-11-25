@@ -6,8 +6,24 @@ const { calculateReadinessScore } = require('../utils/readinessScore');
 const { generateMentorSuggestions } = require('../utils/aiMentor');
 const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/codingIntegrations');
 const { fetchLeetCodeStats } = require('../utils/leetcode');
-const pdfParse = require('pdf-parse');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
+
+let cachedPdfParse = null;
+const loadPdfParse = async () => {
+  if (cachedPdfParse) {
+    return cachedPdfParse;
+  }
+
+  const mod = await import('pdf-parse/dist/esm/index.js');
+  const parser = mod?.default || mod?.pdf;
+
+  if (typeof parser !== 'function') {
+    throw new Error('Failed to initialise PDF parser module');
+  }
+
+  cachedPdfParse = parser;
+  return cachedPdfParse;
+};
 
 const buildAuthResponse = (student, breakdown = {}) => ({
   token: generateToken(student._id, 'student'),
@@ -1039,16 +1055,9 @@ const extractResumeText = asyncHandler(async (req, res) => {
   });
 
   try {
-    // Force fresh pdf-parse instance to avoid any internal caching
-    delete require.cache[require.resolve('pdf-parse')];
-    const freshPdfParse = require('pdf-parse');
-    
-    // Create a fresh buffer copy to avoid any caching issues
+    const pdfParse = await loadPdfParse();
     const bufferCopy = Buffer.from(req.file.buffer);
-    
-    // Handle different pdf-parse export formats
-    const parser = freshPdfParse.default || freshPdfParse.pdf || freshPdfParse.PDFParse || freshPdfParse;
-    const data = await parser(bufferCopy);
+    const data = await pdfParse(bufferCopy);
     
     console.log('PDF parsed successfully, pages:', data.numpages);
     console.log('Text length:', data.text ? data.text.length : 0);
@@ -1099,7 +1108,8 @@ const importLinkedInProfile = asyncHandler(async (req, res) => {
   }
 
   try {
-    const data = await (pdfParse.pdf || pdfParse.PDFParse || pdfParse)(req.file.buffer);
+    const pdfParse = await loadPdfParse();
+    const data = await pdfParse(req.file.buffer);
     const text = data.text ? data.text.trim() : '';
     if (!text) {
       return res.status(400).json({ message: 'Unable to extract text from the uploaded PDF' });
