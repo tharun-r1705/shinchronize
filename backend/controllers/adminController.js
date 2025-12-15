@@ -159,6 +159,17 @@ const verifyItem = asyncHandler(async (req, res) => {
   const { total, breakdown } = calculateReadinessScore(student);
   student.readinessScore = total;
   student.readinessHistory.push({ score: total, calculatedAt: now });
+  
+  // Add growth timeline entry for verification
+  if (action === 'verify') {
+    const itemTitle = targetItem.title || targetItem.name || 'Unknown';
+    student.growthTimeline.push({
+      date: now,
+      readinessScore: total,
+      reason: `${itemType.charAt(0).toUpperCase() + itemType.slice(1)} verified: ${itemTitle}`,
+    });
+  }
+  
   await student.save();
 
   res.json({

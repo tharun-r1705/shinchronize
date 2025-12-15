@@ -7,6 +7,8 @@ const { generateMentorSuggestions } = require('../utils/aiMentor');
 const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/codingIntegrations');
 const { fetchLeetCodeStats } = require('../utils/leetcode');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
+const { fetchGitHubData, extractGitHubUsername, calculateGitHubActivityScore } = require('../utils/githubIntegration');
+const { updateValidatedSkills } = require('../utils/skillValidation');
 
 let cachedPdfParse = null;
 const loadPdfParse = async () => {
@@ -35,7 +37,7 @@ const buildAuthResponse = (student, breakdown = {}) => ({
 });
 
 const signup = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+  const { email, githubUsername } = req.body;
 
   const existing = await Student.findOne({ email });
   if (existing) {
@@ -43,11 +45,100 @@ const signup = asyncHandler(async (req, res) => {
   }
 
   const student = new Student(req.body);
+
+  // Check if GitHub OAuth data exists in cookies (from OAuth flow)
+  const githubOAuthData = req.cookies?.github_oauth_data;
+  if (githubOAuthData) {
+    try {
+      const oauthData = JSON.parse(githubOAuthData);
+      
+      // Link GitHub via OAuth
+      student.githubAuth = {
+        githubId: oauthData.githubId,
+        username: oauthData.username,
+        avatarUrl: oauthData.avatarUrl,
+        encryptedAccessToken: oauthData.encryptedToken,
+        connectedAt: new Date(),
+        authType: 'oauth',
+        lastVerifiedAt: new Date(),
+      };
+
+      student.githubUrl = `https://github.com/${oauthData.username}`;
+      
+      // Use GitHub avatar if no avatar provided
+      if (!student.avatarUrl && oauthData.avatarUrl) {
+        student.avatarUrl = oauthData.avatarUrl;
+      }
+
+      // Clear the OAuth cookie
+      res.clearCookie('github_oauth_data');
+
+      // Attempt to sync GitHub data immediately
+      try {
+        const githubStats = await fetchGitHubData(oauthData.username);
+        student.githubStats = githubStats;
+      } catch (syncError) {
+        console.error('GitHub sync during signup failed:', syncError);
+        // Continue with signup even if sync fails
+      }
+
+    } catch (error) {
+      console.error('Error processing GitHub OAuth data during signup:', error);
+      // Continue with signup without GitHub
+    }
+  } else if (githubUsername) {
+    // Manual GitHub username provided (fallback)
+    const sanitizedUsername = githubUsername.trim().replace(/[^a-zA-Z0-9-]/g, '');
+    if (sanitizedUsername) {
+      student.githubAuth = {
+        username: sanitizedUsername,
+        authType: 'manual',
+        connectedAt: new Date(),
+      };
+      student.githubUrl = `https://github.com/${sanitizedUsername}`;
+
+      // Try to fetch GitHub stats (non-blocking)
+      try {
+        const githubStats = await fetchGitHubData(sanitizedUsername);
+        student.githubStats = githubStats;
+        student.githubAuth.avatarUrl = githubStats.avatarUrl;
+      } catch (error) {
+        console.error('GitHub fetch during manual signup failed:', error);
+        // Continue without stats
+      }
+    }
+  }
+
   await student.save();
+
+  // Update validated skills if GitHub was connected
+  if (student.githubAuth?.username) {
+    try {
+      await updateValidatedSkills(student);
+    } catch (error) {
+      console.error('Skill validation during signup failed:', error);
+    }
+  }
 
   const { total, breakdown } = calculateReadinessScore(student);
   student.readinessScore = total;
   student.readinessHistory.push({ score: total });
+
+  // Add growth timeline entry if GitHub was connected
+  if (student.githubAuth?.authType === 'oauth') {
+    student.growthTimeline.push({
+      date: new Date(),
+      readinessScore: total,
+      reason: 'GitHub account connected via OAuth during signup',
+    });
+  } else if (student.githubAuth?.username) {
+    student.growthTimeline.push({
+      date: new Date(),
+      readinessScore: total,
+      reason: `GitHub username linked during signup: ${student.githubAuth.username}`,
+    });
+  }
+
   await student.save();
 
   const safeStudent = await Student.findById(student._id);
@@ -251,6 +342,16 @@ const syncCodingActivity = asyncHandler(async (req, res) => {
   student.readinessScore = total;
   student.readinessHistory.push({ score: total });
   student.codingProfiles = { ...(student.codingProfiles || {}), lastSyncedAt: new Date() };
+  
+  // Add growth timeline entry if new logs were synced
+  if (uniqueLogs.length > 0) {
+    student.growthTimeline.push({
+      date: new Date(),
+      readinessScore: total,
+      reason: `Coding activity synced: ${uniqueLogs.length} new log(s) from LeetCode and HackerRank`,
+    });
+  }
+  
   await student.save();
 
   res.json({
@@ -1102,6 +1203,195 @@ const extractResumeText = asyncHandler(async (req, res) => {
   }
 });
 
+// Parse resume and auto-fill profile using AI
+const parseAndAutofillResume = asyncHandler(async (req, res) => {
+  console.log('Parse and autofill resume called');
+  console.log('File received:', req.file ? 'Yes' : 'No');
+  
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  try {
+    // Extract text from PDF
+    const pdfParse = await loadPdfParse();
+    const bufferCopy = Buffer.from(req.file.buffer);
+    const data = await pdfParse(bufferCopy);
+    
+    const resumeText = data.text?.trim();
+    
+    if (!resumeText || resumeText.length === 0) {
+      return res.status(400).json({ 
+        message: 'No text could be extracted from the PDF. This might be an image-based PDF.' 
+      });
+    }
+
+    console.log('Resume text extracted, length:', resumeText.length);
+
+    // Parse resume using AI
+    const Groq = await loadGroqSDK();
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    const parsePrompt = `You are an intelligent resume parser.
+
+Extract the following details from the resume text below and return ONLY valid JSON.
+
+Fields to extract:
+- fullName (string)
+- email (string)
+- phone (string)
+- location (string)
+- headline (string - professional title or summary)
+- summary (string - about/profile section)
+- skills (array of strings - technical and soft skills)
+- college (string - most recent educational institution)
+- branch (string - field of study/major)
+- graduationYear (number - year of graduation)
+- cgpa (number - GPA or percentage, normalize to 10-point scale if needed)
+- linkedinUrl (string - if present)
+- githubUrl (string - if present)
+- portfolioUrl (string - personal website if present)
+- projects (array of objects with: title, description, githubLink, tags[])
+- certifications (array of objects with: name, provider, issuedDate)
+
+Rules:
+1. Extract only what is clearly present in the resume
+2. Use null for missing fields
+3. Normalize URLs to full format
+4. For CGPA: if percentage is given, convert to 10-point scale (e.g., 85% = 8.5/10)
+5. Extract relevant skills including programming languages, frameworks, tools
+6. Return ONLY the JSON object, no additional text
+
+Resume Text:
+"""
+${resumeText}
+"""`;
+
+    console.log('Sending resume to AI for parsing...');
+    
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: parsePrompt }],
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.3,
+      max_tokens: 2000,
+    });
+
+    const aiResponse = completion.choices?.[0]?.message?.content?.trim();
+    console.log('AI Response received, length:', aiResponse?.length);
+
+    if (!aiResponse) {
+      return res.status(500).json({ message: 'Failed to parse resume with AI' });
+    }
+
+    // Extract JSON from response (in case AI adds markdown formatting)
+    let parsedData;
+    try {
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : aiResponse;
+      parsedData = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', parseError);
+      console.log('AI Response:', aiResponse);
+      return res.status(500).json({ 
+        message: 'Failed to parse AI response',
+        error: parseError.message 
+      });
+    }
+
+    console.log('Parsed data:', JSON.stringify(parsedData, null, 2));
+
+    // Prepare update payload
+    const updatePayload = {};
+    
+    if (parsedData.fullName) {
+      const nameParts = parsedData.fullName.trim().split(' ');
+      if (nameParts.length > 0) {
+        updatePayload.firstName = nameParts[0];
+        updatePayload.lastName = nameParts.slice(1).join(' ') || nameParts[0];
+        updatePayload.name = parsedData.fullName;
+      }
+    }
+    
+    if (parsedData.phone) updatePayload.phone = parsedData.phone;
+    if (parsedData.location) updatePayload.location = parsedData.location;
+    if (parsedData.headline) updatePayload.headline = parsedData.headline;
+    if (parsedData.summary) updatePayload.summary = parsedData.summary;
+    if (parsedData.college) updatePayload.college = parsedData.college;
+    if (parsedData.branch) updatePayload.branch = parsedData.branch;
+    if (parsedData.graduationYear) updatePayload.graduationYear = parsedData.graduationYear;
+    if (parsedData.cgpa) updatePayload.cgpa = parsedData.cgpa;
+    if (parsedData.linkedinUrl) updatePayload.linkedinUrl = parsedData.linkedinUrl;
+    if (parsedData.githubUrl) updatePayload.githubUrl = parsedData.githubUrl;
+    if (parsedData.portfolioUrl) updatePayload.portfolioUrl = parsedData.portfolioUrl;
+    
+    if (parsedData.skills && Array.isArray(parsedData.skills)) {
+      updatePayload.skills = parsedData.skills;
+    }
+
+    // Update student profile
+    const student = await Student.findById(req.user.id);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    Object.assign(student, updatePayload);
+
+    // Add projects if extracted
+    if (parsedData.projects && Array.isArray(parsedData.projects)) {
+      parsedData.projects.forEach(project => {
+        if (project.title) {
+          student.projects.push({
+            title: project.title,
+            description: project.description || '',
+            githubLink: project.githubLink || '',
+            tags: project.tags || [],
+            status: 'pending',
+          });
+        }
+      });
+    }
+
+    // Add certifications if extracted
+    if (parsedData.certifications && Array.isArray(parsedData.certifications)) {
+      parsedData.certifications.forEach(cert => {
+        if (cert.name) {
+          student.certifications.push({
+            name: cert.name,
+            provider: cert.provider || '',
+            issuedDate: cert.issuedDate || null,
+            status: 'pending',
+          });
+        }
+      });
+    }
+
+    await student.save();
+
+    console.log('Profile updated successfully with parsed data');
+
+    res.json({
+      message: 'Resume parsed and profile updated successfully',
+      parsedData: parsedData,
+      updatedFields: Object.keys(updatePayload),
+      projectsAdded: parsedData.projects?.length || 0,
+      certificationsAdded: parsedData.certifications?.length || 0,
+    });
+
+  } catch (error) {
+    console.error('Resume parsing error:', error);
+    return res.status(500).json({ 
+      message: 'Failed to parse resume',
+      error: error.message
+    });
+  } finally {
+    // Clear buffer
+    if (req.file) {
+      req.file.buffer = null;
+      req.file = null;
+    }
+  }
+});
+
 const importLinkedInProfile = asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No LinkedIn PDF uploaded' });
@@ -1149,6 +1439,120 @@ const importLinkedInProfile = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Sync GitHub profile and update student data
+ * POST /api/students/github-sync
+ */
+const syncGitHubProfile = asyncHandler(async (req, res) => {
+  const { githubUsername, githubUrl } = req.body;
+  
+  if (!githubUsername && !githubUrl) {
+    return res.status(400).json({ 
+      message: 'Either githubUsername or githubUrl is required' 
+    });
+  }
+
+  // Rate limiting: Check last sync time
+  const student = await Student.findById(req.user.id);
+  if (!student) {
+    return res.status(404).json({ message: 'Student not found' });
+  }
+
+  const lastSyncedAt = student.githubStats?.lastSyncedAt;
+  if (lastSyncedAt) {
+    const hoursSinceLastSync = (Date.now() - lastSyncedAt.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceLastSync < 1) {
+      return res.status(429).json({
+        message: 'GitHub sync rate limit exceeded. Please wait at least 1 hour between syncs.',
+        nextSyncAvailable: new Date(lastSyncedAt.getTime() + 60 * 60 * 1000),
+      });
+    }
+  }
+
+  try {
+    // Extract username from URL if provided
+    const username = githubUrl ? extractGitHubUsername(githubUrl) : githubUsername;
+    
+    if (!username) {
+      return res.status(400).json({ 
+        message: 'Invalid GitHub username or URL format' 
+      });
+    }
+
+    // Fetch GitHub data
+    const githubData = await fetchGitHubData(username);
+
+    // Update GitHub stats in student profile
+    student.githubStats = {
+      username: githubData.username,
+      avatarUrl: githubData.avatarUrl,
+      bio: githubData.bio,
+      totalRepos: githubData.totalRepos,
+      topLanguages: githubData.topLanguages,
+      topRepos: githubData.topRepos,
+      activityScore: githubData.activityScore,
+      lastSyncedAt: new Date(),
+    };
+
+    // Update validated skills with GitHub data
+    student.validatedSkills = updateValidatedSkills(student);
+
+    // Add growth timeline entry for GitHub sync
+    student.growthTimeline.push({
+      date: new Date(),
+      readinessScore: student.readinessScore,
+      reason: `GitHub profile synced: ${githubData.totalRepos} repositories, ${githubData.topLanguages.length} languages`,
+    });
+
+    // Recalculate readiness score (optionally incorporate GitHub activity)
+    const { total, breakdown } = calculateReadinessScore(student);
+    
+    // Add GitHub activity bonus (max 5 points)
+    const githubBonus = Math.min(5, githubData.activityScore / 20);
+    student.readinessScore = Math.min(100, total + githubBonus);
+
+    await student.save();
+
+    res.json({
+      success: true,
+      message: 'GitHub profile synced successfully',
+      githubStats: student.githubStats,
+      validatedSkills: student.validatedSkills,
+      readinessScore: student.readinessScore,
+      readinessBreakdown: {
+        ...breakdown,
+        githubActivity: githubBonus,
+      },
+      trustBadges: student.trustBadges,
+    });
+  } catch (error) {
+    console.error('GitHub sync error:', error);
+
+    if (error.message.includes('not found')) {
+      return res.status(404).json({
+        message: 'GitHub user not found. Please check the username.',
+      });
+    }
+
+    if (error.message.includes('rate limit')) {
+      return res.status(429).json({
+        message: 'GitHub API rate limit exceeded. Please try again later.',
+      });
+    }
+
+    if (error.message.includes('Forbidden')) {
+      return res.status(403).json({
+        message: 'GitHub API access denied. The repository may be private or restricted.',
+      });
+    }
+
+    res.status(500).json({
+      message: 'Failed to sync GitHub profile',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = {
   signup,
   login,
@@ -1167,6 +1571,7 @@ module.exports = {
   getMentorSuggestions,
   analyzeResume,
   extractResumeText,
+  parseAndAutofillResume,
   getReadinessReport,
   listStudents,
   getStudentById,
@@ -1176,4 +1581,5 @@ module.exports = {
   syncCodingActivity,
   updateLeetCodeStats,
   importLinkedInProfile,
+  syncGitHubProfile,
 };

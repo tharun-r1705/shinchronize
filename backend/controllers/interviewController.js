@@ -312,6 +312,21 @@ const submitAnswer = asyncHandler(async (req, res) => {
     } catch (error) {
       console.error('Failed to generate test summary', error);
     }
+    
+    // Add growth timeline entry for completed mock interview
+    try {
+      const student = await Student.findById(session.student);
+      if (student) {
+        student.growthTimeline.push({
+          date: new Date(),
+          readinessScore: student.readinessScore,
+          reason: `Mock interview completed: ${scorePercent}% score, ${session.meta.totalAnswers} questions answered`,
+        });
+        await student.save();
+      }
+    } catch (error) {
+      console.error('Failed to update growth timeline for mock interview', error);
+    }
   }
 
   await session.save();

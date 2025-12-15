@@ -167,8 +167,105 @@ const studentSchema = new mongoose.Schema(
       ),
       default: {},
     },
+    githubStats: {
+      type: new mongoose.Schema(
+        {
+          username: { type: String },
+          avatarUrl: { type: String },
+          bio: { type: String },
+          totalRepos: { type: Number, default: 0 },
+          topLanguages: [
+            {
+              name: String,
+              count: Number,
+              percentage: Number,
+            },
+          ],
+          topRepos: [
+            {
+              name: String,
+              description: String,
+              language: String,
+              stars: Number,
+              forks: Number,
+              lastUpdated: Date,
+            },
+          ],
+          activityScore: { type: Number, default: 0, min: 0, max: 100 },
+          lastSyncedAt: { type: Date },
+        },
+        { _id: false }
+      ),
+      default: {},
+    },
+    // GitHub OAuth connection data (separate from public stats)
+    githubAuth: {
+      type: new mongoose.Schema(
+        {
+          githubId: { type: String }, // GitHub user ID
+          username: { type: String }, // GitHub username
+          avatarUrl: { type: String }, // GitHub avatar
+          encryptedAccessToken: { type: String }, // Encrypted OAuth token
+          connectedAt: { type: Date }, // When OAuth was completed
+          authType: { type: String, enum: ['oauth', 'manual'], default: 'manual' }, // Connection method
+          lastVerifiedAt: { type: Date }, // Last time OAuth token was validated
+        },
+        { _id: false }
+      ),
+      default: {},
+    },
+    // Google OAuth connection data
+    googleAuth: {
+      type: new mongoose.Schema(
+        {
+          googleId: { type: String }, // Google user ID
+          email: { type: String }, // Google email
+          name: { type: String }, // Google display name
+          picture: { type: String }, // Google profile picture
+          encryptedAccessToken: { type: String }, // Encrypted OAuth token
+          connectedAt: { type: Date }, // When OAuth was completed
+          lastLoginAt: { type: Date }, // Last time user logged in with Google
+        },
+        { _id: false }
+      ),
+      default: {},
+    },
+    // Primary OAuth provider used for signup (if any)
+    oauthProvider: { type: String, enum: ['google', 'github', null], default: null },
+    // Email verification status
+    emailVerified: { type: Boolean, default: false },
+    validatedSkills: {
+      type: [
+        new mongoose.Schema(
+          {
+            name: { type: String, required: true },
+            source: { type: String, enum: ['github', 'project', 'certificate', 'resume'], required: true },
+            confidence: { type: Number, min: 0, max: 1, required: true },
+            evidence: { type: [String], default: [] },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+    growthTimeline: {
+      type: [
+        new mongoose.Schema(
+          {
+            date: { type: Date, required: true, default: Date.now },
+            readinessScore: { type: Number },
+            reason: { type: String, required: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
     role: { type: String, default: 'student' },
     isProfileComplete: { type: Boolean, default: false },
+    gamificationPoints: { type: Number, default: 0 },
+    activityStreak: { type: Number, default: 0 },
+    lastActivityDate: { type: Date },
   },
   {
     timestamps: true,
@@ -207,6 +304,47 @@ const studentSchema = new mongoose.Schema(
 
 studentSchema.virtual('verifiedProjectsCount').get(function () {
   return this.projects.filter((project) => project.status === 'verified' || project.verified).length;
+});
+
+// Derive trust badges dynamically for recruiter-facing responses
+studentSchema.virtual('trustBadges').get(function () {
+  const badges = [];
+  
+  // Verified Projects badge
+  if (this.verifiedProjectsCount > 0) {
+    badges.push('Verified Projects');
+  }
+  
+  // Active Coder badge - GitHub or LeetCode activity in last 14 days
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  
+  const hasRecentGitHubActivity = this.githubStats?.lastSyncedAt && 
+    new Date(this.githubStats.lastSyncedAt) > fourteenDaysAgo;
+  const hasRecentLeetCodeActivity = this.leetcodeStats?.fetchedAt && 
+    new Date(this.leetcodeStats.fetchedAt) > fourteenDaysAgo;
+  
+  if (hasRecentGitHubActivity || hasRecentLeetCodeActivity) {
+    badges.push('Active Coder');
+  }
+  
+  // GitHub Contributor badge - OAuth verified or has repos
+  if (this.githubAuth?.authType === 'oauth') {
+    badges.push('GitHub Verified');
+  } else if (this.githubStats?.totalRepos > 0) {
+    badges.push('GitHub Contributor');
+  }
+  
+  // Interview Ready badge - mock interview score > 70%
+  // This would require checking InterviewSession collection, handled in controller
+  
+  // Certified Skills badge - at least 1 verified certification
+  const verifiedCerts = this.certifications.filter(cert => cert.status === 'verified').length;
+  if (verifiedCerts > 0) {
+    badges.push('Certified Skills');
+  }
+  
+  return badges;
 });
 
 studentSchema.pre('save', async function (next) {

@@ -50,6 +50,7 @@ const {
   getMentorSuggestions,
   analyzeResume,
   extractResumeText,
+  parseAndAutofillResume,
   getReadinessReport,
   listStudents,
   getStudentById,
@@ -59,6 +60,7 @@ const {
   syncCodingActivity,
   updateLeetCodeStats,
   importLinkedInProfile,
+  syncGitHubProfile,
 } = require('../controllers/studentController');
 const { authenticate } = require('../utils/authMiddleware');
 const {
@@ -190,6 +192,25 @@ router.post(
   extractResumeText
 );
 
+router.post(
+  '/parse-resume',
+  authenticate(['student']),
+  (req, res, next) => {
+    resumeUpload.single('resume')(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'File size exceeds 5MB limit' });
+        }
+        return res.status(400).json({ message: `Upload error: ${err.message}` });
+      } else if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  },
+  parseAndAutofillResume
+);
+
 router.get('/readiness', authenticate(['student']), getReadinessReport);
 
 // Public leaderboard endpoint
@@ -198,6 +219,9 @@ router.get('/leaderboard', getLeaderboard);
 // Coding profiles and sync
 router.put('/coding-profiles', authenticate(['student']), updateCodingProfiles);
 router.post('/coding-sync', authenticate(['student']), syncCodingActivity);
+
+// GitHub profile sync with rate limiting
+router.post('/github-sync', authenticate(['student']), syncGitHubProfile);
 
 // Update LeetCode stats (admin or self with student auth)
 router.post('/:id/update-leetcode', authenticate(['student','admin']), updateLeetCodeStats);

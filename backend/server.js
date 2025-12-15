@@ -1,15 +1,23 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
+const http = require('http');
 
 const studentRoutes = require('./routes/studentRoutes');
 const recruiterRoutes = require('./routes/recruiterRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const interviewRoutes = require('./routes/interviewRoutes');
+const githubRoutes = require('./routes/githubRoutes');
+const googleRoutes = require('./routes/googleRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const gamificationRoutes = require('./routes/gamificationRoutes');
 const seedDemoData = require('./utils/seedData');
+const { initializeWebSocket } = require('./utils/websocket');
 
 const app = express();
 
@@ -44,7 +52,23 @@ const connectToDatabase = async () => {
   }
 };
 
-// Connect to database on first request
+// Middleware setup
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(morgan(isProd ? 'combined' : 'dev'));
+
+// Health check endpoint (no DB required)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'EvolvEd API', timestamp: new Date().toISOString() });
+});
+
+// OAuth routes (no DB required for initial OAuth flow)
+app.use('/api/github', githubRoutes);
+app.use('/api/google', googleRoutes);
+
+// Connect to database before other routes
 app.use(async (req, res, next) => {
   try {
     if (mongoose.connection.readyState !== 1) {
@@ -59,19 +83,13 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan(isProd ? 'combined' : 'dev'));
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'EvolvEd API', timestamp: new Date().toISOString() });
-});
-
+// Other routes (require DB)
 app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/interviews', interviewRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/gamification', gamificationRoutes);
 
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);
@@ -96,8 +114,15 @@ const startServer = async () => {
     }
 
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+    
+    // Initialize WebSocket
+    const io = initializeWebSocket(server);
+    app.set('io', io);
+    
+    server.listen(PORT, () => {
       console.log(`🚀 EvolvEd backend running on port ${PORT}`);
+      console.log(`🔌 WebSocket server ready`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
