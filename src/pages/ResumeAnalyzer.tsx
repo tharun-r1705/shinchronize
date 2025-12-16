@@ -8,12 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  FileText, 
-  Upload, 
-  Sparkles, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  FileText,
+  Upload,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
   TrendingUp,
   Target,
   LogOut,
@@ -102,19 +102,26 @@ export default function ResumeAnalyzer() {
       console.error('Error message:', err.message);
       console.error('Error response:', err.response);
       console.error('Full error object:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
-      
-      let userMessage = 'Failed to extract text from PDF. ';
-      
-      if (err.message.includes('corrupted') || err.message.includes('Invalid PDF')) {
-        userMessage += 'The PDF file appears to be corrupted or invalid. Please try a different file or use "Paste Text".';
-      } else if (err.message.includes('image-based')) {
-        userMessage += 'This appears to be an image-based (scanned) PDF. Please use "Paste Text" instead.';
+
+      let userMessage = '';
+
+      // Check response status
+      if (err.response?.status === 400) {
+        userMessage = err.response?.data?.details || err.response?.data?.message || 'Invalid PDF file. Please try the "Paste Text" option instead.';
+      } else if (err.response?.status === 500) {
+        userMessage = err.response?.data?.details || 'Server error while parsing PDF. Please try again or use "Paste Text".';
+      } else if (err.message.includes('Network')) {
+        userMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message.includes('corrupted') || err.message.includes('Invalid PDF')) {
+        userMessage = 'The PDF file appears to be corrupted or invalid. Please try a different file or use "Paste Text".';
+      } else if (err.message.includes('image-based') || err.message.includes('scanned')) {
+        userMessage = 'This appears to be a scanned/image-based PDF. Please use "Paste Text" instead and manually type or copy your resume.';
       } else if (err.message.includes('password')) {
-        userMessage += 'This PDF is password-protected. Please remove the password or use "Paste Text".';
+        userMessage = 'This PDF is password-protected. Please remove the password or use "Paste Text".';
       } else {
-        userMessage += err.message || 'Please try a different PDF or use "Paste Text".';
+        userMessage = 'Failed to extract text from PDF. ' + (err.message || 'Please try a different PDF or use "Paste Text".');
       }
-      
+
       setError(userMessage);
       setUploadedFile(null);
     } finally {
@@ -263,11 +270,11 @@ export default function ResumeAnalyzer() {
                     <TabsTrigger value="upload">Upload PDF</TabsTrigger>
                     <TabsTrigger value="paste">Paste Text</TabsTrigger>
                   </TabsList>
-                  
+
                   <TabsContent value="upload" className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Upload PDF File</label>
-                      
+
                       {!uploadedFile ? (
                         <div
                           onClick={handleUploadClick}
@@ -320,7 +327,7 @@ export default function ResumeAnalyzer() {
                         </div>
                       )}
                     </div>
-                    
+
                     {resumeText && uploadedFile && (
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Extracted Text Preview</label>
@@ -336,7 +343,7 @@ export default function ResumeAnalyzer() {
                       </div>
                     )}
                   </TabsContent>
-                  
+
                   <TabsContent value="paste" className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Resume Text *</label>
@@ -361,8 +368,8 @@ export default function ResumeAnalyzer() {
                   </Alert>
                 )}
 
-                <Button 
-                  onClick={handleAnalyze} 
+                <Button
+                  onClick={handleAnalyze}
                   disabled={isAnalyzing || isExtracting || !resumeText.trim()}
                   className="w-full gap-2"
                   size="lg"
@@ -388,7 +395,7 @@ export default function ResumeAnalyzer() {
                         AI-Powered Analysis
                       </p>
                       <p className="text-blue-700 dark:text-blue-300">
-                        Upload a PDF or paste your resume text. Our Groq AI will analyze it for content quality, 
+                        Upload a PDF or paste your resume text. Our Groq AI will analyze it for content quality,
                         ATS compatibility, keywords, and provide personalized suggestions for improvement.
                       </p>
                     </div>

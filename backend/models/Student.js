@@ -173,6 +173,40 @@ const studentSchema = new mongoose.Schema(
             start: String,
             end: String,
           },
+          profile: {
+            realName: String,
+            countryName: String,
+            ranking: Number,
+            reputation: Number,
+            starRating: Number,
+            badges: [String],
+          },
+          recentSubmissions: {
+            type: [
+              new mongoose.Schema(
+                {
+                  title: String,
+                  titleSlug: String,
+                  status: String,
+                  lang: String,
+                  timestamp: Number,
+                  submittedAt: String,
+                  difficulty: String,
+                  tags: [
+                    new mongoose.Schema(
+                      {
+                        name: String,
+                        slug: String,
+                      },
+                      { _id: false }
+                    ),
+                  ],
+                },
+                { _id: false }
+              ),
+            ],
+            default: [],
+          },
           fetchedAt: { type: Date },
         },
         { _id: false }
@@ -246,11 +280,11 @@ const studentSchema = new mongoose.Schema(
     oauthProvider: { type: String, enum: ['google', 'github', null], default: null },
     // Email verification status
     emailVerified: { type: Boolean, default: false },
-    
+
     // ========== GITHUB PROFILE INTEGRATION (Manual Connection) ==========
     // Connected GitHub username (for manual profile integration)
     connectedGithubUsername: { type: String, trim: true },
-    
+
     // Category 1: GitHub Profile Overview
     githubProfile: {
       type: new mongoose.Schema(
@@ -273,7 +307,7 @@ const studentSchema = new mongoose.Schema(
       ),
       default: null,
     },
-    
+
     // Category 2: GitHub Repositories
     githubRepos: {
       type: new mongoose.Schema(
@@ -326,7 +360,7 @@ const studentSchema = new mongoose.Schema(
       ),
       default: null,
     },
-    
+
     // Category 3: GitHub Coding Consistency
     githubConsistency: {
       type: new mongoose.Schema(
@@ -356,7 +390,7 @@ const studentSchema = new mongoose.Schema(
       ),
       default: null,
     },
-    
+
     // Category 4: GitHub Open Source Contributions
     githubOpenSource: {
       type: new mongoose.Schema(
@@ -387,7 +421,7 @@ const studentSchema = new mongoose.Schema(
       default: null,
     },
     // ========== END GITHUB PROFILE INTEGRATION ==========
-    
+
     validatedSkills: {
       type: [
         new mongoose.Schema(
@@ -439,7 +473,7 @@ const studentSchema = new mongoose.Schema(
         return ret;
       },
     },
-    toObject: { 
+    toObject: {
       virtuals: true,
       transform: (_, ret) => {
         // Convert Map to plain object for skillRadar
@@ -463,41 +497,41 @@ studentSchema.virtual('verifiedProjectsCount').get(function () {
 // Derive trust badges dynamically for recruiter-facing responses
 studentSchema.virtual('trustBadges').get(function () {
   const badges = [];
-  
+
   // Verified Projects badge
   if (this.verifiedProjectsCount > 0) {
     badges.push('Verified Projects');
   }
-  
+
   // Active Coder badge - GitHub or LeetCode activity in last 14 days
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-  
-  const hasRecentGitHubActivity = this.githubStats?.lastSyncedAt && 
+
+  const hasRecentGitHubActivity = this.githubStats?.lastSyncedAt &&
     new Date(this.githubStats.lastSyncedAt) > fourteenDaysAgo;
-  const hasRecentLeetCodeActivity = this.leetcodeStats?.fetchedAt && 
+  const hasRecentLeetCodeActivity = this.leetcodeStats?.fetchedAt &&
     new Date(this.leetcodeStats.fetchedAt) > fourteenDaysAgo;
-  
+
   if (hasRecentGitHubActivity || hasRecentLeetCodeActivity) {
     badges.push('Active Coder');
   }
-  
+
   // GitHub Contributor badge - OAuth verified or has repos
   if (this.githubAuth?.authType === 'oauth') {
     badges.push('GitHub Verified');
   } else if (this.githubStats?.totalRepos > 0) {
     badges.push('GitHub Contributor');
   }
-  
+
   // Interview Ready badge - mock interview score > 70%
   // This would require checking InterviewSession collection, handled in controller
-  
+
   // Certified Skills badge - at least 1 verified certification
   const verifiedCerts = this.certifications.filter(cert => cert.status === 'verified').length;
   if (verifiedCerts > 0) {
     badges.push('Certified Skills');
   }
-  
+
   return badges;
 });
 

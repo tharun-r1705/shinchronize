@@ -1,9 +1,9 @@
 /**
  * GitHub REST API Integration Module
- * 
+ *
  * This utility provides clean API calls to GitHub REST API
  * with built-in rate limit handling, caching, and error management.
- * 
+ *
  * NO SCRAPING - Uses only official GitHub REST API
  */
 
@@ -41,14 +41,14 @@ async function checkRateLimit() {
   try {
     const response = await githubClient.get('/rate_limit');
     const { remaining, limit, reset } = response.data.rate;
-    
+
     console.log(`📊 GitHub API Rate Limit: ${remaining}/${limit}`);
-    
+
     if (remaining < 10) {
       const resetDate = new Date(reset * 1000);
       throw new Error(`GitHub API rate limit almost exhausted. Resets at ${resetDate.toISOString()}`);
     }
-    
+
     return { remaining, limit, reset };
   } catch (error) {
     console.error('❌ Rate limit check failed:', error.message);
@@ -62,12 +62,12 @@ async function checkRateLimit() {
 function getCachedData(key, category) {
   const cacheKey = `${key}_${category}`;
   const cached = cache.get(cacheKey);
-  
+
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION[category]) {
     console.log(`✅ Cache HIT for ${cacheKey}`);
     return cached.data;
   }
-  
+
   console.log(`❌ Cache MISS for ${cacheKey}`);
   return null;
 }
@@ -110,12 +110,12 @@ async function fetchGitHubProfile(username) {
     // Check cache first
     const cached = getCachedData(username, 'profile');
     if (cached) return cached;
-    
+
     console.log(`🔍 Fetching GitHub profile for: ${username}`);
-    
+
     const response = await githubClient.get(`/users/${username}`);
     const user = response.data;
-    
+
     const profileData = {
       avatar: user.avatar_url,
       username: user.login,
@@ -131,13 +131,13 @@ async function fetchGitHubProfile(username) {
       following: user.following,
       lastRefreshed: new Date()
     };
-    
+
     // Cache the result
     setCachedData(username, 'profile', profileData);
-    
+
     console.log(`✅ Profile fetched for ${username}: ${profileData.publicRepos} repos, ${profileData.followers} followers`);
     return profileData;
-    
+
   } catch (error) {
     if (error.response?.status === 404) {
       throw new Error(`GitHub user '${username}' not found`);
@@ -159,14 +159,14 @@ async function fetchGitHubRepositories(username) {
     // Check cache first
     const cached = getCachedData(username, 'repos');
     if (cached) return cached;
-    
+
     console.log(`🔍 Fetching repositories for: ${username}`);
-    
+
     // Fetch all repositories (paginated)
     let allRepos = [];
     let page = 1;
     let hasMore = true;
-    
+
     while (hasMore && page <= 10) { // Limit to 10 pages (1000 repos max)
       const response = await githubClient.get(`/users/${username}/repos`, {
         params: {
@@ -176,12 +176,12 @@ async function fetchGitHubRepositories(username) {
           direction: 'desc'
         }
       });
-      
+
       allRepos = allRepos.concat(response.data);
       hasMore = response.data.length === 100;
       page++;
     }
-    
+
     const reposData = allRepos.map(repo => ({
       id: repo.id,
       name: repo.name,
@@ -206,24 +206,27 @@ async function fetchGitHubRepositories(username) {
       hasProjects: repo.has_projects,
       hasWiki: repo.has_wiki
     }));
-    
+
+    const languageBreakdown = getTopLanguages(reposData);
+
     const result = {
       repos: reposData,
       totalCount: reposData.length,
       originalRepos: reposData.filter(r => !r.isFork).length,
       forkedRepos: reposData.filter(r => r.isFork).length,
-      topLanguages: getTopLanguages(reposData),
+      languages: languageBreakdown,
+      topLanguages: languageBreakdown, // backward compatibility
       totalStars: reposData.reduce((sum, r) => sum + r.stars, 0),
       totalForks: reposData.reduce((sum, r) => sum + r.forks, 0),
       lastRefreshed: new Date()
     };
-    
+
     // Cache the result
     setCachedData(username, 'repos', result);
-    
+
     console.log(`✅ Fetched ${result.totalCount} repositories for ${username}`);
     return result;
-    
+
   } catch (error) {
     if (error.response?.status === 404) {
       throw new Error(`GitHub user '${username}' not found`);
@@ -245,65 +248,105 @@ async function fetchGitHubConsistency(username) {
     // Check cache first
     const cached = getCachedData(username, 'consistency');
     if (cached) return cached;
-    
+
     console.log(`🔍 Fetching coding consistency for: ${username}`);
-    
-    // Fetch user events (includes push events with commits)
-    const eventsResponse = await githubClient.get(`/users/${username}/events/public`, {
-      params: { per_page: 100 }
+
+    // Fetch user's repositories to get commit data
+    const reposResponse = await githubClient.get(`/users/${username}/repos`, {
+      params: {
+        per_page: 100,
+        sort: 'updated',
+        direction: 'desc'
+      }
     });
-    
-    const events = eventsResponse.data;
-    
-    // Filter push events (commits)
-    const pushEvents = events.filter(e => e.type === 'PushEvent');
-    
-    // Calculate metrics for last 90 days
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    
-    const recentPushEvents = pushEvents.filter(e => 
-      new Date(e.created_at) > ninetyDaysAgo
-    );
-    
-    // Count commits
-    const totalCommits = recentPushEvents.reduce((sum, event) => {
-      return sum + (event.payload.commits?.length || 0);
-    }, 0);
-    
+
+    const repos = reposResponse.data.filter(repo => !repo.fork);
+
+    // Fetch recent commits from top active repos (last 5)
+    const commitPromises = repos.slice(0, 5).map(async (repo) => {
+      try {
+        const since = new Date();
+        since.setDate(since.getDate() - 90);
+
+        const commitsResponse = await githubClient.get(`/repos/${repo.full_name}/commits`, {
+          params: {
+            author: username,
+            since: since.toISOString(),
+            per_page: 100
+          }
+        });
+
+        return commitsResponse.data.map(commit => ({
+          sha: commit.sha,
+          message: commit.commit.message,
+          date: commit.commit.author.date,
+          repo: repo.name,
+          url: commit.html_url
+        }));
+      } catch (err) {
+        console.log(`⚠️  Could not fetch commits for ${repo.name}: ${err.message}`);
+        return [];
+      }
+    });
+
+    const commitArrays = await Promise.all(commitPromises);
+    const allCommits = commitArrays.flat();
+
     // Calculate weekly breakdown
-    const weeklyCommits = calculateWeeklyCommits(recentPushEvents);
+    const weeklyCommits = [];
+    const now = new Date();
+
+    for (let i = 0; i < 13; i++) {
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - (i * 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
+      const commitsInWeek = allCommits.filter(commit => {
+        const commitDate = new Date(commit.date);
+        return commitDate >= weekStart && commitDate < weekEnd;
+      }).length;
+
+      weeklyCommits.unshift({
+        weekNumber: 13 - i,
+        commits: commitsInWeek,
+        weekStart: weekStart.toISOString().split('T')[0]
+      });
+    }
+
     const activeWeeks = weeklyCommits.filter(w => w.commits > 0).length;
-    
+    const totalCommits = allCommits.length;
+
     // Get last commit date
-    const lastCommitDate = pushEvents.length > 0 
-      ? new Date(pushEvents[0].created_at)
+    const lastCommitDate = allCommits.length > 0
+      ? new Date(allCommits[0].date)
       : null;
-    
+
     // Calculate consistency score (0-100)
     const consistencyScore = calculateConsistencyScore(weeklyCommits, activeWeeks);
-    
+
     const consistencyData = {
-      totalCommits,
-      commitsPerWeek: (totalCommits / 13).toFixed(1), // 90 days ≈ 13 weeks
-      activeWeeks,
+      totalCommits: totalCommits || 0,
+      commitsPerWeek: totalCommits > 0 ? Number((totalCommits / 13).toFixed(1)) : 0,
+      activeWeeks: activeWeeks || 0,
       totalWeeks: 13,
-      consistencyPercentage: ((activeWeeks / 13) * 100).toFixed(1),
+      consistencyPercentage: Number(((activeWeeks / 13) * 100).toFixed(1)),
       lastCommitDate,
-      daysSinceLastCommit: lastCommitDate 
+      daysSinceLastCommit: lastCommitDate
         ? Math.floor((Date.now() - lastCommitDate) / (1000 * 60 * 60 * 24))
         : null,
       weeklyBreakdown: weeklyCommits,
-      consistencyScore,
+      consistencyScore: Number.isFinite(consistencyScore) ? consistencyScore : 0,
+      recentCommits: allCommits.slice(0, 20), // Store recent 20 commits
       lastRefreshed: new Date()
     };
-    
+
     // Cache the result
     setCachedData(username, 'consistency', consistencyData);
-    
+
     console.log(`✅ Consistency data fetched: ${totalCommits} commits, ${activeWeeks} active weeks`);
     return consistencyData;
-    
+
   } catch (error) {
     if (error.response?.status === 404) {
       throw new Error(`GitHub user '${username}' not found`);
@@ -325,35 +368,35 @@ async function fetchGitHubOpenSource(username) {
     // Check cache first
     const cached = getCachedData(username, 'openSource');
     if (cached) return cached;
-    
+
     console.log(`🔍 Fetching open source contributions for: ${username}`);
-    
+
     // Fetch user events for contribution data
     const eventsResponse = await githubClient.get(`/users/${username}/events/public`, {
       params: { per_page: 100 }
     });
-    
+
     const events = eventsResponse.data;
-    
+
     // Count different contribution types
     const pullRequestEvents = events.filter(e => e.type === 'PullRequestEvent');
     const issueEvents = events.filter(e => e.type === 'IssuesEvent');
     const pullRequestReviewEvents = events.filter(e => e.type === 'PullRequestReviewEvent');
-    
+
     // Calculate PR stats
     const prsOpened = pullRequestEvents.filter(e => e.payload.action === 'opened').length;
-    const prsMerged = pullRequestEvents.filter(e => 
+    const prsMerged = pullRequestEvents.filter(e =>
       e.payload.pull_request?.merged === true
     ).length;
     const prsClosed = pullRequestEvents.filter(e => e.payload.action === 'closed').length;
-    
+
     // Calculate issue stats
     const issuesOpened = issueEvents.filter(e => e.payload.action === 'opened').length;
     const issuesClosed = issueEvents.filter(e => e.payload.action === 'closed').length;
-    
+
     // Reviews given
     const reviewsGiven = pullRequestReviewEvents.length;
-    
+
     // Get repositories contributed to (excluding own repos)
     const contributedRepos = new Set();
     events.forEach(event => {
@@ -361,7 +404,7 @@ async function fetchGitHubOpenSource(username) {
         contributedRepos.add(event.repo.name);
       }
     });
-    
+
     const openSourceData = {
       pullRequests: {
         opened: prsOpened,
@@ -391,13 +434,13 @@ async function fetchGitHubOpenSource(username) {
       }),
       lastRefreshed: new Date()
     };
-    
+
     // Cache the result
     setCachedData(username, 'openSource', openSourceData);
-    
+
     console.log(`✅ Open source data fetched: ${prsOpened} PRs, ${issuesOpened} issues`);
     return openSourceData;
-    
+
   } catch (error) {
     if (error.response?.status === 404) {
       throw new Error(`GitHub user '${username}' not found`);
@@ -416,7 +459,7 @@ async function fetchGitHubOpenSource(username) {
 async function fetchAllGitHubData(username) {
   try {
     console.log(`🔄 Fetching all GitHub data for: ${username}`);
-    
+
     // Fetch all categories in parallel
     const [profile, repos, consistency, openSource] = await Promise.all([
       fetchGitHubProfile(username),
@@ -424,16 +467,16 @@ async function fetchAllGitHubData(username) {
       fetchGitHubConsistency(username),
       fetchGitHubOpenSource(username)
     ]);
-    
+
     console.log(`✅ All GitHub data fetched for ${username}`);
-    
+
     return {
       profile,
       repos,
       consistency,
       openSource
     };
-    
+
   } catch (error) {
     console.error(`❌ Error fetching all data for ${username}:`, error.message);
     throw error;
@@ -450,7 +493,7 @@ function calculateAccountAge(createdAt) {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const years = Math.floor(diffDays / 365);
   const months = Math.floor((diffDays % 365) / 30);
-  
+
   if (years > 0) {
     return `${years} year${years > 1 ? 's' : ''} ${months} month${months > 1 ? 's' : ''}`;
   }
@@ -462,17 +505,22 @@ function calculateAccountAge(createdAt) {
  */
 function getTopLanguages(repos) {
   const languageCount = {};
-  
+
   repos.forEach(repo => {
     if (repo.language) {
       languageCount[repo.language] = (languageCount[repo.language] || 0) + 1;
     }
   });
-  
+
+  const total = Object.values(languageCount).reduce((sum, val) => sum + val, 0) || 1;
+
   return Object.entries(languageCount)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([language, count]) => ({ language, count }));
+    .map(([language, count]) => ({
+      name: language,
+      count,
+      percentage: Number(((count / total) * 100).toFixed(2)),
+    }));
 }
 
 /**
@@ -481,25 +529,25 @@ function getTopLanguages(repos) {
 function calculateWeeklyCommits(pushEvents) {
   const weeks = [];
   const now = new Date();
-  
+
   for (let i = 0; i < 13; i++) {
     const weekStart = new Date(now);
     weekStart.setDate(weekStart.getDate() - (i * 7));
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
-    
+
     const commitsInWeek = pushEvents.filter(event => {
       const eventDate = new Date(event.created_at);
       return eventDate >= weekStart && eventDate < weekEnd;
     }).reduce((sum, event) => sum + (event.payload.commits?.length || 0), 0);
-    
+
     weeks.unshift({
       weekNumber: 13 - i,
       commits: commitsInWeek,
       weekStart: weekStart.toISOString().split('T')[0]
     });
   }
-  
+
   return weeks;
 }
 
@@ -511,22 +559,27 @@ function calculateConsistencyScore(weeklyCommits, activeWeeks) {
   // 1. Active weeks percentage (50 points)
   // 2. Commit distribution evenness (30 points)
   // 3. Recent activity bonus (20 points)
-  
+
   const activeWeeksScore = (activeWeeks / 13) * 50;
-  
+
   // Check if commits are evenly distributed (not all in one week)
   const totalCommits = weeklyCommits.reduce((sum, w) => sum + w.commits, 0);
+  if (totalCommits === 0) {
+    return 0;
+  }
+
   const avgCommitsPerWeek = totalCommits / 13;
   const variance = weeklyCommits.reduce((sum, w) => {
     return sum + Math.pow(w.commits - avgCommitsPerWeek, 2);
   }, 0) / 13;
-  const distributionScore = Math.max(0, 30 - (variance / avgCommitsPerWeek));
-  
+  const distributionScore = avgCommitsPerWeek > 0 ? Math.max(0, 30 - (variance / avgCommitsPerWeek)) : 0;
+
   // Recent activity bonus (last 2 weeks)
   const recentCommits = weeklyCommits.slice(-2).reduce((sum, w) => sum + w.commits, 0);
   const recentActivityScore = Math.min(20, (recentCommits / 10) * 20);
-  
-  return Math.round(activeWeeksScore + distributionScore + recentActivityScore);
+
+  const score = activeWeeksScore + distributionScore + recentActivityScore;
+  return Number.isFinite(score) ? Math.round(score) : 0;
 }
 
 /**
@@ -538,12 +591,12 @@ function calculateOpenSourceScore(data) {
   // 2. Issues resolved (20 points)
   // 3. Reviews given (20 points)
   // 4. Repos contributed to (20 points)
-  
+
   const prScore = Math.min(40, (data.prsMerged / 10) * 40);
   const issueScore = Math.min(20, (data.issuesClosed / 10) * 20);
   const reviewScore = Math.min(20, (data.reviewsGiven / 10) * 20);
   const repoScore = Math.min(20, (data.reposContributedTo / 5) * 20);
-  
+
   return Math.round(prScore + issueScore + reviewScore + repoScore);
 }
 

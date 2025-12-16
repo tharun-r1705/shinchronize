@@ -73,11 +73,27 @@ export interface StudentProfileDTO {
   baseReadinessScore?: number;
   readinessHistory?: Array<{ score: number; calculatedAt: string }>;
   leetcodeStats?: {
+    username?: string;
     totalSolved?: number;
     easy?: number;
     medium?: number;
     hard?: number;
     streak?: number;
+    activeDays?: number;
+    recentActivity?: { last7Days?: number; last30Days?: number };
+    bestDay?: { date?: string; count?: number } | null;
+    calendar?: Record<string, number> | Map<string, number>;
+    calendarRange?: { start?: string; end?: string };
+    topDomains?: Array<{ tag: string; count: number }>;
+    recentSubmissions?: LeetCodeSubmission[];
+    profile?: {
+      realName?: string | null;
+      countryName?: string | null;
+      ranking?: number | null;
+      reputation?: number | null;
+      starRating?: number | null;
+      badges?: string[];
+    };
   };
 }
 
@@ -576,7 +592,12 @@ export interface LeetCodeStats {
     profile: {
       username: string;
       totalSolved: number;
-      ranking?: number;
+      ranking?: number | null;
+      realName?: string | null;
+      countryName?: string | null;
+      reputation?: number | null;
+      starRating?: number | null;
+      badges?: string[];
     };
     problemStats: {
       easy: number;
@@ -593,7 +614,8 @@ export interface LeetCodeStats {
       calendar: Record<string, number>;
     };
     domains: Array<{ tag: string; count: number }>;
-    calendarRange?: { start: string; end: string };
+    calendarRange?: { start: string | null; end: string | null } | null;
+    recentSubmissions: LeetCodeSubmission[];
   };
   fetchedAt: string;
   autoLinked: boolean;
@@ -665,6 +687,17 @@ export interface SavedPlatformStats {
   profileUrl?: string;
   stats: LeetCodeStats['stats'] | GitHubStats['stats'] | null;
   fetchedAt?: string;
+}
+
+export interface LeetCodeSubmission {
+  title: string;
+  titleSlug: string;
+  status: string;
+  lang: string;
+  timestamp: number | null;
+  submittedAt: string | null;
+  difficulty: string | null;
+  tags: Array<{ name: string; slug: string }>;
 }
 
 export const platformApi = {

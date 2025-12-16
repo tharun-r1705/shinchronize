@@ -6,6 +6,16 @@ const USER_PROFILE_QUERY = `
   query userProfile($username: String!, $year: Int!) {
     matchedUser(username: $username) {
       username
+      profile {
+        realName
+        countryName
+        ranking
+        reputation
+        starRating
+      }
+      badges {
+        name
+      }
       submitStats: submitStatsGlobal {
         acSubmissionNum {
           difficulty
@@ -34,6 +44,27 @@ const USER_PROFILE_QUERY = `
         totalActiveDays
         submissionCalendar
         activeYears
+      }
+    }
+    recentSubmissionList(username: $username) {
+      title
+      titleSlug
+      timestamp
+      statusDisplay
+      lang
+    }
+  }
+`;
+
+const QUESTION_DETAIL_QUERY = `
+  query questionDetail($titleSlug: String!) {
+    question(titleSlug: $titleSlug) {
+      title
+      titleSlug
+      difficulty
+      topicTags {
+        name
+        slug
       }
     }
   }
@@ -172,6 +203,63 @@ function computeRecentActivity(calendarMap) {
   };
 }
 
+function normalizeRecentSubmission(entry) {
+  if (!entry) return null;
+
+  const timestampSeconds = Number(entry.timestamp);
+  const submittedAt = Number.isFinite(timestampSeconds)
+    ? new Date(timestampSeconds * 1000).toISOString()
+    : null;
+
+  return {
+    title: entry.title || 'Unknown problem',
+    titleSlug: entry.titleSlug || '',
+    status: entry.statusDisplay || entry.status || 'Unknown',
+    lang: entry.lang || entry.language || '',
+    timestamp: Number.isFinite(timestampSeconds) ? timestampSeconds : null,
+    submittedAt,
+  };
+}
+
+async function fetchQuestionDetail(titleSlug) {
+  if (!titleSlug) return null;
+
+  const response = await fetch(LEETCODE_GRAPHQL_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Referer: 'https://leetcode.com',
+      'User-Agent': 'EvolvEd/1.0 (https://github.com)',
+    },
+    body: JSON.stringify({
+      query: QUESTION_DETAIL_QUERY,
+      variables: { titleSlug },
+    }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (!payload || payload.errors?.length) {
+    return null;
+  }
+
+  const question = payload.data?.question;
+  if (!question) return null;
+
+  return {
+    title: question.title,
+    titleSlug: question.titleSlug,
+    difficulty: question.difficulty,
+    topicTags: (question.topicTags || []).map((tag) => ({
+      name: tag.name,
+      slug: tag.slug,
+    })),
+  };
+}
+
 async function fetchLeetCodeStats(rawUsername) {
   const username = typeof rawUsername === 'string' ? rawUsername.trim() : '';
   if (!username) {
@@ -224,6 +312,7 @@ async function fetchLeetCodeStats(rawUsername) {
 
   const matchedUser = payload.data?.matchedUser;
   const calendarRaw = matchedUser?.userCalendar;
+  const rawRecentSubmissions = payload.data?.recentSubmissionList || [];
 
   if (!matchedUser) {
     throw new Error('LeetCode user not found');
@@ -246,8 +335,48 @@ async function fetchLeetCodeStats(rawUsername) {
     .filter((value) => Number.isFinite(value))
     .sort((a, b) => a - b)[0];
 
+  const normalizedRecent = Array.isArray(rawRecentSubmissions)
+    ? rawRecentSubmissions
+        .map(normalizeRecentSubmission)
+        .filter(Boolean)
+    : [];
+
+  const uniqueSlugs = Array.from(
+    new Set(normalizedRecent.map((item) => item.titleSlug).filter(Boolean))
+  ).slice(0, 8);
+
+  const detailResults = await Promise.allSettled(
+    uniqueSlugs.map((slug) => fetchQuestionDetail(slug))
+  );
+
+  const detailMap = detailResults.reduce((map, result, index) => {
+    if (result.status === 'fulfilled' && result.value) {
+      map.set(uniqueSlugs[index], result.value);
+    }
+    return map;
+  }, new Map());
+
+  const recentSubmissions = normalizedRecent.slice(0, 15).map((submission) => {
+    const detail = detailMap.get(submission.titleSlug);
+    return {
+      ...submission,
+      difficulty: detail?.difficulty || null,
+      tags: detail?.topicTags || [],
+    };
+  });
+
   return {
     username,
+    profile: {
+      realName: matchedUser.profile?.realName || null,
+      countryName: matchedUser.profile?.countryName || null,
+      ranking: matchedUser.profile?.ranking ?? null,
+      reputation: matchedUser.profile?.reputation ?? null,
+      starRating: matchedUser.profile?.starRating ?? null,
+      badges: Array.isArray(matchedUser.badges)
+        ? matchedUser.badges.map((b) => b?.name).filter(Boolean)
+        : [],
+    },
     ...difficultyCounts,
     streak: meta.streak || difficultyCounts.streak || 0,
     calendar,
@@ -262,6 +391,7 @@ async function fetchLeetCodeStats(rawUsername) {
       start: meta.startDate || (firstCalendarKey ? new Date(firstCalendarKey * 1000).toISOString() : null),
       end: new Date().toISOString(),
     },
+    recentSubmissions,
     fetchedAt: new Date().toISOString(),
   };
 }

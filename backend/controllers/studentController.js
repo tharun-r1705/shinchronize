@@ -10,22 +10,32 @@ const { parseLinkedInPdf } = require('../utils/linkedinParser');
 const { fetchGitHubData, extractGitHubUsername, calculateGitHubActivityScore } = require('../utils/githubIntegration');
 const { updateValidatedSkills } = require('../utils/skillValidation');
 const { syncGitHubData } = require('../jobs/githubSyncJob');
+const { parsePdfBuffer } = require('../utils/pdfParserUtil');
 
 let cachedPdfParse = null;
+
 const loadPdfParse = async () => {
   if (cachedPdfParse) {
     return cachedPdfParse;
   }
+  try {
+    // pdf-parse exports a function that takes a buffer
+    const pdfParse = require('pdf-parse');
 
-  const mod = await import('pdf-parse/dist/esm/index.js');
-  const parser = mod?.default || mod?.pdf;
+    // pdf-parse.default is the actual parser function
+    if (typeof pdfParse === 'function') {
+      cachedPdfParse = pdfParse;
+    } else if (typeof pdfParse.default === 'function') {
+      cachedPdfParse = pdfParse.default;
+    } else {
+      throw new Error('pdf-parse module exported invalid type');
+    }
 
-  if (typeof parser !== 'function') {
-    throw new Error('Failed to initialise PDF parser module');
+    return cachedPdfParse;
+  } catch (err) {
+    console.error('Failed to load pdf-parse:', err.message);
+    throw new Error(`Cannot load PDF parser: ${err.message}`);
   }
-
-  cachedPdfParse = parser;
-  return cachedPdfParse;
 };
 
 const buildAuthResponse = (student, breakdown = {}) => ({
@@ -52,7 +62,7 @@ const signup = asyncHandler(async (req, res) => {
   if (githubOAuthData) {
     try {
       const oauthData = JSON.parse(githubOAuthData);
-      
+
       // Link GitHub via OAuth
       student.githubAuth = {
         githubId: oauthData.githubId,
@@ -65,7 +75,7 @@ const signup = asyncHandler(async (req, res) => {
       };
 
       student.githubUrl = `https://github.com/${oauthData.username}`;
-      
+
       // Use GitHub avatar if no avatar provided
       if (!student.avatarUrl && oauthData.avatarUrl) {
         student.avatarUrl = oauthData.avatarUrl;
@@ -166,15 +176,15 @@ const login = asyncHandler(async (req, res) => {
 
 const getProfile = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
-  
+
   // Calculate and attach base readiness score
   const { total, breakdown } = calculateReadinessScore(student);
-  
+
   // Convert to plain object and add readiness score
   const studentObj = student.toObject();
   studentObj.baseReadinessScore = total;
   studentObj.readinessBreakdown = breakdown;
-  
+
   res.json(studentObj);
 });
 
@@ -343,7 +353,7 @@ const syncCodingActivity = asyncHandler(async (req, res) => {
   student.readinessScore = total;
   student.readinessHistory.push({ score: total });
   student.codingProfiles = { ...(student.codingProfiles || {}), lastSyncedAt: new Date() };
-  
+
   // Add growth timeline entry if new logs were synced
   if (uniqueLogs.length > 0) {
     student.growthTimeline.push({
@@ -352,7 +362,7 @@ const syncCodingActivity = asyncHandler(async (req, res) => {
       reason: `Coding activity synced: ${uniqueLogs.length} new log(s) from LeetCode and HackerRank`,
     });
   }
-  
+
   await student.save();
 
   res.json({
@@ -688,7 +698,7 @@ const deleteStudent = asyncHandler(async (req, res) => {
 const updateProject = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const projectId = req.params.projectId;
-  
+
   const project = student.projects.id(projectId);
   if (!project) {
     return res.status(404).json({ message: 'Project not found' });
@@ -718,7 +728,7 @@ const updateProject = asyncHandler(async (req, res) => {
 const deleteProject = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const projectId = req.params.projectId;
-  
+
   const project = student.projects.id(projectId);
   if (!project) {
     return res.status(404).json({ message: 'Project not found' });
@@ -742,7 +752,7 @@ const deleteProject = asyncHandler(async (req, res) => {
 const updateCertification = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const certId = req.params.certId;
-  
+
   const cert = student.certifications.id(certId);
   if (!cert) {
     return res.status(404).json({ message: 'Certification not found' });
@@ -773,7 +783,7 @@ const updateCertification = asyncHandler(async (req, res) => {
 const deleteCertification = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const certId = req.params.certId;
-  
+
   const cert = student.certifications.id(certId);
   if (!cert) {
     return res.status(404).json({ message: 'Certification not found' });
@@ -797,7 +807,7 @@ const deleteCertification = asyncHandler(async (req, res) => {
 const updateEvent = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const eventId = req.params.eventId;
-  
+
   const event = student.events.id(eventId);
   if (!event) {
     return res.status(404).json({ message: 'Event not found' });
@@ -829,7 +839,7 @@ const updateEvent = asyncHandler(async (req, res) => {
 const deleteEvent = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const eventId = req.params.eventId;
-  
+
   const event = student.events.id(eventId);
   if (!event) {
     return res.status(404).json({ message: 'Event not found' });
@@ -1018,7 +1028,7 @@ Provide ONLY the JSON response, no additional text.`;
     });
 
     const responseText = chatCompletion.choices[0]?.message?.content || '{}';
-    
+
     // Extract JSON from response (in case there's extra text)
     let analysis;
     try {
@@ -1064,78 +1074,29 @@ Provide ONLY the JSON response, no additional text.`;
       analysis,
     });
   } catch (error) {
-    console.error('Groq AI Error:', error);
-    
-    // Check if it's a Groq internal server error
-    if (error.status === 500 || error.message.includes('Internal Server Error')) {
-      console.log('Groq API is experiencing issues. Providing fallback response.');
-      
-      // Provide a basic analysis based on resume length and structure
-      const basicAnalysis = {
-        overallScore: 75,
-        atsScore: 72,
-        atsInsights: [
-          'Resume structure appears mostly ATS-friendly with standard headings',
-          'Re-run analysis later to confirm keyword coverage once AI service is available',
-          'Use bullet lists and consistent fonts to keep parser accuracy high'
-        ],
-        strengths: [
-          'Resume has been submitted for review',
-          'Document contains sufficient content',
-          'Basic structure appears present'
-        ],
-        weaknesses: [
-          'AI analysis temporarily unavailable',
-          'Please try again in a few moments'
-        ],
-        suggestions: [
-          'Use action verbs to describe your accomplishments (e.g., "Developed", "Led", "Implemented")',
-          'Quantify achievements with numbers and metrics where possible',
-          'Include relevant keywords for the ' + (targetRole || 'Software Engineer') + ' role',
-          'Keep bullet points concise and impactful',
-          'Ensure consistent formatting throughout the document',
-          'Try analyzing again in a few minutes when AI service is available'
-        ],
-        sections: [
-          { name: 'Content', score: 75, feedback: 'Resume contains adequate content. AI detailed analysis temporarily unavailable.' },
-          { name: 'Structure', score: 70, feedback: 'Document structure appears reasonable. Detailed feedback pending AI availability.' }
-        ],
-        keywords: {
-          present: ['Resume keywords will be analyzed when AI service is available'],
-          missing: ['Keyword analysis pending']
-        },
-        formatting: {
-          score: 70,
-          issues: ['AI analysis temporarily unavailable - please try again shortly']
-        }
-      };
-      
-      return res.json({
-        message: 'AI service temporarily unavailable. Providing basic analysis.',
-        analysis: basicAnalysis,
-        warning: 'Groq AI is experiencing high demand. Please try again in a few minutes for detailed analysis.'
-      });
-    }
-    
-    if (!process.env.GROQ_API_KEY) {
-      return buildAndReturnLocal('AI key missing. Returned heuristic analysis.');
-    }
+    console.error('Groq AI Error:', error.message);
 
-    if (!error.status || error.status >= 500) {
-      const analysis = buildLocalResumeAnalysis(resumeText, targetRole || 'Software Engineer');
-      return res.json({
-        message: 'AI service unavailable. Provided heuristic analysis instead.',
-        analysis,
-        warning: error.message,
-      });
-    }
-
+    // For any error, provide fallback analysis instead of throwing 500
     const analysis = buildLocalResumeAnalysis(resumeText, targetRole || 'Software Engineer');
-    return res.json({ 
-      message: 'Failed to reach Groq AI. Provided heuristic analysis instead.',
+
+    let message = 'Using offline analysis';
+    let warning = '';
+
+    if (error.status === 429) {
+      message = 'Groq API rate limited. Using offline analysis.';
+      warning = 'Please try again in a few minutes.';
+    } else if (error.status === 500 || error.message.includes('Internal Server Error')) {
+      message = 'Groq API temporarily unavailable. Using offline analysis.';
+      warning = 'Try again shortly when service is back.';
+    } else if (error.message.includes('Network')) {
+      message = 'Network error. Using offline analysis.';
+      warning = 'Check your internet connection and try again.';
+    }
+
+    return res.json({
+      message,
       analysis,
-      warning: error.message,
-      suggestion: 'Retry once network or AI service is stable for richer guidance.'
+      warning: warning || 'AI analysis temporarily unavailable. Results based on local analysis.',
     });
   }
 });
@@ -1144,7 +1105,7 @@ Provide ONLY the JSON response, no additional text.`;
 const extractResumeText = asyncHandler(async (req, res) => {
   console.log('Extract resume text called');
   console.log('File received:', req.file ? 'Yes' : 'No');
-  
+
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
@@ -1157,25 +1118,27 @@ const extractResumeText = asyncHandler(async (req, res) => {
   });
 
   try {
-    const pdfParse = await loadPdfParse();
-    const bufferCopy = Buffer.from(req.file.buffer);
-    const data = await pdfParse(bufferCopy);
-    
+    if (!req.file.buffer || req.file.buffer.length === 0) {
+      return res.status(400).json({
+        message: 'File buffer is empty. Please try uploading again.'
+      });
+    }
+
+    const data = await parsePdfBuffer(req.file.buffer);
+
     console.log('PDF parsed successfully, pages:', data.numpages);
     console.log('Text length:', data.text ? data.text.length : 0);
-    
+
     const text = data.text;
 
     if (!text || text.trim().length === 0) {
       console.log('No text extracted from PDF');
-      return res.status(400).json({ message: 'No text could be extracted from the PDF. This might be an image-based PDF.' });
+      return res.status(400).json({
+        message: 'No text could be extracted from the PDF. This might be an image-based PDF or a corrupted file. Try using Paste Text instead.'
+      });
     }
 
     console.log('Text extracted successfully, length:', text.trim().length);
-    
-    // Clear the buffer immediately after use
-    req.file.buffer = null;
-    req.file = null;
 
     res.json({
       message: 'Text extracted successfully',
@@ -1183,23 +1146,32 @@ const extractResumeText = asyncHandler(async (req, res) => {
       pages: data.numpages,
     });
   } catch (error) {
-    console.error('PDF parsing error:', error);
+    console.error('PDF extraction error:', error);
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    
-    // Provide more specific error message
+
     let errorMessage = 'Failed to parse PDF file';
-    if (error.message.includes('Invalid PDF')) {
-      errorMessage = 'The uploaded file is not a valid PDF or is corrupted';
+    let userFriendlyMessage = 'The PDF file could not be processed. ';
+
+    if (error.message.includes('Cannot load PDF parser')) {
+      userFriendlyMessage = 'PDF parser initialization failed. Please try uploading again.';
+    } else if (error.message.includes('Invalid PDF') || error.message.includes('startxref') || error.message.includes('EOF')) {
+      userFriendlyMessage += 'The uploaded file is not a valid PDF or is corrupted. Please try a different file or use "Paste Text".';
     } else if (error.message.includes('password')) {
-      errorMessage = 'This PDF is password-protected and cannot be processed';
+      userFriendlyMessage += 'This PDF is password-protected. Please remove the password protection or use "Paste Text".';
+    } else if (error.message.includes('image') || error.message.includes('scanned')) {
+      userFriendlyMessage += 'This appears to be a scanned/image-based PDF. Please use "Paste Text" instead.';
+    } else if (error.message.includes('buffer') || error.message.includes('empty')) {
+      userFriendlyMessage += 'File upload failed. Please try uploading again.';
+    } else {
+      userFriendlyMessage += error.message || 'Please try a different PDF file or use "Paste Text".';
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       message: errorMessage,
+      details: userFriendlyMessage,
       error: error.message,
-      details: 'Please try a different PDF file or use the "Paste Text" option'
     });
   }
 });
@@ -1208,22 +1180,20 @@ const extractResumeText = asyncHandler(async (req, res) => {
 const parseAndAutofillResume = asyncHandler(async (req, res) => {
   console.log('Parse and autofill resume called');
   console.log('File received:', req.file ? 'Yes' : 'No');
-  
+
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
 
   try {
     // Extract text from PDF
-    const pdfParse = await loadPdfParse();
-    const bufferCopy = Buffer.from(req.file.buffer);
-    const data = await pdfParse(bufferCopy);
-    
+    const data = await parsePdfBuffer(req.file.buffer);
+
     const resumeText = data.text?.trim();
-    
+
     if (!resumeText || resumeText.length === 0) {
-      return res.status(400).json({ 
-        message: 'No text could be extracted from the PDF. This might be an image-based PDF.' 
+      return res.status(400).json({
+        message: 'No text could be extracted from the PDF. This might be an image-based PDF.'
       });
     }
 
@@ -1269,7 +1239,7 @@ ${resumeText}
 """`;
 
     console.log('Sending resume to AI for parsing...');
-    
+
     const completion = await groq.chat.completions.create({
       messages: [{ role: 'user', content: parsePrompt }],
       model: 'llama-3.3-70b-versatile',
@@ -1293,9 +1263,9 @@ ${resumeText}
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
       console.log('AI Response:', aiResponse);
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: 'Failed to parse AI response',
-        error: parseError.message 
+        error: parseError.message
       });
     }
 
@@ -1303,7 +1273,7 @@ ${resumeText}
 
     // Prepare update payload
     const updatePayload = {};
-    
+
     if (parsedData.fullName) {
       const nameParts = parsedData.fullName.trim().split(' ');
       if (nameParts.length > 0) {
@@ -1312,7 +1282,7 @@ ${resumeText}
         updatePayload.name = parsedData.fullName;
       }
     }
-    
+
     if (parsedData.phone) updatePayload.phone = parsedData.phone;
     if (parsedData.location) updatePayload.location = parsedData.location;
     if (parsedData.headline) updatePayload.headline = parsedData.headline;
@@ -1324,7 +1294,7 @@ ${resumeText}
     if (parsedData.linkedinUrl) updatePayload.linkedinUrl = parsedData.linkedinUrl;
     if (parsedData.githubUrl) updatePayload.githubUrl = parsedData.githubUrl;
     if (parsedData.portfolioUrl) updatePayload.portfolioUrl = parsedData.portfolioUrl;
-    
+
     if (parsedData.skills && Array.isArray(parsedData.skills)) {
       updatePayload.skills = parsedData.skills;
     }
@@ -1380,7 +1350,7 @@ ${resumeText}
 
   } catch (error) {
     console.error('Resume parsing error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to parse resume',
       error: error.message
     });
@@ -1399,8 +1369,7 @@ const importLinkedInProfile = asyncHandler(async (req, res) => {
   }
 
   try {
-    const pdfParse = await loadPdfParse();
-    const data = await pdfParse(req.file.buffer);
+    const data = await parsePdfBuffer(req.file.buffer);
     const text = data.text ? data.text.trim() : '';
     if (!text) {
       return res.status(400).json({ message: 'Unable to extract text from the uploaded PDF' });
@@ -1446,10 +1415,10 @@ const importLinkedInProfile = asyncHandler(async (req, res) => {
  */
 const syncGitHubProfile = asyncHandler(async (req, res) => {
   const { githubUsername, githubUrl } = req.body;
-  
+
   if (!githubUsername && !githubUrl) {
-    return res.status(400).json({ 
-      message: 'Either githubUsername or githubUrl is required' 
+    return res.status(400).json({
+      message: 'Either githubUsername or githubUrl is required'
     });
   }
 
@@ -1473,10 +1442,10 @@ const syncGitHubProfile = asyncHandler(async (req, res) => {
   try {
     // Extract username from URL if provided
     const username = githubUrl ? extractGitHubUsername(githubUrl) : githubUsername;
-    
+
     if (!username) {
-      return res.status(400).json({ 
-        message: 'Invalid GitHub username or URL format' 
+      return res.status(400).json({
+        message: 'Invalid GitHub username or URL format'
       });
     }
 
@@ -1507,7 +1476,7 @@ const syncGitHubProfile = asyncHandler(async (req, res) => {
 
     // Recalculate readiness score (optionally incorporate GitHub activity)
     const { total, breakdown } = calculateReadinessScore(student);
-    
+
     // Add GitHub activity bonus (max 5 points)
     const githubBonus = Math.min(5, githubData.activityScore / 20);
     student.readinessScore = Math.min(100, total + githubBonus);
@@ -1562,8 +1531,8 @@ const syncGitHubDataManually = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
 
   if (!student.githubAuth || !student.githubAuth.encryptedAccessToken) {
-    return res.status(400).json({ 
-      message: 'No GitHub account connected. Please connect your GitHub account first.' 
+    return res.status(400).json({
+      message: 'No GitHub account connected. Please connect your GitHub account first.'
     });
   }
 
@@ -1575,7 +1544,7 @@ const syncGitHubDataManually = asyncHandler(async (req, res) => {
   if (result.success) {
     // Fetch updated student data
     const updatedStudent = await Student.findById(req.user._id);
-    
+
     res.json({
       message: 'GitHub data synced successfully',
       stats: result.stats,
@@ -1600,14 +1569,14 @@ const toggleProjectFavorite = asyncHandler(async (req, res) => {
   const { projectId } = req.params;
 
   const project = student.projects.id(projectId);
-  
+
   if (!project) {
     return res.status(404).json({ message: 'Project not found' });
   }
 
   // Toggle favorite status
   project.isFavorite = !project.isFavorite;
-  
+
   await student.save();
 
   res.json({
@@ -1622,9 +1591,9 @@ const toggleProjectFavorite = asyncHandler(async (req, res) => {
  */
 const getFavoriteProjects = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
-  
+
   const favorites = student.projects.filter(project => project.isFavorite);
-  
+
   res.json({
     count: favorites.length,
     favorites,
@@ -1637,9 +1606,9 @@ const getFavoriteProjects = asyncHandler(async (req, res) => {
  */
 const getGitHubProjects = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
-  
+
   // Filter projects that have GitHub links
-  const githubProjects = student.projects.filter(project => 
+  const githubProjects = student.projects.filter(project =>
     project.githubLink && project.githubLink.includes('github.com')
   );
 
@@ -1652,7 +1621,7 @@ const getGitHubProjects = asyncHandler(async (req, res) => {
     }
     return new Date(b.submittedAt) - new Date(a.submittedAt);
   });
-  
+
   res.json({
     count: githubProjects.length,
     projects: githubProjects,

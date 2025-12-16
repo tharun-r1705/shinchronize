@@ -6,13 +6,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentApi, platformApi, LeetCodeStats, GitHubStats } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  RefreshCw, 
-  CheckCircle, 
-  XCircle, 
-  LogOut, 
-  Code2, 
-  Github, 
+import {
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  LogOut,
+  Code2,
+  Github,
   ExternalLink,
   Star,
   GitFork,
@@ -42,7 +42,7 @@ import {
 
 const PIE_COLORS = ["#34d399", "#22c55e", "#0ea5e9"];
 const LANGUAGE_COLORS = [
-  "#3178c6", "#f1e05a", "#e34c26", "#563d7c", "#4F5D95", 
+  "#3178c6", "#f1e05a", "#e34c26", "#563d7c", "#4F5D95",
   "#89e051", "#b07219", "#00ADD8", "#DA5B0B", "#178600"
 ];
 
@@ -91,13 +91,13 @@ const Progress = () => {
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("leetcode");
-  
+
   // LeetCode state
   const [leetUsername, setLeetUsername] = useState("");
   const [leetStats, setLeetStats] = useState<LeetCodeStats | null>(null);
   const [leetLoading, setLeetLoading] = useState(false);
   const [leetError, setLeetError] = useState<string | null>(null);
-  
+
   // GitHub state
   const [githubUsername, setGithubUsername] = useState("");
   const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
@@ -124,14 +124,14 @@ const Progress = () => {
         }
         const data = await studentApi.getProfile(token);
         setStudent(data);
-        
+
         // Pre-populate usernames from profile
         const derivedLeet = extractLeetCodeUsername(data?.codingProfiles?.leetcode || data?.leetcodeUrl);
         const derivedGithub = extractGitHubUsername(data?.connectedGithubUsername || data?.githubUrl);
-        
+
         if (derivedLeet) setLeetUsername(derivedLeet);
         if (derivedGithub) setGithubUsername(derivedGithub);
-        
+
         // Load saved stats if available
         if (data?.leetcodeStats) {
           setLeetStats({
@@ -143,6 +143,12 @@ const Progress = () => {
               profile: {
                 username: data.leetcodeStats.username || derivedLeet,
                 totalSolved: data.leetcodeStats.totalSolved || 0,
+                ranking: data.leetcodeStats.profile?.ranking ?? null,
+                realName: data.leetcodeStats.profile?.realName || null,
+                countryName: data.leetcodeStats.profile?.countryName || null,
+                reputation: data.leetcodeStats.profile?.reputation ?? null,
+                starRating: data.leetcodeStats.profile?.starRating ?? null,
+                badges: data.leetcodeStats.profile?.badges || [],
               },
               problemStats: {
                 easy: data.leetcodeStats.easy || 0,
@@ -156,13 +162,14 @@ const Progress = () => {
                 last7Days: data.leetcodeStats.recentActivity?.last7Days || 0,
                 last30Days: data.leetcodeStats.recentActivity?.last30Days || 0,
                 bestDay: data.leetcodeStats.bestDay || null,
-                calendar: data.leetcodeStats.calendar 
+                calendar: data.leetcodeStats.calendar
                   ? (typeof data.leetcodeStats.calendar === 'object' && data.leetcodeStats.calendar.entries
                       ? Object.fromEntries(data.leetcodeStats.calendar.entries())
                       : data.leetcodeStats.calendar)
                   : {},
               },
               domains: data.leetcodeStats.topDomains || [],
+              recentSubmissions: data.leetcodeStats.recentSubmissions || [],
             },
             fetchedAt: data.leetcodeStats.fetchedAt || new Date().toISOString(),
             autoLinked: true,
@@ -272,6 +279,11 @@ const Progress = () => {
   const topDomains = useMemo(() => {
     if (!Array.isArray(leetStats?.stats?.domains)) return [];
     return leetStats.stats.domains.slice(0, 5);
+  }, [leetStats]);
+
+  const recentSubmissions = useMemo(() => {
+    if (!Array.isArray(leetStats?.stats?.recentSubmissions)) return [];
+    return leetStats.stats.recentSubmissions.slice(0, 8);
   }, [leetStats]);
 
   // LeetCode Calendar Heatmap
@@ -445,7 +457,7 @@ const Progress = () => {
                     </Button>
                   )}
                 </div>
-                
+
                 {leetStats && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CheckCircle className="w-4 h-4 text-green-500" />
@@ -455,7 +467,7 @@ const Progress = () => {
                     </span>
                   </div>
                 )}
-                
+
                 {leetError && (
                   <div className="flex items-center gap-2 text-sm text-destructive">
                     <XCircle className="w-4 h-4" />
@@ -468,6 +480,52 @@ const Progress = () => {
             {/* Stats Display */}
             {leetStats && (
               <>
+                {/* Profile Details */}
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Profile Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Name</p>
+                      <p className="font-medium">{leetStats.stats.profile.realName || leetStats.stats.profile.username}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Country</p>
+                      <p className="font-medium">{leetStats.stats.profile.countryName || 'Not set'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Ranking</p>
+                      <p className="font-medium">{leetStats.stats.profile.ranking ?? 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Reputation</p>
+                      <p className="font-medium">{leetStats.stats.profile.reputation ?? 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Star Rating</p>
+                      <p className="font-medium">{leetStats.stats.profile.starRating ?? 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Badges</p>
+                      {leetStats.stats.profile.badges?.length ? (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {leetStats.stats.profile.badges.slice(0, 6).map((badge) => (
+                            <span key={badge} className="px-2 py-0.5 rounded-full bg-muted text-[11px]">
+                              {badge}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="font-medium">None</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Summary Metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   <Card className="shadow-sm">
@@ -627,6 +685,74 @@ const Progress = () => {
                   </Card>
                 </div>
 
+                {/* Recent Problems Solved */}
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <GitPullRequest className="w-4 h-4" />
+                      Recent Problems Solved
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">Last {recentSubmissions.length || 0} accepted submissions</p>
+                  </CardHeader>
+                  <CardContent>
+                    {recentSubmissions.length > 0 ? (
+                      <div className="space-y-3">
+                        {recentSubmissions.map((submission) => (
+                          <div
+                            key={`${submission.titleSlug}-${submission.timestamp}`}
+                            className="flex flex-col gap-1 rounded-md border border-border/70 px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              {submission.titleSlug ? (
+                                <a
+                                  href={`https://leetcode.com/problems/${submission.titleSlug}/`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-medium hover:underline"
+                                >
+                                  {submission.title}
+                                </a>
+                              ) : (
+                                <span className="font-medium">{submission.title}</span>
+                              )}
+                              <span className="text-xs font-semibold text-emerald-600">
+                                {submission.status}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <CircleDot className="w-3 h-3" />
+                                {submission.difficulty || 'Unknown'}</span>
+                              <span>{submission.lang || 'Language N/A'}</span>
+                              <span>
+                                {submission.submittedAt
+                                  ? new Date(submission.submittedAt).toLocaleString()
+                                  : '—'}
+                              </span>
+                            </div>
+                            {submission.tags?.length ? (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {submission.tags.slice(0, 4).map((tag) => (
+                                  <span
+                                    key={`${submission.titleSlug}-${tag.slug || tag.name}`}
+                                    className="px-2 py-0.5 rounded-full bg-muted text-[11px]"
+                                  >
+                                    {tag.name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No recent accepted submissions yet.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* Submission Calendar */}
                 <Card className="shadow-sm">
                   <CardHeader>
@@ -747,7 +873,7 @@ const Progress = () => {
                     </Button>
                   )}
                 </div>
-                
+
                 {githubStats && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CheckCircle className="w-4 h-4 text-green-500" />
@@ -757,7 +883,7 @@ const Progress = () => {
                     </span>
                   </div>
                 )}
-                
+
                 {githubError && (
                   <div className="flex items-center gap-2 text-sm text-destructive">
                     <XCircle className="w-4 h-4" />
@@ -891,87 +1017,39 @@ const Progress = () => {
                   </Card>
                 </div>
 
-                {/* Languages & Repos Row */}
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {/* Language Breakdown */}
-                  <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-base">Tech Stack</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {languageData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={220}>
-                          <BarChart data={languageData} layout="vertical">
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis type="number" />
-                            <YAxis dataKey="name" type="category" width={80} />
-                            <Tooltip
-                              formatter={(value: number) => [`${value} repos`, "Repos"]}
-                            />
-                            <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-                              {languageData.map((entry, index) => (
-                                <Cell
-                                  key={entry.name}
-                                  fill={LANGUAGE_COLORS[index % LANGUAGE_COLORS.length]}
-                                />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No language data available
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
+                {/* Repositories List */}
+                <div className="grid gap-4">{/* Removed language breakdown chart */}
 
-                  {/* Top Repos */}
+                  {/* All Repositories */}
                   <Card className="shadow-sm">
                     <CardHeader>
-                      <CardTitle className="text-base">Top Repositories</CardTitle>
+                      <CardTitle className="text-base">All Repositories</CardTitle>
                     </CardHeader>
                     <CardContent>
                       {githubStats.stats.repos.topRepos.length > 0 ? (
-                        <ul className="space-y-3">
-                          {githubStats.stats.repos.topRepos.slice(0, 5).map((repo) => (
-                            <li
-                              key={repo.id}
-                              className="rounded-md border bg-card px-3 py-2"
+                        <div className="max-h-[300px] overflow-y-auto space-y-2">
+                          {githubStats.stats.repos.topRepos.map((repo, index) => (
+                            <div
+                              key={`${repo.name}-${index}`}
+                              className="flex items-center justify-between rounded-md border bg-card px-3 py-2"
                             >
-                              <div className="flex items-center justify-between">
-                                <a
-                                  href={repo.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="font-medium text-sm hover:underline"
-                                >
-                                  {repo.name}
-                                </a>
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Star className="w-3 h-3" />
-                                    {repo.stars}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <GitFork className="w-3 h-3" />
-                                    {repo.forks}
-                                  </span>
-                                </div>
-                              </div>
-                              {repo.description && (
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                  {repo.description}
-                                </p>
-                              )}
-                              {repo.language && (
-                                <span className="inline-block text-xs bg-muted px-2 py-0.5 rounded mt-2">
-                                  {repo.language}
+                              <a
+                                href={repo.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium text-sm hover:underline flex-1"
+                              >
+                                {repo.name}
+                              </a>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Star className="w-3 h-3" />
+                                  {repo.stars}
                                 </span>
-                              )}
-                            </li>
+                              </div>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">
                           No repositories found
@@ -981,93 +1059,41 @@ const Progress = () => {
                   </Card>
                 </div>
 
-                {/* Weekly Activity Chart */}
-                <Card className="shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-base">Weekly Activity</CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      Commits per week over the last 12 weeks
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    {weeklyActivityData.length > 0 ? (
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={weeklyActivityData}>
-                            <defs>
-                              <linearGradient id="githubWeeklyGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-                            <XAxis
-                              dataKey="week"
-                              tickFormatter={(value) => {
-                                const date = new Date(value);
-                                if (Number.isNaN(date.getTime())) return value;
-                                return date.toLocaleDateString(undefined, {
-                                  month: "short",
-                                  day: "numeric",
-                                });
-                              }}
-                            />
-                            <YAxis allowDecimals={false} />
-                            <Tooltip
-                              formatter={(value: number) => [`${value} commits`, "Commits"]}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="commits"
-                              stroke="#4f46e5"
-                              fill="url(#githubWeeklyGradient)"
-                              strokeWidth={2}
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
+                {/* Recent Commits */}
+                {githubStats.stats.consistency.recentCommits &&
+                 githubStats.stats.consistency.recentCommits.length > 0 && (
+                  <Card className="shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base">Recent Commits</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
+                        {githubStats.stats.consistency.recentCommits.slice(0, 15).map((commit: any, idx: number) => (
+                          <div key={idx} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className="flex-shrink-0 w-2 h-2 mt-2 bg-green-500 rounded-full"></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-blue-600">{commit.repo}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(commit.date).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-foreground truncate">{commit.message}</p>
+                            </div>
+                            <a
+                              href={commit.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 text-xs text-blue-600 hover:underline"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No activity data available
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Open Source Stats */}
-                <Card className="shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-base">Open Source Contributions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">
-                          {githubStats.stats.openSource.pullRequestsOpened}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">PRs Opened</div>
-                      </div>
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <div className="text-2xl font-bold text-purple-600">
-                          {githubStats.stats.openSource.pullRequestsMerged}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">PRs Merged</div>
-                      </div>
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {githubStats.stats.openSource.issuesOpened}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">Issues Opened</div>
-                      </div>
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <div className="text-2xl font-bold text-orange-600">
-                          {githubStats.stats.openSource.issuesClosed}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">Issues Closed</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
 
