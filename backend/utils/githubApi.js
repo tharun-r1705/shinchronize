@@ -516,17 +516,30 @@ function calculateConsistencyScore(weeklyCommits, activeWeeks) {
   
   // Check if commits are evenly distributed (not all in one week)
   const totalCommits = weeklyCommits.reduce((sum, w) => sum + w.commits, 0);
+  
+  // Handle case where there are no commits
+  if (totalCommits === 0) {
+    return 0;
+  }
+  
   const avgCommitsPerWeek = totalCommits / 13;
   const variance = weeklyCommits.reduce((sum, w) => {
     return sum + Math.pow(w.commits - avgCommitsPerWeek, 2);
   }, 0) / 13;
-  const distributionScore = Math.max(0, 30 - (variance / avgCommitsPerWeek));
+  
+  // Safely calculate distribution score - avoid division by zero
+  const distributionScore = avgCommitsPerWeek > 0 
+    ? Math.max(0, 30 - (variance / avgCommitsPerWeek))
+    : 0;
   
   // Recent activity bonus (last 2 weeks)
   const recentCommits = weeklyCommits.slice(-2).reduce((sum, w) => sum + w.commits, 0);
   const recentActivityScore = Math.min(20, (recentCommits / 10) * 20);
   
-  return Math.round(activeWeeksScore + distributionScore + recentActivityScore);
+  const score = Math.round(activeWeeksScore + distributionScore + recentActivityScore);
+  
+  // Ensure we return a valid number between 0-100
+  return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 0;
 }
 
 /**

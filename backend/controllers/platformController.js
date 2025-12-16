@@ -41,7 +41,7 @@ const extractUsername = (input, platform) => {
  */
 const getLeetCodeStats = asyncHandler(async (req, res) => {
   const { username } = req.query;
-  const studentId = req.student._id;
+  const studentId = req.user._id;
   
   if (!username) {
     return res.status(400).json({ 
@@ -137,7 +137,7 @@ const getLeetCodeStats = asyncHandler(async (req, res) => {
  */
 const getGitHubStats = asyncHandler(async (req, res) => {
   const { username } = req.query;
-  const studentId = req.student._id;
+  const studentId = req.user._id;
   
   if (!username) {
     return res.status(400).json({ 
@@ -185,9 +185,20 @@ const getGitHubStats = asyncHandler(async (req, res) => {
         lastRefreshed: new Date(),
       };
       
-      // Store consistency data
+      // Store consistency data with NaN protection
+      const safeNumber = (val, defaultVal = 0) => 
+        Number.isFinite(val) ? val : defaultVal;
+      
       student.githubConsistency = {
-        ...consistency,
+        totalCommits: safeNumber(consistency.totalCommits),
+        commitsPerWeek: safeNumber(parseFloat(consistency.commitsPerWeek)),
+        activeWeeks: safeNumber(consistency.activeWeeks),
+        totalWeeks: safeNumber(consistency.totalWeeks, 13),
+        consistencyPercentage: safeNumber(parseFloat(consistency.consistencyPercentage)),
+        lastCommitDate: consistency.lastCommitDate,
+        daysSinceLastCommit: safeNumber(consistency.daysSinceLastCommit),
+        weeklyBreakdown: consistency.weeklyBreakdown,
+        consistencyScore: safeNumber(consistency.consistencyScore),
         lastRefreshed: new Date(),
       };
       
@@ -280,7 +291,7 @@ const getGitHubStats = asyncHandler(async (req, res) => {
  */
 const getSavedPlatformStats = asyncHandler(async (req, res) => {
   const { platform } = req.params;
-  const studentId = req.student._id;
+  const studentId = req.user._id;
   
   const student = await Student.findById(studentId);
   
@@ -389,7 +400,7 @@ const getSavedPlatformStats = asyncHandler(async (req, res) => {
  */
 const disconnectPlatform = asyncHandler(async (req, res) => {
   const { platform } = req.params;
-  const studentId = req.student._id;
+  const studentId = req.user._id;
   
   const student = await Student.findById(studentId);
   
