@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { 
   TrendingUp, Award, Upload, FileText, Trophy, 
   Target, Zap, Star, BookOpen, Code, Brain, LogOut,
-  Link2, Edit, Trash2, CheckCircle2, Calendar
+  Link2, Edit, Trash2, CheckCircle2, Calendar, Github
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +20,7 @@ import { LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 import { useEffect, useState } from "react";
 import { studentApi } from "@/lib/api";
 import MockInterviewChatbot from "@/components/MockInterviewChatbot";
+import { GitHubDetails } from "@/components/GitHubDetails";
 import { useToast } from "@/hooks/use-toast";
 
 interface MentorSuggestions {
@@ -1742,6 +1743,37 @@ const StudentDashboard = () => {
             </Card>
           </motion.div>
         </div>
+
+        {/* GitHub Profile Integration */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="mt-6"
+        >
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Github className="w-5 h-5 text-primary" />
+                GitHub Profile
+              </CardTitle>
+              <CardDescription>
+                Connect your GitHub to showcase your projects and coding activity to recruiters
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GitHubDetails 
+                token={localStorage.getItem('token') || ''} 
+                onScoreChange={(score) => {
+                  // Update the readiness score when GitHub data changes
+                  if (student) {
+                    setStudent({ ...student, readinessScore: score });
+                  }
+                }}
+              />
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* AI Mentor */}
         <motion.div

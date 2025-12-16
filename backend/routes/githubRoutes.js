@@ -1,5 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const Student = require('../models/Student');
+const {
+  extractBasicProfile,
+  extractGithubAuth,
+  extractGithubStats,
+  fetchUserEmails,
+  generateRandomPassword,
+} = require('../utils/githubDataExtractor');
+const { syncGitHubData } = require('../jobs/githubSyncJob');
 
 /**
  * GitHub OAuth Login - Initiates OAuth flow
@@ -154,17 +165,126 @@ router.get('/callback', async (req, res) => {
     console.log('✅ [GitHub OAuth] Username:', userData.login);
     console.log('✅ [GitHub OAuth] User ID:', userData.id);
 
-    // TODO: Here you would:
-    // 1. Check if user exists in database by GitHub ID or email
-    // 2. Create new user or update existing user's GitHub connection
-    // 3. Generate JWT token
-    // 4. Set the JWT in an httpOnly cookie or return it for localStorage
+    // Fetch user's email addresses
+    console.log('🔵 [GitHub OAuth] Fetching user emails...');
+    const emails = await fetchUserEmails(accessToken);
+    console.log('✅ [GitHub OAuth] Emails fetched:', emails.length);
 
-    const redirectUrl = `${frontendUrl}/student/login?githubconnected=true&username=${userData.login}`;
+    // Extract profile data
+    const profileData = extractBasicProfile(userData, emails);
+    const githubAuthData = extractGithubAuth(userData, accessToken);
+    const githubStatsData = extractGithubStats(userData);
+
+    console.log('🔵 [GitHub OAuth] Extracted email:', profileData.email);
+
+    // Check if user already exists (by GitHub ID or email)
+    let student = await Student.findOne({
+      $or: [
+        { 'githubAuth.githubId': userData.id.toString() },
+        { email: profileData.email },
+      ],
+    });
+
+    if (student) {
+      console.log('✅ [GitHub OAuth] Existing user found:', student.email);
+      
+      // Update existing user's GitHub connection
+      student.githubAuth = githubAuthData;
+      student.githubStats = githubStatsData;
+      
+      // Update profile fields if not already set
+      if (!student.avatarUrl && profileData.avatarUrl) {
+        student.avatarUrl = profileData.avatarUrl;
+      }
+      if (!student.githubUrl) {
+        student.githubUrl = profileData.githubUrl;
+      }
+      if (!student.location && profileData.location) {
+        student.location = profileData.location;
+      }
+      if (!student.portfolioUrl && profileData.portfolioUrl) {
+        student.portfolioUrl = profileData.portfolioUrl;
+      }
+      if (!student.summary && profileData.summary) {
+        student.summary = profileData.summary;
+      }
+      
+      // Mark OAuth provider if not set
+      if (!student.oauthProvider) {
+        student.oauthProvider = 'github';
+      }
+      
+      // Update email verification if GitHub email is verified
+      if (profileData.emailVerified) {
+        student.emailVerified = true;
+      }
+      
+      await student.save();
+      console.log('✅ [GitHub OAuth] User updated successfully');
+    } else {
+      console.log('🔵 [GitHub OAuth] Creating new user...');
+      
+      // Create new user
+      if (!profileData.email) {
+        console.error('❌ [GitHub OAuth] No email available from GitHub');
+        return res.redirect(`${frontendUrl}/student/login?error=no_email&message=${encodeURIComponent('No email found in your GitHub account. Please add a verified email to your GitHub profile.')}`);
+      }
+
+      // Generate random password (OAuth users won't use it)
+      const randomPassword = generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      student = new Student({
+        name: profileData.name,
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        email: profileData.email,
+        password: hashedPassword,
+        avatarUrl: profileData.avatarUrl,
+        githubUrl: profileData.githubUrl,
+        portfolioUrl: profileData.portfolioUrl,
+        location: profileData.location,
+        summary: profileData.summary,
+        githubAuth: githubAuthData,
+        githubStats: githubStatsData,
+        oauthProvider: 'github',
+        emailVerified: profileData.emailVerified,
+      });
+
+      await student.save();
+      console.log('✅ [GitHub OAuth] New user created:', student.email);
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: student._id,
+        email: student.email,
+        role: 'student',
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('✅ [GitHub OAuth] JWT token generated');
+
+    // Trigger background sync job (don't wait for it)
+    console.log('🔄 [GitHub OAuth] Triggering background GitHub data sync...');
+    syncGitHubData(student._id, true).then(result => {
+      if (result.success) {
+        console.log(`✅ [GitHub OAuth] Background sync completed for ${student.email}`);
+      } else {
+        console.error(`❌ [GitHub OAuth] Background sync failed: ${result.error}`);
+      }
+    }).catch(err => {
+      console.error('❌ [GitHub OAuth] Background sync error:', err);
+    });
+
+    // Redirect to frontend with token (don't wait for sync)
+    const redirectUrl = `${frontendUrl}/student/login?githubconnected=true&token=${token}&username=${userData.login}`;
     console.log('🔵 [GitHub OAuth] Redirecting to frontend:', redirectUrl);
     console.log('✅ [GitHub OAuth] OAuth flow complete - redirecting to FRONTEND');
     
-    // Redirect back to frontend with success flag
     res.redirect(redirectUrl);
 
   } catch (error) {

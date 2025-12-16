@@ -9,6 +9,7 @@ const { fetchLeetCodeStats } = require('../utils/leetcode');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
 const { fetchGitHubData, extractGitHubUsername, calculateGitHubActivityScore } = require('../utils/githubIntegration');
 const { updateValidatedSkills } = require('../utils/skillValidation');
+const { syncGitHubData } = require('../jobs/githubSyncJob');
 
 let cachedPdfParse = null;
 const loadPdfParse = async () => {
@@ -1553,6 +1554,111 @@ const syncGitHubProfile = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Sync GitHub Data - Manually trigger GitHub data sync
+ * POST /api/students/sync-github
+ */
+const syncGitHubDataManually = asyncHandler(async (req, res) => {
+  const student = await Student.findById(req.user._id);
+
+  if (!student.githubAuth || !student.githubAuth.encryptedAccessToken) {
+    return res.status(400).json({ 
+      message: 'No GitHub account connected. Please connect your GitHub account first.' 
+    });
+  }
+
+  console.log(`🔄 Manual GitHub sync requested by: ${student.email}`);
+
+  // Trigger sync job
+  const result = await syncGitHubData(student._id, true);
+
+  if (result.success) {
+    // Fetch updated student data
+    const updatedStudent = await Student.findById(req.user._id);
+    
+    res.json({
+      message: 'GitHub data synced successfully',
+      stats: result.stats,
+      githubStats: updatedStudent.githubStats,
+      projects: updatedStudent.projects,
+      skills: updatedStudent.skills,
+    });
+  } else {
+    res.status(500).json({
+      message: 'GitHub sync failed',
+      error: result.error,
+    });
+  }
+});
+
+/**
+ * Toggle Project Favorite
+ * PATCH /api/students/projects/:projectId/favorite
+ */
+const toggleProjectFavorite = asyncHandler(async (req, res) => {
+  const student = await Student.findById(req.user._id);
+  const { projectId } = req.params;
+
+  const project = student.projects.id(projectId);
+  
+  if (!project) {
+    return res.status(404).json({ message: 'Project not found' });
+  }
+
+  // Toggle favorite status
+  project.isFavorite = !project.isFavorite;
+  
+  await student.save();
+
+  res.json({
+    message: project.isFavorite ? 'Project added to favorites' : 'Project removed from favorites',
+    project,
+  });
+});
+
+/**
+ * Get Favorite Projects
+ * GET /api/students/projects/favorites
+ */
+const getFavoriteProjects = asyncHandler(async (req, res) => {
+  const student = await Student.findById(req.user._id);
+  
+  const favorites = student.projects.filter(project => project.isFavorite);
+  
+  res.json({
+    count: favorites.length,
+    favorites,
+  });
+});
+
+/**
+ * Get GitHub Projects (filtered by source)
+ * GET /api/students/projects/github
+ */
+const getGitHubProjects = asyncHandler(async (req, res) => {
+  const student = await Student.findById(req.user._id);
+  
+  // Filter projects that have GitHub links
+  const githubProjects = student.projects.filter(project => 
+    project.githubLink && project.githubLink.includes('github.com')
+  );
+
+  // Sort by stars if available, otherwise by submission date
+  githubProjects.sort((a, b) => {
+    const starsA = a._githubData?.stars || 0;
+    const starsB = b._githubData?.stars || 0;
+    if (starsA !== starsB) {
+      return starsB - starsA;
+    }
+    return new Date(b.submittedAt) - new Date(a.submittedAt);
+  });
+  
+  res.json({
+    count: githubProjects.length,
+    projects: githubProjects,
+  });
+});
+
 module.exports = {
   signup,
   login,
@@ -1582,4 +1688,8 @@ module.exports = {
   updateLeetCodeStats,
   importLinkedInProfile,
   syncGitHubProfile,
+  syncGitHubDataManually,
+  toggleProjectFavorite,
+  getFavoriteProjects,
+  getGitHubProjects,
 };

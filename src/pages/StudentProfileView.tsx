@@ -30,6 +30,7 @@ import {
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { recruiterApi } from "@/lib/api";
+import { GitHubDetails } from "@/components/GitHubDetails";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const StudentProfileView = () => {
@@ -343,8 +344,9 @@ const StudentProfileView = () => {
           transition={{ delay: 0.1 }}
         >
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="github">GitHub</TabsTrigger>
               <TabsTrigger value="projects">Projects ({student.projects?.length || 0})</TabsTrigger>
               <TabsTrigger value="skills">Skills ({allSkills.length})</TabsTrigger>
               <TabsTrigger value="certifications">Certificates ({student.certifications?.length || 0})</TabsTrigger>
@@ -441,6 +443,15 @@ const StudentProfileView = () => {
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            {/* GitHub Tab - Read Only for Recruiters */}
+            <TabsContent value="github" className="space-y-4">
+              <GitHubDetails 
+                token={localStorage.getItem('token') || ''} 
+                readOnly={true}
+                studentId={studentId}
+              />
             </TabsContent>
 
             <TabsContent value="projects" className="space-y-4">

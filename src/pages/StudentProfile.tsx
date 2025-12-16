@@ -26,7 +26,6 @@ import {
   CodingProfilesPayload,
   StudentProfileDTO,
   UpdateStudentProfilePayload,
-  LinkedInProfileAutofill,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -38,7 +37,6 @@ import {
   AlertCircle,
   Link2,
   LogOut,
-  FileDown,
 } from "lucide-react";
 
 const DEFAULT_FORM_STATE = {
@@ -143,9 +141,6 @@ const StudentProfile = () => {
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [student, setStudent] = useState<StudentProfileDTO | null>(null);
   const [codingProfiles, setCodingProfiles] = useState<CodingProfiles | null>(null);
-  const [importingLinkedIn, setImportingLinkedIn] = useState(false);
-  const [importSummary, setImportSummary] = useState<string | null>(null);
-  const linkedinInputRef = useRef<HTMLInputElement | null>(null);
 
   const formatSkills = (skills?: string[] | null) => {
     if (!skills || skills.length === 0) return "";
@@ -246,74 +241,6 @@ const StudentProfile = () => {
       }
     });
     return Array.from(merged).join(', ');
-  };
-
-  const applyLinkedInProfile = (profile: LinkedInProfileAutofill) => {
-    setFormState((prev) => ({
-      ...prev,
-      firstName: profile.firstName || prev.firstName,
-      lastName: profile.lastName || prev.lastName,
-      headline: profile.headline || prev.headline,
-      summary: profile.summary || prev.summary,
-      location: profile.location || prev.location,
-      linkedinUrl: profile.linkedinUrl || prev.linkedinUrl,
-      phone: profile.phone || prev.phone,
-      skills: buildSkillsString(prev.skills, profile.skills),
-    }));
-
-    const filledFields: string[] = [];
-    if (profile.firstName || profile.lastName) filledFields.push('name');
-    if (profile.headline) filledFields.push('headline');
-    if (profile.summary) filledFields.push('summary');
-    if (profile.location) filledFields.push('location');
-    if (profile.linkedinUrl) filledFields.push('LinkedIn URL');
-    if (profile.skills && profile.skills.length) filledFields.push('skills');
-
-    setImportSummary(
-      filledFields.length
-        ? `Autofilled: ${filledFields.join(', ')}`
-        : 'LinkedIn PDF processed but no new fields detected.'
-    );
-  };
-
-  const handleLinkedInUploadClick = () => {
-    setImportSummary(null);
-    linkedinInputRef.current?.click();
-  };
-
-  const handleLinkedInFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setImportingLinkedIn(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/student/login');
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('linkedinPdf', file);
-      const response = await studentApi.importLinkedInProfile(formData, token);
-      applyLinkedInProfile(response.profile || {});
-      toast({
-        title: 'LinkedIn data imported',
-        description: 'Review the autofilled fields before saving.',
-      });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unable to parse LinkedIn PDF';
-      toast({
-        title: 'Import failed',
-        description: message,
-        variant: 'destructive',
-      });
-    } finally {
-      setImportingLinkedIn(false);
-      if (linkedinInputRef.current) {
-        linkedinInputRef.current.value = '';
-      }
-    }
   };
 
   const skillsArray = useMemo(() => {
@@ -453,42 +380,6 @@ const StudentProfile = () => {
             </Badge>
           )}
         </div>
-
-        <input
-          ref={linkedinInputRef}
-          type="file"
-          accept="application/pdf"
-          className="hidden"
-          onChange={handleLinkedInFileChange}
-        />
-
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileDown className="w-5 h-5 text-primary" />
-              LinkedIn Autofill
-            </CardTitle>
-            <CardDescription>
-              Upload the LinkedIn PDF export to prefill your headline, summary, and skills.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-muted-foreground">
-              We only read the PDF in-memory; nothing is stored until you choose to save your profile.
-              {importSummary && (
-                <p className="text-foreground mt-2">{importSummary}</p>
-              )}
-            </div>
-            <Button onClick={handleLinkedInUploadClick} disabled={importingLinkedIn} className="gap-2">
-              {importingLinkedIn ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4" />
-              )}
-              Upload LinkedIn PDF
-            </Button>
-          </CardContent>
-        </Card>
 
         <Card className="shadow-card">
           <CardHeader>

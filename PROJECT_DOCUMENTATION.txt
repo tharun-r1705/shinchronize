@@ -1,0 +1,1532 @@
+EVOLVED PLATFORM - COMPREHENSIVE PROJECT DOCUMENTATION
+======================================================
+
+Generated: December 15, 2025
+Project Repository: shinchronize
+Status: Active Development
+
+
+1. PROJECT OVERVIEW
+===================
+
+Project Name: EvolvEd (codebase also referred to as Shinchronize)
+
+Purpose and Problem It Solves:
+EvolvEd transforms traditional campus placement systems into a continuous growth platform. Instead of relying solely on final placement tests and interviews, the platform tracks student development over time through consistent coding practice, verified projects, certifications, and AI-powered assessments. This provides recruiters with trustworthy long-term signals beyond single test scores while helping students build verified portfolios demonstrating real skill growth.
+
+Target Users:
+- Students: College students preparing for campus placements who want to showcase consistent growth, receive AI coaching, practice mock interviews, and improve their readiness scores
+- Recruiters: Corporate hiring teams looking to discover candidates based on verified skills, coding consistency, project work, and overall placement readiness rather than just test scores
+- Admins: College administrators or placement coordinators who verify student submissions to maintain platform credibility and manage the verification queue
+
+
+2. CURRENT FEATURES
+===================
+
+FULLY WORKING FEATURES:
+
+Authentication System:
+- Separate login and signup flows for students, recruiters, and admins
+- JWT-based authentication with role-based access control
+- Token storage in browser localStorage
+- Protected routes requiring authentication
+
+Student Features:
+- Comprehensive profile builder with personal details, education info, skills, social links
+- LinkedIn PDF import to auto-populate profile fields
+- Resume auto-fill using AI parsing to extract and populate profile data
+- Project management with CRUD operations and admin verification workflow
+- Certification tracking with upload capabilities and verification status
+- Event participation logging with verification tracking
+- Coding activity logging with manual entry support
+- LeetCode integration showing solved problems, difficulty breakdown, streak, heatmap, weekly trends
+- HackerRank profile linking
+- Skills radar chart for self-assessment across multiple dimensions
+- Readiness score calculation based on projects, coding consistency, certifications, events, skills
+- AI mentor suggestions providing personalized growth recommendations
+- Resume analyzer with Groq AI scoring, section feedback, keyword analysis
+- Mock interview system with adaptive MCQ questions, difficulty progression, rubric scoring
+- Interview history tracking with learning curves and performance summaries
+- Progress analytics dashboard with LeetCode statistics visualization
+- Readiness report with growth charts, score breakdown, predictive milestones
+- Public leaderboard with ranking, badges, and social sharing capabilities
+
+Recruiter Features:
+- Advanced candidate filtering by readiness score, skills, projects count, CGPA, college
+- Multi-parameter search combining filters simultaneously
+- Candidate card view showing key metrics, skills, badges, verification status
+- Side-by-side comparison of up to three candidates with growth curve visualization
+- Interview session timeline showing student mock interview performance
+- AI recruiter assistant providing candidate recommendations and insights
+- Student profile detail view with tabs for overview, academics, projects, certifications, coding activity
+- Save and manage candidate selections
+- Access to student readiness history and skill distributions
+
+Admin Features:
+- Verification queue dashboard showing pending submissions
+- Filtering by submission type including projects, certifications, events
+- Approve or reject functionality for student submissions
+- Statistics dashboard showing counts of pending, verified, rejected items
+- Student verification status updates reflected in real-time
+
+AI-Powered Features:
+- Resume parsing and analysis using Groq AI models
+- Automatic profile data extraction from resume PDFs
+- AI mentor coaching with personalized action plans
+- Adaptive mock interview question generation
+- Interview answer evaluation with rubric-based scoring
+- Recruiter assistant for candidate analysis and recommendations
+- Resume keyword gap analysis and formatting suggestions
+
+Data Visualization:
+- Readiness score history line charts
+- Skills radar charts for self-assessment
+- LeetCode activity heatmaps and calendars
+- Project skill distribution pie charts
+- Interview learning curve graphs
+- Weekly coding activity bar charts
+- Candidate comparison overlay charts
+
+
+PARTIALLY IMPLEMENTED FEATURES:
+
+LinkedIn PDF Import:
+- Currently has a module loading error with pdf-parse library
+- Intended to extract experience, education, skills from LinkedIn PDFs
+- Parser logic exists but runtime import fails
+
+GitHub Integration:
+- GitHub URL field exists in profile
+- No active data fetching from GitHub API
+- Only stores the profile URL link
+
+Certificate File Upload:
+- Certificate links can be stored
+- No actual file storage service integrated
+- Uses URL fields instead of file management
+
+
+3. USER FLOW
+============
+
+STUDENT USER FLOW:
+
+Initial Entry and Authentication:
+1. User visits landing page at root URL showing EvolvEd hero section and call-to-action buttons
+2. User clicks student login button and navigates to student login page
+3. New users click signup, provide name, email, password to create account
+4. System creates student record in MongoDB, generates JWT token
+5. Token and basic profile data stored in browser localStorage
+6. User redirected to student dashboard
+
+Profile Creation and Building:
+7. User navigates to profile page from dashboard navigation
+8. User fills personal details including name, date of birth, gender
+9. User enters academic information including college, branch, graduation year, CGPA
+10. User adds skills as comma-separated list
+11. User provides social links including LinkedIn, GitHub, portfolio, LeetCode, HackerRank
+12. User can upload LinkedIn PDF which attempts to auto-populate fields
+13. User can upload resume PDF which uses AI to parse and auto-fill all profile fields including skills, education, projects, certifications
+14. User saves profile which triggers readiness score recalculation
+15. Profile completion status badge updates based on filled fields
+
+Dashboard Activities:
+16. User views readiness score, streak days, verified assets count on dashboard cards
+17. User accesses AI mentor widget which provides personalized coaching suggestions
+18. User adds projects through modal dialog with title, description, GitHub link, tags
+19. User adds certifications with name, provider, issue date, certificate ID
+20. User logs coding activity manually with date, platform, minutes spent, problems solved
+21. User links LeetCode profile by entering username
+22. User clicks sync button to fetch latest LeetCode statistics
+23. System updates total solved, difficulty breakdown, streak, calendar data
+24. User adds events with name, date, location, outcome description
+25. All submissions enter pending verification status until admin approval
+
+Mock Interview Experience:
+26. User navigates to mock interview page
+27. User selects tech stack from options including Full-Stack, Data Science, AI, Cloud
+28. System creates interview session with selected role, level, focus areas
+29. User starts interview which generates first MCQ question from Groq AI
+30. User selects answer option and submits
+31. System evaluates answer using AI rubric scoring on clarity, technical accuracy, communication, relevance, confidence
+32. System adjusts difficulty for next question based on performance
+33. System generates learning curve graph point after each answer
+34. Process continues until maximum question count reached
+35. System generates final summary with overall score percentage
+36. User can view interview history showing past attempts with accuracy and summaries
+
+Progress Tracking:
+37. User navigates to progress page to view detailed LeetCode analytics
+38. Dashboard shows total problems solved, current streak, difficulty distribution
+39. Heatmap calendar displays daily submission activity
+40. Bar chart shows weekly submission trends
+41. Pie chart breaks down problems by difficulty level
+42. Top domains list shows strongest areas based on tag counts
+43. Recent sessions table lists latest submission activity
+
+Readiness Report:
+44. User navigates to readiness report page
+45. Dashboard displays current readiness score with percentile context
+46. Growth curve line chart shows readiness score history over time
+47. Pie chart breaks down score by components including projects, coding consistency, certifications
+48. Predictive milestones section suggests targets to reach next score levels
+49. AI-generated narrative provides personalized growth story referencing actual achievements
+
+Resume Analysis:
+50. User navigates to resume analyzer page
+51. User uploads resume PDF or pastes plain text
+52. System extracts text from PDF if uploaded
+53. System sends resume text to Groq AI for comprehensive analysis
+54. Results display overall score with section-by-section feedback
+55. Keyword analysis shows present and missing relevant terms
+56. Formatting warnings highlight ATS compatibility issues
+57. Actionable suggestions provide specific improvement recommendations
+58. User can download results or clear to analyze new resume
+
+Leaderboard and Social Sharing:
+59. User navigates to public leaderboard page
+60. System displays top 50 students ranked by readiness score
+61. User card highlights current student position even if outside top 50
+62. Podium section emphasizes top three performers
+63. User can share rank to social media using Web Share API
+64. Achievement badges displayed for top performers
+
+RECRUITER USER FLOW:
+
+Authentication and Dashboard Access:
+1. Recruiter visits landing page and clicks recruiter login button
+2. Recruiter logs in with email and password
+3. System validates credentials and generates JWT token
+4. Token stored in localStorage and recruiter redirected to dashboard
+
+Candidate Discovery:
+5. Dashboard loads all students sorted by readiness score descending
+6. Recruiter applies filters including readiness score ranges, minimum CGPA, skills
+7. Recruiter uses search box to filter by student name or college
+8. System updates candidate list dynamically as filters change
+9. Candidate cards display readiness score, projects count, certifications, streak, skills, badges
+10. Trending skills section shows most common skills for quick filter addition
+
+Candidate Evaluation:
+11. Recruiter selects up to three candidates using checkbox on cards
+12. Selected candidates appear in comparison section
+13. Comparison view shows side-by-side metrics and growth curve overlay chart
+14. Recruiter clicks view profile on any candidate card
+15. Profile view opens showing detailed tabs including overview, academics, projects, certifications, coding activity
+16. Charts display skill distribution and readiness history
+17. Contact information provided for direct outreach
+
+Interview Session Review:
+18. Dashboard displays interview session timeline feed
+19. Each session card shows student name, interview role, question count, timestamp
+20. Learning curve graph embedded in card shows performance progression
+21. Summary text provides interview outcome assessment
+
+AI Assistant Usage:
+22. Recruiter opens AI assistant panel in bottom-right corner
+23. Assistant displays context including total candidates, selected count, top candidate info
+24. Recruiter types question about candidate comparison or recommendations
+25. System sends context plus question to Groq AI
+26. AI response provides tailored insights and suggestions
+27. Fallback text appears if AI unavailable
+
+ADMIN USER FLOW:
+
+Authentication and Dashboard Access:
+1. Admin visits admin login page
+2. Admin authenticates with credentials
+3. System redirects to admin verification panel
+
+Verification Queue Management:
+4. Dashboard loads all pending verification items
+5. Tabs allow filtering by All, Pending, Certificates, Projects
+6. Each card shows submission type, student name, submission content, timestamp
+7. Status badges indicate pending, verified, or rejected state
+8. Admin clicks verify button to approve submission
+9. System updates student record subdocument status to verified
+10. Student readiness score recalculates with increased weight for verified item
+11. Admin can click reject button to deny submission with optional feedback
+12. Statistics cards update counts in real-time as verifications processed
+
+
+4. UI / UX SCREENS
+==================
+
+PUBLIC PAGES:
+
+Landing Page (Index.tsx):
+- Hero section with EvolvEd branding and value proposition
+- Call-to-action buttons for student and recruiter login
+- Brief description of platform capabilities
+- Responsive layout with gradient backgrounds
+
+404 Not Found Page (NotFound.tsx):
+- Clean error message for invalid routes
+- Navigation back to home page
+- Logs attempted route access to console
+
+STUDENT PAGES:
+
+Student Login (StudentLogin.tsx):
+- Email and password input fields
+- Login button triggering API authentication
+- Link to signup flow for new users
+- Error toast notifications for failed login
+- JWT token storage on success
+- Redirect to dashboard after authentication
+
+Student Dashboard (StudentDashboard.tsx):
+- Hero cards showing readiness score, streak days, verified projects count, verified certifications count
+- Growth trend sparkline charts
+- Skills radar chart with editing capability
+- AI Mentor widget with collapsible suggestions panel
+- CRUD modal dialogs for projects with title, description, GitHub link, tags input
+- CRUD modal dialogs for certifications with name, provider, issue date, certificate ID
+- CRUD modal dialogs for events with name, date, location, outcome
+- Coding logs table with manual entry modal
+- Coding profiles section with LeetCode and HackerRank username inputs
+- Sync button to fetch latest coding statistics
+- Embedded mock interview chatbot widget
+- Navigation cards to profile, progress, resume analyzer, mock interview pages
+- Logout button
+
+Student Profile (StudentProfile.tsx):
+- Resume auto-fill card with PDF upload button at top of page
+- LinkedIn PDF import card with upload button
+- Personal details section with first name, last name, date of birth, gender selector
+- Academic information section with college autocomplete, branch, year, graduation year, CGPA
+- Contact details section with phone, location
+- Social links section with portfolio, LinkedIn, GitHub URLs
+- Coding profiles section with LeetCode and HackerRank URLs
+- Headline and summary textarea fields
+- Skills input as comma-separated text
+- Avatar upload with image preview
+- Save profile button at bottom triggering full profile update
+- Success and error toast notifications
+- Profile completion status badge
+
+Progress Analytics (Progress.tsx):
+- Total problems solved card with large number display
+- Current streak card with flame icon
+- Difficulty breakdown pie chart showing easy, medium, hard distribution
+- Activity heatmap calendar with color-coded intensity
+- Weekly submissions bar chart
+- Top domains list with tag names and solved counts
+- Recent sessions table with date and activity details
+- Manual sync button to refresh LeetCode data
+
+Readiness Report (ReadinessReport.tsx):
+- Current readiness score hero card with percentile context
+- Growth curve line chart showing readiness history over time
+- Score breakdown pie chart by component including projects, coding, certifications, events, skills
+- Predictive milestones section with target scores and suggestions
+- AI-generated growth story narrative referencing actual achievements
+- Back to dashboard navigation button
+
+Resume Analyzer (ResumeAnalyzer.tsx):
+- Tab switcher for PDF upload versus paste text input
+- File upload area accepting PDF files
+- Large textarea for pasting resume text
+- Analyze resume button triggering AI processing
+- Loading state with spinner during analysis
+- Results section with overall score display
+- Section-by-section feedback cards
+- Strengths list highlighting positive aspects
+- Weaknesses list identifying improvement areas
+- Keywords section showing present and missing terms
+- Actionable suggestions list with specific recommendations
+- Download results button
+- Clear button to reset for new analysis
+
+Mock Interview (MockInterview.tsx):
+- Tech stack selection cards including Full-Stack, Data Science, AI, Cloud
+- Stack detail cards showing role, level, focus areas
+- Start interview button creating new session
+- Embedded MockInterviewChatbot component
+- Question display area with MCQ options
+- Answer submission interface
+- Real-time feedback after each answer
+- Learning curve graph updating after each turn
+- Final summary screen with overall score percentage
+- Interview history section showing past attempts
+- History cards display interview ID, role, question count, accuracy, timestamp, status, summary
+
+Leaderboard (Leaderboard.tsx):
+- Top three podium section with medals for first, second, third place
+- Your rank card highlighting logged-in student position
+- Share button using Web Share API or clipboard fallback
+- Leaderboard table showing rank, student name, readiness score, badges
+- Profile dialog opening on row click with overview, skills, achievements tabs
+- Public access without authentication requirement
+
+RECRUITER PAGES:
+
+Recruiter Login (RecruiterLogin.tsx):
+- Email and password authentication form
+- Login button with error handling
+- JWT token storage on success
+- Redirect to recruiter dashboard
+
+Recruiter Dashboard (RecruiterDashboard.tsx):
+- Header with logout button
+- Advanced filters panel with readiness score range sliders, skills multiselect, minimum projects, minimum certifications, CGPA threshold, college search
+- Student name search input
+- Trending skills quick-add chips
+- Candidate grid with cards showing student name, readiness score, projects count, certifications count, streak days, skills badges, highlight badges
+- Selection checkbox on each card limited to three candidates
+- Selected candidates section showing comparison charts
+- Growth curve overlay chart comparing selected candidates
+- Interview sessions timeline feed
+- Session cards showing student, role, question count, learning curve, summary, timestamp
+- AI Recruiter Assistant floating panel in bottom-right
+- Assistant shows context including candidate count and selected students
+- Chat input for recruiter questions
+- AI response area with streaming or complete answers
+- Clear selections button
+- View profile buttons navigating to detailed student view
+
+Student Profile View (StudentProfileView.tsx):
+- Accessed by recruiters viewing individual student details
+- Tabbed interface with Overview, Academics, Projects, Certifications, Coding Activity sections
+- Overview tab displays readiness score, streak, verified items count, skills list, headline, summary
+- Academics tab shows college, branch, graduation year, CGPA
+- Projects tab lists all projects with title, description, tags, GitHub link, verification status
+- Certifications tab displays all certifications with name, provider, issue date
+- Coding activity tab shows LeetCode statistics if synced
+- Skill distribution pie chart
+- Readiness history line chart
+- Badges section highlighting achievements
+- Contact section with email and social links
+- Back to dashboard navigation
+
+ADMIN PAGES:
+
+Admin Login (AdminLogin.tsx):
+- Simple authentication form for admin credentials
+- Login button with validation
+- Redirect to admin panel on success
+
+Admin Panel (AdminPanel.tsx):
+- Header with admin identification and logout
+- Statistics cards showing total pending, verified, rejected counts
+- Tab selector for All, Pending, Certificates, Projects views
+- Verification queue cards displaying submission type icon, student name, item content, submission date, status badge
+- Verify button on each card triggering approval
+- Reject button on each card with optional feedback input
+- Real-time updates as items verified or rejected
+- Empty state message when no pending items
+
+
+5. DATA SOURCES USED
+=====================
+
+RESUME UPLOAD (PDF):
+- Accepts PDF files up to 5MB via multer memory storage
+- Uses pdf-parse library to extract text from PDF buffer
+- Extracted text sent to Groq AI for parsing
+- AI extracts full name, email, phone, location, headline, summary, skills array, college, branch, graduation year, CGPA, LinkedIn URL, GitHub URL, portfolio URL, projects array with title, description, GitHub link, tags, certifications array with name, provider, issue date
+- Parsed data automatically updates student profile fields
+- Projects and certifications added to student subdocument arrays with pending verification status
+- Text extraction endpoint separate from auto-fill endpoint allowing flexible usage
+
+GITHUB INTEGRATION:
+- GitHub URL field exists in student profile
+- No active API integration currently implemented
+- Only stores GitHub profile URL as link
+- Resume parser can extract GitHub URLs from resume text
+- Project entries can include GitHub repository links
+- No automatic fetching of repository data, commit history, or contribution graphs
+- Future enhancement point for pulling repository metadata
+
+LINKEDIN HANDLING:
+- LinkedIn PDF export upload through dedicated endpoint
+- Uses cheerio library for HTML parsing from PDF text
+- linkedinParser utility extracts name, headline, summary, skills, experience, education
+- Parser looks for specific LinkedIn PDF section headers
+- Extracted data used to auto-populate student profile fields
+- Currently has module loading issue with pdf-parse import preventing runtime execution
+- Intended to merge skills arrays without duplicates
+- LinkedIn URL can be manually entered in profile form
+
+LEETCODE INTEGRATION:
+- LeetCode username stored in student codingProfiles subdocument
+- Direct integration with LeetCode GraphQL API at leetcode.com/graphql
+- Fetches user profile data including total problems solved, difficulty breakdown (easy, medium, hard), tag-based problem counts for domains, user calendar with streak and submission dates
+- Submission calendar parsed into heatmap data structure
+- Weekly submission counts calculated from calendar
+- Recent activity identified from last 7 days and 30 days
+- Top domains sorted by problem count
+- Best day identified with highest submission count
+- All statistics stored in student leetcodeStats subdocument
+- Manual sync button triggers API call and data refresh
+- Sync updates readiness score based on coding consistency
+
+HACKERRANK INTEGRATION:
+- HackerRank username stored in student codingProfiles subdocument
+- No active API integration currently implemented
+- Only stores profile URL link
+- Username extracted from profile URL if provided
+- Future enhancement point for pulling solved problems and badges
+
+CERTIFICATE UPLOAD:
+- Certificate entry includes name, provider, issue date, certificate ID fields
+- fileLink field intended for uploaded certificate files
+- No actual file storage service currently integrated such as AWS S3 or Cloudinary
+- Users can provide external link URLs to certificates
+- Verification workflow requires admin approval
+- Status tracking includes pending, verified, rejected states
+- Verified certifications contribute to readiness score calculation
+
+
+6. BACKEND APIs
+===============
+
+STUDENT ENDPOINTS:
+
+POST /api/students/signup
+Purpose: Create new student account
+Request: { name, email, password }
+Response: { message, token, student }
+
+POST /api/students/login
+Purpose: Authenticate existing student
+Request: { email, password }
+Response: { message, token, student }
+
+GET /api/students/profile
+Purpose: Get authenticated student profile
+Request: JWT in Authorization header
+Response: Full student document with all subdocuments
+
+PUT /api/students/profile
+Purpose: Update student profile information
+Request: JWT in header, body with any profile fields to update
+Response: { message, student }
+
+POST /api/students/profile/linkedin-import
+Purpose: Parse LinkedIn PDF and auto-populate profile
+Request: JWT in header, multipart form with linkedinPdf file
+Response: { message, profile }
+
+POST /api/students/projects
+Purpose: Add new project to student profile
+Request: JWT in header, { title, githubLink, description, tags }
+Response: { message, student }
+
+PUT /api/students/projects/:projectId
+Purpose: Update existing project
+Request: JWT in header, project fields to update
+Response: { message, student }
+
+DELETE /api/students/projects/:projectId
+Purpose: Delete project from profile
+Request: JWT in header, projectId in URL
+Response: { message, student }
+
+POST /api/students/coding-logs
+Purpose: Log coding activity manually
+Request: JWT in header, { date, platform, activity, minutesSpent, problemsSolved, notes }
+Response: { message, student }
+
+POST /api/students/certifications
+Purpose: Add certification to profile
+Request: JWT in header, { name, provider, fileLink, issuedDate, certificateId }
+Response: { message, student }
+
+PUT /api/students/certifications/:certId
+Purpose: Update existing certification
+Request: JWT in header, certification fields to update
+Response: { message, student }
+
+DELETE /api/students/certifications/:certId
+Purpose: Delete certification from profile
+Request: JWT in header, certId in URL
+Response: { message, student }
+
+POST /api/students/events
+Purpose: Add event participation to profile
+Request: JWT in header, { name, description, date, location, certificateLink, outcome }
+Response: { message, student }
+
+PUT /api/students/events/:eventId
+Purpose: Update existing event
+Request: JWT in header, event fields to update
+Response: { message, student }
+
+DELETE /api/students/events/:eventId
+Purpose: Delete event from profile
+Request: JWT in header, eventId in URL
+Response: { message, student }
+
+GET /api/students/mentor-suggestions
+Purpose: Get AI-generated coaching suggestions
+Request: JWT in header
+Response: { message, suggestions, studentContext }
+
+POST /api/students/analyze-resume
+Purpose: Analyze resume text with AI scoring
+Request: JWT in header, { text }
+Response: { message, analysis, score, sections, strengths, weaknesses, keywords, suggestions }
+
+POST /api/students/extract-resume-text
+Purpose: Extract text from uploaded resume PDF
+Request: JWT in header, multipart form with resume file
+Response: { message, text, pages }
+
+POST /api/students/parse-resume
+Purpose: Parse resume PDF and auto-fill profile using AI
+Request: JWT in header, multipart form with resume file
+Response: { message, parsedData, updatedFields, projectsAdded, certificationsAdded }
+
+GET /api/students/readiness
+Purpose: Get detailed readiness report
+Request: JWT in header
+Response: { message, report, currentScore, breakdown, history, trends, predictions }
+
+GET /api/students/leaderboard
+Purpose: Get public leaderboard rankings
+Request: Optional query parameter limit
+Response: Array of students with rank, name, readiness score, badges
+
+PUT /api/students/coding-profiles
+Purpose: Update LeetCode and HackerRank usernames
+Request: JWT in header, { leetcode, hackerrank }
+Response: { message, student }
+
+POST /api/students/coding-sync
+Purpose: Sync LeetCode statistics from API
+Request: JWT in header
+Response: { message, stats, readinessUpdate }
+
+POST /api/students/:id/update-leetcode
+Purpose: Update LeetCode stats for specific student
+Request: JWT in header (student or admin), student ID in URL
+Response: { message, stats }
+
+GET /api/students (Admin only)
+Purpose: List all students for admin management
+Request: JWT in header with admin role
+Response: Array of all student documents
+
+GET /api/students/:id (Admin only)
+Purpose: Get specific student by ID
+Request: JWT in header with admin role, student ID in URL
+Response: Full student document
+
+DELETE /api/students/:id (Admin only)
+Purpose: Delete student account
+Request: JWT in header with admin role, student ID in URL
+Response: { message }
+
+RECRUITER ENDPOINTS:
+
+POST /api/recruiters/signup
+Purpose: Create new recruiter account
+Request: { name, email, password, company, role }
+Response: { message, token, recruiter }
+
+POST /api/recruiters/login
+Purpose: Authenticate existing recruiter
+Request: { email, password }
+Response: { message, token, recruiter }
+
+GET /api/recruiters/profile
+Purpose: Get authenticated recruiter profile
+Request: JWT in Authorization header
+Response: Recruiter document
+
+PUT /api/recruiters/profile
+Purpose: Update recruiter preferences
+Request: JWT in header, preference fields to update
+Response: { message, recruiter }
+
+GET /api/recruiters/students
+Purpose: List students with optional filters
+Request: JWT in header, optional query params for minReadiness, maxReadiness, skills, minCgpa, college, search
+Response: Array of student documents matching filters
+
+GET /api/recruiters/students/:studentId
+Purpose: Get detailed student profile
+Request: JWT in header, studentId in URL
+Response: Full student document
+
+POST /api/recruiters/save-candidate
+Purpose: Save student to recruiter saved list
+Request: JWT in header, { studentId }
+Response: { message, recruiter }
+
+GET /api/recruiters/saved
+Purpose: Get list of saved candidates
+Request: JWT in header
+Response: Array of saved student documents
+
+DELETE /api/recruiters/remove-candidate/:studentId
+Purpose: Remove student from saved list
+Request: JWT in header, studentId in URL
+Response: { message, recruiter }
+
+POST /api/recruiters/ai-assistant
+Purpose: Get AI recommendations and insights
+Request: JWT in header, { message, context, selectedStudents }
+Response: { message, aiResponse, suggestion }
+
+ADMIN ENDPOINTS:
+
+POST /api/admin/signup
+Purpose: Create new admin account
+Request: { name, email, password }
+Response: { message, token, admin }
+
+POST /api/admin/login
+Purpose: Authenticate existing admin
+Request: { email, password }
+Response: { message, token, admin }
+
+GET /api/admin/profile
+Purpose: Get authenticated admin profile
+Request: JWT in Authorization header
+Response: Admin document
+
+GET /api/admin/pending
+Purpose: Get all pending verification items
+Request: JWT in header
+Response: Array of pending items with student info and submission details
+
+POST /api/admin/verify
+Purpose: Verify or reject student submission
+Request: JWT in header, { studentId, itemType, itemId, status, feedback }
+Response: { message, updatedStudent }
+
+GET /api/admin/stats
+Purpose: Get verification statistics
+Request: JWT in header
+Response: { pending, verified, rejected, total }
+
+GET /api/admin/students
+Purpose: List all students for admin oversight
+Request: JWT in header
+Response: Array of all student documents
+
+INTERVIEW ENDPOINTS:
+
+POST /api/interviews/session
+Purpose: Create new mock interview session
+Request: JWT in header (student or recruiter), { role, roleLevel, focusAreas, difficulty, mode, maxQuestions }
+Response: { message, session }
+
+GET /api/interviews/student/me/active
+Purpose: Get active interview session for student
+Request: JWT in header with student role
+Response: Active session document or null
+
+GET /api/interviews/student/me/history
+Purpose: Get interview history for student
+Request: JWT in header with student role
+Response: Array of completed session documents
+
+GET /api/interviews/recruiter/:recruiterId/sessions
+Purpose: Get interview sessions for specific recruiter
+Request: JWT in header, recruiterId in URL
+Response: Array of session documents
+
+POST /api/interviews/:sessionId/next-question
+Purpose: Generate next interview question
+Request: JWT in header, sessionId in URL
+Response: { message, question, options, difficulty }
+
+POST /api/interviews/:sessionId/complete
+Purpose: Mark interview session as complete
+Request: JWT in header, sessionId in URL
+Response: { message, session, summary }
+
+POST /api/interviews/:sessionId/answer
+Purpose: Submit answer to interview question
+Request: JWT in header, sessionId in URL, { answer, selectedOptionKey }
+Response: { message, rubric, isCorrect, nextQuestion }
+
+GET /api/interviews/:sessionId
+Purpose: Get interview session summary
+Request: JWT in header, sessionId in URL
+Response: Complete session document with all turns and scoring
+
+
+7. AI / PARSING LOGIC
+======================
+
+RESUME PARSING APPROACH:
+
+Text Extraction:
+- Uses pdf-parse npm package to extract text from PDF buffer
+- Handles page-by-page parsing concatenating all text content
+- Strips special characters and normalizes whitespace
+- Checks for empty PDFs and image-based PDFs with no extractable text
+
+AI Parsing with Groq:
+- Sends extracted text to Groq llama-3.3-70b-versatile model
+- Structured prompt requests JSON response with specific fields
+- Fields include fullName, email, phone, location, headline, summary, skills array, college, branch, graduationYear, cgpa, linkedinUrl, githubUrl, portfolioUrl, projects array, certifications array
+- Prompt instructs AI to use null for missing fields and normalize URLs
+- Temperature set to 0.3 for more deterministic extraction
+- Max tokens 2000 to allow comprehensive parsing
+- Response parsing includes JSON extraction from markdown code blocks if AI wraps response
+- Error handling for malformed JSON responses
+
+Data Transformation:
+- Full name split into firstName and lastName
+- CGPA normalized to 10-point scale if percentage provided
+- URLs validated and normalized to full format
+- Skills deduplicated and trimmed
+- Projects transformed into subdocument schema with title, description, githubLink, tags, status set to pending
+- Certifications transformed into subdocument schema with name, provider, issuedDate, status set to pending
+
+Profile Update Logic:
+- Existing profile fields updated only if parsed data contains non-null values
+- Skills array replaces existing skills completely
+- Projects and certifications appended to existing arrays rather than replacing
+- Student document saved with all updates in single database operation
+- Readiness score automatically recalculated after save due to model hooks
+
+GITHUB DATA PROCESSING:
+
+Current State:
+- No active GitHub API integration implemented
+- GitHub URL stored as string field in profile
+- Resume parser can extract GitHub URLs from resume text
+- Project entries include optional GitHub repository link field
+
+Intended Approach (Not Yet Implemented):
+- Would use GitHub REST API or GraphQL API
+- Would require GitHub personal access token for authentication
+- Would fetch repository list for user
+- Would extract repository names, descriptions, languages, star counts, fork counts
+- Would analyze commit history for contribution frequency
+- Would identify primary programming languages from repositories
+- Would map repository topics to skills
+- Would calculate contribution consistency score
+- Would update readiness score based on GitHub activity
+
+LINKEDIN HANDLING:
+
+PDF Structure:
+- LinkedIn PDF exports contain HTML-like structure with specific div classes
+- Section headers follow predictable patterns such as About, Experience, Education, Skills
+- cheerio library used to parse HTML structure from PDF text
+- Selector patterns defined for name extraction, headline, summary, skills list, experience entries, education entries
+
+Parsing Logic:
+- Searches for LinkedIn-specific CSS selectors and class names
+- Extracts name from h1 tags with specific classes
+- Finds headline from profile top card sections
+- Locates skills section and extracts individual skill names
+- Parses experience entries with company, role, date range
+- Parses education entries with institution, degree, field, dates
+- Handles multiple date formats and text variations
+- Truncates long text fields to prevent database bloat
+- Cleans line breaks and normalizes whitespace
+
+Current Issue:
+- Module loading error with pdf-parse library import
+- Error indicates package subpath not exported in package.json
+- Likely version compatibility issue or ESM vs CommonJS mismatch
+- Parsing logic exists but cannot execute at runtime
+- Workaround requires updating pdf-parse version or import method
+
+MOCK INTERVIEW AI LOGIC:
+
+Question Generation:
+- Uses Groq llama-3.1-8b-instant model for real-time question generation
+- Prompt includes role (Full-Stack Developer, Data Scientist, AI Engineer, Cloud Architect), level (Junior, Mid, Senior), current difficulty (easy, medium, hard, expert), focus areas (specific technologies or domains), question number in sequence
+- Prompt requests MCQ format with single best answer and three distractors
+- Temperature set to 0.7 for creative varied questions
+- Max tokens 800 to allow detailed question and options
+- Response parsed as JSON with question text, options array with keys A B C D, correct answer key
+
+Difficulty Progression:
+- Starts at medium difficulty for first question
+- After each answer, evaluates rubric scores for clarity, technical accuracy, communication, relevance, confidence
+- If overall rubric score above 7, increases difficulty one level
+- If overall rubric score below 5, decreases difficulty one level
+- Difficulty progression stored in session meta for tracking
+- Prevents difficulty from dropping below easy or rising above expert
+
+Answer Evaluation:
+- Submits selected answer along with all options and question context to Groq
+- Prompt includes rubric categories and scoring guidelines
+- AI evaluates answer quality on scale of 0 to 10 for each rubric dimension
+- Response parsed as JSON with rubric object and boolean isCorrect flag
+- Rubric scores stored in turn subdocument
+- Overall score calculated as average of rubric dimensions
+- Learning curve graph point added after each evaluation
+
+Summary Generation:
+- After final question or session completion, sends all turns to Groq
+- Prompt requests comprehensive summary analyzing performance trends, strengths, weaknesses, consistency
+- Includes score percentage calculation from correct answer count
+- Summary text stored in session document
+- Summary displayed in interview history and recruiter dashboard
+
+AI MENTOR SUGGESTIONS:
+
+Context Building:
+- Aggregates student profile including projects with titles and tags, certifications with names and providers, events with outcomes, coding logs with platform and problems solved, skill radar scores, readiness score and breakdown, readiness history, streak days
+- Truncates long text fields to 280 characters to keep prompt concise
+- Formats dates consistently as YYYY-MM-DD
+- Includes only verified items or all items depending on context needs
+
+Prompt Structure:
+- Sends student context as JSON object to Groq
+- Requests response in specific JSON format with sections for overview, strengths array, opportunities array, actionPlan array
+- Each actionPlan item includes title, description, priority (high, medium, low), estimatedImpact
+- Temperature set to 0.6 for balanced creativity and consistency
+- Model selection uses llama-3.1-8b-instant for fast response
+
+Response Parsing:
+- Extracts JSON from AI response handling potential markdown code block wrapping
+- Validates presence of required sections
+- Provides fallback suggestions if AI unavailable or response malformed
+- Caches suggestions in session storage to avoid repeated API calls for same student context
+
+Personalization:
+- References specific student projects and certifications by name in suggestions
+- Tailors recommendations based on readiness score level
+- Suggests focus areas based on skill radar weak spots
+- Recommends platforms based on coding log history gaps
+- Prioritizes actions by estimated impact on readiness score
+
+RECRUITER AI ASSISTANT:
+
+Context Provision:
+- Includes total candidate count in current filtered list
+- Provides selected candidate IDs and basic info like name and readiness score
+- Identifies top candidate by readiness score
+- Includes recruiter question or prompt
+- Formats all context as structured object
+
+AI Processing:
+- Sends context plus recruiter message to Groq llama-3.1-8b-instant
+- Prompt instructs AI to act as recruiting assistant providing insights and recommendations
+- Temperature set to 0.5 for more factual responses
+- Max tokens 1000 to allow detailed explanations
+
+Response Handling:
+- Displays AI response directly in assistant panel
+- No JSON parsing required as expecting natural language response
+- Handles errors gracefully with fallback text
+- Suggests alternative actions if AI cannot provide specific recommendation
+
+
+8. DATABASE STRUCTURE
+=====================
+
+DATABASE TECHNOLOGY:
+- MongoDB Atlas cloud-hosted cluster
+- Mongoose ODM for schema definition and validation
+- Connection string stored in environment variable MONGODB_URI
+
+MAIN ENTITIES AND FIELDS:
+
+Student Collection:
+
+Core Profile Fields:
+- _id: ObjectId
+- name: String required
+- email: String required unique lowercase
+- password: String required bcrypt hashed
+- firstName: String
+- lastName: String
+- avatarUrl: String
+- dateOfBirth: Date
+- gender: String
+- college: String
+- branch: String
+- year: String
+- graduationYear: Number
+- cgpa: Number min 0 max 10
+- phone: String
+- location: String
+- portfolioUrl: String
+- linkedinUrl: String
+- githubUrl: String
+- resumeUrl: String
+- leetcodeUrl: String
+- hackerrankUrl: String
+- headline: String
+- summary: String
+- skills: Array of Strings
+- role: String default student
+- isProfileComplete: Boolean default false
+
+Subdocument Arrays:
+
+projects: Array of projectSchema
+- title: String required
+- githubLink: String
+- description: String
+- tags: Array of Strings
+- status: String enum pending, verified, rejected default pending
+- verified: Boolean default false
+- verifiedBy: ObjectId ref Admin
+- feedback: String
+- submittedAt: Date default now
+
+codingLogs: Array of codingLogSchema
+- date: Date default now
+- platform: String
+- activity: String
+- minutesSpent: Number default 0
+- problemsSolved: Number default 0
+- notes: String
+
+certifications: Array of certificationSchema
+- name: String required
+- provider: String
+- fileLink: String
+- issuedDate: Date
+- status: String enum pending, verified, rejected default pending
+- certificateId: String
+- verifiedBy: ObjectId ref Admin
+- submittedAt: Date default now
+
+events: Array of eventSchema
+- name: String required
+- description: String
+- date: Date
+- location: String
+- certificateLink: String
+- outcome: String
+- pointsAwarded: Number default 0
+- status: String enum pending, verified, rejected default pending
+- verifiedBy: ObjectId ref Admin
+
+Nested Objects:
+
+skillRadar: Map of String to Number
+- Keys represent skill dimensions like ProblemSolving, Coding, Communication
+- Values represent self-assessed proficiency 0 to 100
+
+codingProfiles: Nested Schema
+- leetcode: String
+- hackerrank: String
+- lastSyncedAt: Date
+
+leetcodeStats: Nested Schema
+- username: String
+- totalSolved: Number default 0
+- easy: Number default 0
+- medium: Number default 0
+- hard: Number default 0
+- streak: Number default 0
+- calendar: Map of String to Number with date keys and submission count values
+- topDomains: Array of { tag: String, count: Number }
+- activeDays: Number default 0
+- recentActivity: { last7Days: Number, last30Days: Number }
+- bestDay: { date: String, count: Number }
+- calendarRange: { start: String, end: String }
+- fetchedAt: Date
+
+Other Fields:
+- badges: Array of Strings
+- readinessScore: Number default 0
+- readinessHistory: Array of { score: Number, calculatedAt: Date }
+- streakDays: Number default 0
+- lastActiveAt: Date
+- savedForLater: Array of ObjectId ref Recruiter
+- timestamps: createdAt and updatedAt auto-generated
+
+Recruiter Collection:
+
+Core Fields:
+- _id: ObjectId
+- name: String required
+- email: String required unique lowercase
+- password: String required bcrypt hashed
+- company: String
+- role: String
+- savedCandidates: Array of ObjectId ref Student
+- timestamps: createdAt and updatedAt
+
+Admin Collection:
+
+Core Fields:
+- _id: ObjectId
+- name: String required
+- email: String required unique lowercase
+- password: String required bcrypt hashed
+- role: String default admin
+- timestamps: createdAt and updatedAt
+
+Verification Queue:
+- pendingVerifications: Array of pendingVerificationSchema
+  - student: ObjectId ref Student
+  - itemType: String enum project, certification, event
+  - itemTitle: String
+  - itemDescription: String
+  - itemId: ObjectId
+  - submittedAt: Date default now
+  - status: String enum pending, verified, rejected default pending
+
+InterviewSession Collection:
+
+Core Fields:
+- _id: ObjectId
+- studentId: ObjectId ref Student required
+- recruiterId: ObjectId ref Recruiter
+- role: String required (Full-Stack Developer, Data Scientist, AI Engineer, Cloud Architect)
+- roleLevel: String required (Junior, Mid-Level, Senior)
+- mode: String enum test, practice default test
+- focusAreas: Array of Strings
+- currentDifficulty: String enum easy, medium, hard, expert default medium
+- maxQuestions: Number default 10
+- status: String enum active, completed, abandoned default active
+- scorePercent: Number
+- summary: String
+- timestamps: createdAt and updatedAt
+
+Subdocuments:
+
+turns: Array of Turn Schemas
+- questionNumber: Number
+- question: String
+- options: Array of { key: String, text: String, isCorrect: Boolean }
+- answer: String
+- selectedOptionKey: String
+- isCorrect: Boolean
+- difficulty: String
+- rubric: { clarity: Number, technicalAccuracy: Number, communication: Number, relevance: Number, confidence: Number }
+- askedAt: Date
+- answeredAt: Date
+
+learningCurve: Array of Graph Point Schemas
+- turnNumber: Number
+- score: Number 0 to 10
+- timestamp: Date
+
+meta: Nested Object
+- totalQuestions: Number
+- totalAnswers: Number
+- correctAnswers: Number
+- maxQuestions: Number
+
+RELATIONSHIPS:
+
+Student to Admin:
+- Projects, certifications, events reference verifying admin via verifiedBy field
+- One-to-many relationship with admin as verifier
+
+Student to Recruiter:
+- Recruiter savedCandidates array contains student ObjectIds
+- Many-to-many relationship allowing multiple recruiters to save same student
+
+Student to InterviewSession:
+- InterviewSession references student via studentId field
+- One-to-many relationship with student having multiple interview sessions
+
+Recruiter to InterviewSession:
+- InterviewSession optionally references recruiter via recruiterId field
+- One-to-many relationship allowing recruiter to view associated interview sessions
+
+Admin to Student Submissions:
+- Admin pendingVerifications array tracks items needing verification
+- Each verification item links back to student document
+- Many-to-many relationship through verification queue
+
+
+9. CURRENT LIMITATIONS
+=======================
+
+MISSING FEATURES:
+
+GitHub API Integration:
+- No automatic fetching of repository data
+- GitHub URL stored but not used for data retrieval
+- Cannot pull commit history or contribution graphs
+- Missing repository language analysis
+- No automated skill mapping from GitHub projects
+
+HackerRank API Integration:
+- No connection to HackerRank platform
+- Profile URL stored but not validated
+- Cannot fetch solved problems or badges
+- Missing skill certifications from HackerRank
+
+File Storage Service:
+- No integration with cloud storage like AWS S3 or Cloudinary
+- Certificate files cannot be uploaded and stored
+- Resume files not persisted after parsing
+- Avatar images stored as base64 data URLs causing database bloat
+- No file size optimization or compression
+
+Email Notifications:
+- No email system for verification status updates
+- Students not notified when submissions approved or rejected
+- No email verification for new account signup
+- Missing password reset via email functionality
+
+Real-time Updates:
+- No WebSocket or Server-Sent Events implementation
+- Dashboard data requires manual refresh
+- Verification updates not pushed to student clients in real-time
+- Leaderboard positions not updated live
+
+Advanced Analytics:
+- No machine learning predictions for placement success
+- Missing skill gap analysis against job market trends
+- No personalized course recommendations
+- Limited trend analysis in readiness history
+
+Social Features:
+- No peer comparison or study groups
+- Missing discussion forums or Q&A sections
+- No mentorship matching system
+- Cannot follow or connect with other students
+
+Mobile Application:
+- Web-only platform with no native mobile apps
+- Responsive design present but limited mobile-specific features
+- No offline capability or PWA implementation
+
+KNOWN BUGS:
+
+LinkedIn PDF Import Module Error:
+- pdf-parse package subpath import fails at runtime
+- Error indicates ESM vs CommonJS compatibility issue
+- Parser logic exists but cannot execute
+- Temporary workaround requires manual profile entry
+- Affects LinkedIn PDF import feature entirely
+
+Resume Auto-fill CGPA Conversion:
+- AI sometimes fails to convert percentage to 10-point scale
+- Manual review needed for CGPA field after parsing
+- Inconsistent handling of different GPA scales
+
+Skills Deduplication:
+- Skills array can contain duplicates if added from multiple sources
+- Case-sensitive comparison causes "React" and "react" to coexist
+- Trimming sometimes fails on special whitespace characters
+
+Date Format Inconsistencies:
+- Frontend date inputs use YYYY-MM-DD format
+- Some API responses return ISO date strings
+- Timezone handling inconsistent between client and server
+- Display formatting varies across components
+
+LeetCode Sync Rate Limiting:
+- LeetCode API has undocumented rate limits
+- Multiple rapid sync attempts can fail
+- No retry logic or exponential backoff implemented
+- Users not informed about sync cooldown periods
+
+Mock Interview Session Cleanup:
+- Abandoned sessions remain in active status indefinitely
+- No automatic cleanup of incomplete sessions after timeout
+- Session list can accumulate stale entries
+
+SCALABILITY CONSTRAINTS:
+
+Database Query Performance:
+- No indexing on frequently queried fields like readinessScore
+- Leaderboard query fetches all students before sorting
+- Recruiter candidate list loads full student documents
+- Missing pagination on large result sets
+
+AI API Rate Limits:
+- Groq API has usage limits per minute and per day
+- Multiple concurrent users can exhaust quota
+- No queueing system for AI requests
+- Failed requests not cached or retried intelligently
+
+Memory Usage:
+- PDF parsing loads entire file into memory buffer
+- No streaming or chunked processing for large files
+- Multiple file uploads simultaneously can cause memory spikes
+- Base64 avatar encoding increases payload size significantly
+
+Concurrent Verification:
+- Admin verification queue not protected against race conditions
+- Multiple admins can verify same item simultaneously
+- No optimistic locking or version control on student documents
+
+Session Management:
+- JWT tokens stored in localStorage vulnerable to XSS
+- No token refresh mechanism forcing re-login after expiration
+- No session invalidation on logout from multiple devices
+
+LEGAL AND COMPLIANCE CONSTRAINTS:
+
+Data Privacy:
+- No explicit GDPR compliance measures
+- Missing data deletion and export functionality
+- No consent management for data processing
+- Student data accessible to multiple recruiters without explicit permission
+
+Terms of Service:
+- No terms and conditions acceptance flow
+- Missing privacy policy and user agreements
+- No age verification for student signup
+
+API Terms Compliance:
+- LeetCode API usage may violate terms of service
+- No official API key or partnership agreement
+- Scraping public data without explicit permission
+- Potential copyright issues with resume parsing
+
+Intellectual Property:
+- Student project submissions may contain copyrighted code
+- No license agreement for submitted content
+- Platform ownership of student data unclear
+
+Security Vulnerabilities:
+- Passwords hashed but no salt rotation policy
+- No multi-factor authentication option
+- API endpoints lack comprehensive input sanitization
+- No CSRF protection on state-changing requests
+
+
+10. ASSUMPTIONS MADE
+====================
+
+USER INPUT ASSUMPTIONS:
+
+Resume Format:
+- Assumes resume PDFs contain extractable text
+- Assumes standard section headers like Education, Experience, Skills
+- Assumes single-page or multi-page text-based PDFs
+- Assumes English language content for AI parsing
+- Assumes consistent date formats within resume
+- Assumes CGPA or percentage clearly labeled
+
+LinkedIn PDF Export:
+- Assumes user downloads profile via LinkedIn Export feature
+- Assumes standard LinkedIn PDF structure with specific HTML classes
+- Assumes PDF contains all profile sections in expected order
+- Assumes text encoding compatible with cheerio parser
+
+LeetCode Profile:
+- Assumes username publicly accessible without authentication
+- Assumes profile privacy settings allow data retrieval
+- Assumes consistent GraphQL API schema from LeetCode
+- Assumes submission calendar data available for current year
+
+Student Behavior:
+- Assumes students will manually sync LeetCode data periodically
+- Assumes students will request admin verification for submissions
+- Assumes students will provide accurate self-assessment in skill radar
+- Assumes students will maintain consistent coding practice habits
+
+Recruiter Filtering:
+- Assumes readiness score is primary candidate selection metric
+- Assumes recruiters prefer verified submissions over unverified
+- Assumes skill names match recruiter search terms exactly
+- Assumes recruiter evaluates multiple candidates before contacting
+
+Admin Workflow:
+- Assumes admins will regularly check verification queue
+- Assumes admins can validate certificates and projects accurately
+- Assumes single admin organization rather than multi-institution
+- Assumes admins provide feedback on rejected submissions
+
+FORMAT ASSUMPTIONS:
+
+Date Fields:
+- Assumes dates provided in YYYY-MM-DD or ISO 8601 format
+- Assumes date pickers enforce valid date selection
+- Assumes timezone irrelevant for education and event dates
+
+URL Fields:
+- Assumes URLs include http or https protocol
+- Assumes LinkedIn URLs follow linkedin.com/in/username pattern
+- Assumes GitHub URLs follow github.com/username pattern
+- Assumes LeetCode URLs follow leetcode.com/username or leetcode.com/u/username pattern
+
+CGPA and Academic Data:
+- Assumes CGPA on 10-point scale unless explicitly percentage
+- Assumes graduation year is four-digit year in range 2000 to 2030
+- Assumes branch names use common engineering abbreviations
+- Assumes college names provided in full or recognizable abbreviation
+
+Skills Input:
+- Assumes skills entered as comma-separated list
+- Assumes skill names use standard technology naming conventions
+- Assumes no special characters in skill names beyond hyphens and dots
+- Assumes case-insensitive skill matching for searches
+
+PERMISSION ASSUMPTIONS:
+
+Authentication:
+- Assumes JWT tokens remain valid for duration specified in JWT_EXPIRES_IN environment variable
+- Assumes users will not share login credentials
+- Assumes role field in token claims is authoritative for access control
+- Assumes student, recruiter, admin roles are mutually exclusive
+
+Data Access:
+- Assumes all students agree to profile visibility by recruiters
+- Assumes public leaderboard acceptable without explicit consent
+- Assumes recruiter company affiliation verified during signup
+- Assumes admin verification authority extends to all students
+
+API Usage:
+- Assumes LeetCode public API usage acceptable for educational platform
+- Assumes Groq AI API usage within free tier limits for MVP
+- Assumes no copyright violation in resume text extraction
+- Assumes profile data stored in US-based MongoDB Atlas cluster compliant with regulations
+
+TECHNICAL ASSUMPTIONS:
+
+Browser Compatibility:
+- Assumes modern browsers with ES6 support
+- Assumes JavaScript enabled in browser
+- Assumes localStorage available and not disabled
+- Assumes Web Share API available or graceful degradation to clipboard
+
+Network Conditions:
+- Assumes stable internet connection for API calls
+- Assumes file uploads complete without interruption
+- Assumes AI API responses return within reasonable timeout
+- Assumes WebSocket not required for real-time features
+
+Deployment Environment:
+- Assumes single server deployment sufficient for MVP
+- Assumes MongoDB Atlas handles connection pooling
+- Assumes Vite dev server adequate for local development
+- Assumes environment variables properly set in production
+
+Error Handling:
+- Assumes toast notifications sufficient for user error feedback
+- Assumes console logging adequate for debugging
+- Assumes graceful degradation when AI features unavailable
+- Assumes frontend validation prevents most invalid API requests
+
+
+11. DEMO READINESS
+==================
+
+WHAT WORKS WELL FOR LIVE DEMO:
+
+Student Registration and Profile Building:
+- Smooth signup flow with immediate account creation
+- Profile form fields clearly labeled and easy to fill
+- Resume auto-fill feature demonstrates AI capability impressively
+- Skills, education, and personal details save without issues
+- Avatar upload provides instant visual feedback
+
+Dashboard Experience:
+- Readiness score display clear and prominently featured
+- Cards show verified projects and certifications counts effectively
+- Skills radar provides interactive visual engagement
+- AI Mentor suggestions generate within seconds with actionable advice
+- CRUD modals for projects and certifications intuitive
+
+LeetCode Integration:
+- Sync button fetches real data if username valid
+- Progress analytics page shows rich visualizations immediately
+- Heatmap calendar and charts impressive for visual demo
+- Statistics update in real-time after sync completes
+
+Mock Interview System:
+- Question generation fast enough for real-time demo flow
+- MCQ format easy to understand and interact with
+- Learning curve graph updates smoothly after each answer
+- Final summary provides satisfying conclusion to demo session
+- Interview history shows past attempts clearly
+
+Resume Analyzer:
+- PDF upload or text paste both work reliably
+- AI analysis completes in 5 to 10 seconds
+- Results presentation clear with sections, strengths, weaknesses
+- Actionable suggestions specific and helpful
+- Overall score provides quick assessment metric
+
+Recruiter Dashboard:
+- Candidate filtering responds instantly to parameter changes
+- Candidate cards display key information at a glance
+- Side-by-side comparison with overlay charts visually appealing
+- AI assistant responds to questions with relevant suggestions
+- Student profile view provides comprehensive candidate overview
+
+Leaderboard:
+- Public leaderboard loads quickly without authentication
+- Podium section highlights top performers effectively
+- Rank sharing feature works on compatible devices
+- Your rank card personalizes experience for logged-in students
+
+Readiness Report:
+- Growth curve chart shows clear upward trend for active users
+- Score breakdown pie chart intuitive and colorful
+- Predictive milestones provide forward-looking engagement
+- AI growth story narrative ties together student achievements
+
+WHAT SHOULD BE AVOIDED DURING DEMO:
+
+LinkedIn PDF Import:
+- Feature currently broken due to module loading error
+- Attempting to upload LinkedIn PDF will result in 500 error
+- Recommend skipping this feature entirely during demo
+- Use manual profile entry or resume auto-fill instead
+
+Invalid LeetCode Usernames:
+- Entering non-existent username causes sync to fail with vague error
+- LeetCode API returns 404 but error message not user-friendly
+- Pre-verify usernames before demo or use known valid accounts
+- Fallback to manual coding log entry if sync fails
+
+Multiple Rapid Syncs:
+- Clicking LeetCode sync button repeatedly can trigger rate limits
+- API may return 429 error or timeout
+- Wait at least 30 seconds between sync attempts during demo
+- Demo user should have data already synced before presentation
+
+Empty Profile Mock Interview:
+- Starting mock interview with blank profile reduces AI question quality
+- Questions become generic without context from skills and projects
+- Ensure demo account has skills and projects populated beforehand
+- Pre-create interview session for smoother demo flow
+
+Large Resume Files:
+- Uploading multi-megabyte PDF files causes noticeable processing delay
+- File upload progress indicator not implemented
+- Stick to single-page or two-page resume PDFs for demo
+- Consider using paste text option for faster response
+
+Admin Verification Race Conditions:
+- If multiple people access admin panel simultaneously, verification conflicts possible
+- Demo with single admin login to avoid duplicate verifications
+- Refresh verification queue before demonstrating admin workflow
+
+Groq API Quota Exhaustion:
+- Heavy demo usage throughout day can exhaust daily API limits
+- AI features will fail with generic error messages
+- Monitor API usage dashboard before important demos
+- Have backup demo account with pre-generated AI results if quota low
+
+Recruiter Empty Candidate List:
+- Recruiter dashboard requires student accounts with profiles to be useful
+- Fresh database with no students shows empty state
+- Seed demo data before recruiter demo using SEED_DEMO_DATA environment variable
+- Ensure at least 10 to 15 student profiles exist for meaningful filtering
+
+Mock Interview Mid-Session Refresh:
+- Refreshing browser during active interview session may lose progress
+- Session recovery not implemented if user navigates away
+- Complete entire interview in single sitting during demo
+- Pre-complete an interview for history demonstration
+
+Leaderboard with Single Student:
+- Leaderboard ranking meaningless with only one or two students
+- Podium section requires at least three students for visual impact
+- Seed sufficient demo accounts to create competitive leaderboard
+- Aim for 20 plus students with varied readiness scores
+
+AI Response Latency:
+- Groq API can take 5 to 15 seconds for complex prompts
+- No loading skeleton or progress indicator for AI responses
+- Set expectations with audience that AI processing takes moment
+- Consider pre-generating some AI results and caching for demo
+
+Network Connectivity Issues:
+- All features require stable internet for API calls
+- No offline mode or cached data fallback
+- Test demo environment network before presentation
+- Have mobile hotspot backup if venue WiFi unreliable
+
+
+END OF DOCUMENTATION

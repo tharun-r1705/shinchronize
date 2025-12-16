@@ -1,10 +1,30 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { studentApi } from "@/lib/api";
+import { studentApi, platformApi, LeetCodeStats, GitHubStats } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Link2, RefreshCw, CheckCircle, XCircle, LogOut } from "lucide-react";
+import { 
+  RefreshCw, 
+  CheckCircle, 
+  XCircle, 
+  LogOut, 
+  Code2, 
+  Github, 
+  ExternalLink,
+  Star,
+  GitFork,
+  Calendar,
+  Flame,
+  Trophy,
+  TrendingUp,
+  Users,
+  GitPullRequest,
+  CircleDot,
+  FolderGit2
+} from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -21,34 +41,46 @@ import {
 } from "recharts";
 
 const PIE_COLORS = ["#34d399", "#22c55e", "#0ea5e9"];
+const LANGUAGE_COLORS = [
+  "#3178c6", "#f1e05a", "#e34c26", "#563d7c", "#4F5D95", 
+  "#89e051", "#b07219", "#00ADD8", "#DA5B0B", "#178600"
+];
 
 const extractLeetCodeUsername = (rawValue?: string | null) => {
   if (!rawValue) return "";
   const trimmed = String(rawValue).trim();
   if (!trimmed) return "";
-
   if (!trimmed.toLowerCase().includes("leetcode.com")) {
     return trimmed.replace(/[^a-zA-Z0-9_-]/g, "");
   }
-
   const candidate = trimmed.match(/^https?:\/\//)
     ? trimmed
     : `https://${trimmed.replace(/^\/+/, "")}`;
-
   try {
     const url = new URL(candidate);
-    const segments = url.pathname
-      .split("/")
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-
+    const segments = url.pathname.split("/").map((s) => s.trim()).filter(Boolean);
     if (segments.length === 0) return "";
     if (segments[0].toLowerCase() === "u" || segments[0].toLowerCase() === "profile") {
       return segments[1]?.replace(/[^a-zA-Z0-9_-]/g, "") || "";
     }
-
     return segments[0]?.replace(/[^a-zA-Z0-9_-]/g, "") || "";
-  } catch (error) {
+  } catch {
+    return trimmed.replace(/[^a-zA-Z0-9_-]/g, "");
+  }
+};
+
+const extractGitHubUsername = (rawValue?: string | null) => {
+  if (!rawValue) return "";
+  const trimmed = String(rawValue).trim();
+  if (!trimmed) return "";
+  if (!trimmed.toLowerCase().includes("github.com")) {
+    return trimmed.replace(/[^a-zA-Z0-9_-]/g, "");
+  }
+  try {
+    const url = new URL(trimmed.match(/^https?:\/\//) ? trimmed : `https://${trimmed}`);
+    const segments = url.pathname.split("/").filter(Boolean);
+    return segments[0]?.replace(/[^a-zA-Z0-9_-]/g, "") || "";
+  } catch {
     return trimmed.replace(/[^a-zA-Z0-9_-]/g, "");
   }
 };
@@ -58,35 +90,179 @@ const Progress = () => {
   const { toast } = useToast();
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [verifying, setVerifying] = useState(false);
-  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
+  const [activeTab, setActiveTab] = useState("leetcode");
+  
+  // LeetCode state
+  const [leetUsername, setLeetUsername] = useState("");
+  const [leetStats, setLeetStats] = useState<LeetCodeStats | null>(null);
+  const [leetLoading, setLeetLoading] = useState(false);
+  const [leetError, setLeetError] = useState<string | null>(null);
+  
+  // GitHub state
+  const [githubUsername, setGithubUsername] = useState("");
+  const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [githubError, setGithubError] = useState<string | null>(null);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userType');
     localStorage.removeItem('studentData');
     localStorage.removeItem('studentToken');
-    toast({
-      title: "Logged out successfully",
-    });
+    toast({ title: "Logged out successfully" });
     navigate('/');
   };
 
-  const leetStats = student?.leetcodeStats;
-  const derivedLeetUsername = useMemo(
-    () => extractLeetCodeUsername(student?.codingProfiles?.leetcode || student?.leetcodeUrl),
-    [student?.codingProfiles?.leetcode, student?.leetcodeUrl]
-  );
-  const isLeetConnected = Boolean(leetStats);
+  // Load student profile and pre-populate usernames
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/student/login");
+          return;
+        }
+        const data = await studentApi.getProfile(token);
+        setStudent(data);
+        
+        // Pre-populate usernames from profile
+        const derivedLeet = extractLeetCodeUsername(data?.codingProfiles?.leetcode || data?.leetcodeUrl);
+        const derivedGithub = extractGitHubUsername(data?.connectedGithubUsername || data?.githubUrl);
+        
+        if (derivedLeet) setLeetUsername(derivedLeet);
+        if (derivedGithub) setGithubUsername(derivedGithub);
+        
+        // Load saved stats if available
+        if (data?.leetcodeStats) {
+          setLeetStats({
+            success: true,
+            platform: 'leetcode',
+            username: data.leetcodeStats.username || derivedLeet,
+            profileUrl: `https://leetcode.com/${derivedLeet}`,
+            stats: {
+              profile: {
+                username: data.leetcodeStats.username || derivedLeet,
+                totalSolved: data.leetcodeStats.totalSolved || 0,
+              },
+              problemStats: {
+                easy: data.leetcodeStats.easy || 0,
+                medium: data.leetcodeStats.medium || 0,
+                hard: data.leetcodeStats.hard || 0,
+                totalSolved: data.leetcodeStats.totalSolved || 0,
+              },
+              consistency: {
+                streak: data.leetcodeStats.streak || 0,
+                activeDays: data.leetcodeStats.activeDays || 0,
+                last7Days: data.leetcodeStats.recentActivity?.last7Days || 0,
+                last30Days: data.leetcodeStats.recentActivity?.last30Days || 0,
+                bestDay: data.leetcodeStats.bestDay || null,
+                calendar: data.leetcodeStats.calendar 
+                  ? (typeof data.leetcodeStats.calendar === 'object' && data.leetcodeStats.calendar.entries
+                      ? Object.fromEntries(data.leetcodeStats.calendar.entries())
+                      : data.leetcodeStats.calendar)
+                  : {},
+              },
+              domains: data.leetcodeStats.topDomains || [],
+            },
+            fetchedAt: data.leetcodeStats.fetchedAt || new Date().toISOString(),
+            autoLinked: true,
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [navigate]);
 
+  // Fetch LeetCode stats
+  const fetchLeetCodeStats = useCallback(async () => {
+    if (!leetUsername.trim()) {
+      toast({
+        title: "Username required",
+        description: "Please enter your LeetCode username",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/student/login");
+      return;
+    }
+
+    setLeetLoading(true);
+    setLeetError(null);
+
+    try {
+      const stats = await platformApi.getLeetCodeStats(leetUsername.trim(), token);
+      setLeetStats(stats);
+      toast({
+        title: "LeetCode stats fetched",
+        description: `Found ${stats.stats.problemStats.totalSolved} problems solved!`,
+      });
+    } catch (error: any) {
+      setLeetError(error?.message || "Failed to fetch LeetCode stats");
+      toast({
+        title: "Fetch failed",
+        description: error?.message || "Could not fetch LeetCode stats",
+        variant: "destructive",
+      });
+    } finally {
+      setLeetLoading(false);
+    }
+  }, [leetUsername, navigate, toast]);
+
+  // Fetch GitHub stats
+  const fetchGitHubStats = useCallback(async () => {
+    if (!githubUsername.trim()) {
+      toast({
+        title: "Username required",
+        description: "Please enter your GitHub username",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/student/login");
+      return;
+    }
+
+    setGithubLoading(true);
+    setGithubError(null);
+
+    try {
+      const stats = await platformApi.getGitHubStats(githubUsername.trim(), token);
+      setGithubStats(stats);
+      toast({
+        title: "GitHub stats fetched",
+        description: `Found ${stats.stats.repos.total} repositories!`,
+      });
+    } catch (error: any) {
+      setGithubError(error?.message || "Failed to fetch GitHub stats");
+      toast({
+        title: "Fetch failed",
+        description: error?.message || "Could not fetch GitHub stats",
+        variant: "destructive",
+      });
+    } finally {
+      setGithubLoading(false);
+    }
+  }, [githubUsername, navigate, toast]);
+
+  // LeetCode computed values
   const difficultyPieData = useMemo(() => {
-    if (!leetStats) return [];
+    if (!leetStats?.stats?.problemStats) return [];
+    const ps = leetStats.stats.problemStats;
     return [
-      { name: "Easy", value: leetStats.easy ?? 0 },
-      { name: "Medium", value: leetStats.medium ?? 0 },
-      { name: "Hard", value: leetStats.hard ?? 0 },
+      { name: "Easy", value: ps.easy ?? 0 },
+      { name: "Medium", value: ps.medium ?? 0 },
+      { name: "Hard", value: ps.hard ?? 0 },
     ];
-  }, [leetStats?.easy, leetStats?.medium, leetStats?.hard]);
+  }, [leetStats]);
 
   const hasDifficultyData = useMemo(
     () => difficultyPieData.some((item) => Number(item.value) > 0),
@@ -94,35 +270,20 @@ const Progress = () => {
   );
 
   const topDomains = useMemo(() => {
-    if (!Array.isArray(leetStats?.topDomains)) return [];
-    return leetStats.topDomains
-      .filter((item: any) => item && typeof item.tag === "string")
-      .slice(0, 5);
-  }, [leetStats?.topDomains]);
+    if (!Array.isArray(leetStats?.stats?.domains)) return [];
+    return leetStats.stats.domains.slice(0, 5);
+  }, [leetStats]);
 
-  const calendarSeries = useMemo(() => {
-    if (!leetStats?.calendar) return [];
-    return Object.entries(leetStats.calendar)
-      .map(([epoch, count]) => {
-        const date = new Date(Number(epoch) * 1000);
-        if (Number.isNaN(date.getTime())) return null;
-        return {
-          date: date.toISOString().slice(0, 10),
-          count: Number(count) || 0,
-        };
-      })
-      .filter(Boolean)
-      .sort((a: any, b: any) => (a.date as string).localeCompare(b.date as string));
-  }, [leetStats?.calendar]);
-
+  // LeetCode Calendar Heatmap
   const { calendarWeeks, maxCalendarCount } = useMemo(() => {
-    if (!leetStats?.calendar) {
+    const calendar = leetStats?.stats?.consistency?.calendar;
+    if (!calendar || typeof calendar !== 'object') {
       return { calendarWeeks: [] as any[], maxCalendarCount: 0 };
     }
 
     const dayMs = 24 * 60 * 60 * 1000;
     const calendarMap = new Map(
-      Object.entries(leetStats.calendar)
+      Object.entries(calendar)
         .map(([epoch, val]) => {
           const date = new Date(Number(epoch) * 1000);
           if (Number.isNaN(date.getTime())) return null;
@@ -168,55 +329,7 @@ const Progress = () => {
     }
 
     return { calendarWeeks: weeks, maxCalendarCount: maxCountLocal };
-  }, [leetStats?.calendar]);
-
-  const weeklyAreaSeries = useMemo(() => {
-    if (calendarSeries.length === 0) return [];
-    const weeklyMap = new Map<string, number>();
-
-    calendarSeries.forEach((entry: any) => {
-      const entryDate = new Date(entry.date as string);
-      if (Number.isNaN(entryDate.getTime())) return;
-      const weekStart = new Date(entryDate);
-      const weekDay = weekStart.getDay();
-      weekStart.setDate(weekStart.getDate() - weekDay);
-      const key = weekStart.toISOString().slice(0, 10);
-      weeklyMap.set(key, (weeklyMap.get(key) || 0) + (entry.count as number));
-    });
-
-    return Array.from(weeklyMap.entries())
-      .map(([week, total]) => ({ week, total }))
-      .sort((a, b) => a.week.localeCompare(b.week));
-  }, [calendarSeries]);
-
-  const leetSummaryMetrics = useMemo(() => {
-    if (!leetStats) return [];
-
-    const formatBestDay = () => {
-      if (!leetStats.bestDay?.date) return "—";
-      const parsed = new Date(leetStats.bestDay.date);
-      if (Number.isNaN(parsed.getTime())) {
-        return `${leetStats.bestDay.count} submissions`;
-      }
-      return `${leetStats.bestDay.count} on ${parsed.toLocaleDateString()}`;
-    };
-
-    return [
-      { label: "Total Solved", value: leetStats.totalSolved ?? 0 },
-      { label: "Last 7 Days", value: leetStats.recentActivity?.last7Days ?? 0 },
-      { label: "Last 30 Days", value: leetStats.recentActivity?.last30Days ?? 0 },
-      { label: "Active Days", value: leetStats.activeDays ?? 0 },
-      { label: "Current Streak", value: leetStats.streak ?? 0 },
-      { label: "Best Day", value: formatBestDay() },
-    ];
   }, [leetStats]);
-
-  const lastUpdated = useMemo(() => {
-    if (!leetStats?.fetchedAt) return null;
-    const parsed = new Date(leetStats.fetchedAt);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return parsed.toLocaleString();
-  }, [leetStats?.fetchedAt]);
 
   const getHeatmapClass = useCallback(
     (count: number) => {
@@ -233,109 +346,16 @@ const Progress = () => {
     [maxCalendarCount]
   );
 
-  const heatmapLegend = useMemo(() => {
-    const highest = maxCalendarCount || 10;
-    return [
-      { label: "0", className: "bg-muted" },
-      { label: "1+", className: "bg-emerald-300" },
-      { label: "25%", className: "bg-emerald-400" },
-      { label: "50%", className: "bg-emerald-500" },
-      { label: `${highest}+`, className: "bg-emerald-600" },
-    ];
-  }, [maxCalendarCount]);
+  // GitHub computed values
+  const languageData = useMemo(() => {
+    if (!githubStats?.stats?.languages) return [];
+    return githubStats.stats.languages.slice(0, 6);
+  }, [githubStats]);
 
-  const leetCodingLogs = useMemo(() => {
-    if (!Array.isArray(student?.codingLogs)) return [];
-    return student.codingLogs.filter((log: any) =>
-      (log.platform || "").toLowerCase().includes("leetcode")
-    );
-  }, [student?.codingLogs]);
-
-  const leetRecentSessions = useMemo(() => {
-    if (leetCodingLogs.length === 0) return [];
-    return leetCodingLogs
-      .slice()
-      .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
-      .slice(0, 5);
-  }, [leetCodingLogs]);
-
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          navigate("/student/login");
-          return;
-        }
-        const data = await studentApi.getProfile(token);
-        setStudent(data);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [navigate]);
-
-  const refreshLeetCodeStats = useCallback(
-    async (options?: { silent?: boolean }) => {
-      const username = derivedLeetUsername;
-      if (!username) {
-        if (!options?.silent) {
-          toast({
-            title: "LeetCode link missing",
-            description: "Add your LeetCode profile link from the Profile page to enable analytics.",
-            variant: "destructive",
-          });
-        }
-        return;
-      }
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        navigate("/student/login");
-        return;
-      }
-
-      if (!options?.silent) {
-        setVerifying(true);
-      }
-
-      try {
-        await studentApi.verifyLeetCode(username, token);
-        const refreshed = await studentApi.getProfile(token);
-        setStudent(refreshed);
-        if (!options?.silent) {
-          toast({
-            title: "LeetCode stats updated",
-            description: `Fetched the latest submissions for ${username}.`,
-          });
-        }
-      } catch (error: any) {
-        if (!options?.silent) {
-          toast({
-            title: "Refresh failed",
-            description: error?.message || "Could not refresh LeetCode stats",
-            variant: "destructive",
-          });
-        }
-      } finally {
-        if (!options?.silent) {
-          setVerifying(false);
-        }
-      }
-    },
-    [derivedLeetUsername, navigate, toast]
-  );
-
-  useEffect(() => {
-    if (!student || autoSyncAttempted) return;
-    if (derivedLeetUsername && !student.leetcodeStats) {
-      refreshLeetCodeStats({ silent: true });
-    }
-    setAutoSyncAttempted(true);
-  }, [student, derivedLeetUsername, autoSyncAttempted, refreshLeetCodeStats]);
+  const weeklyActivityData = useMemo(() => {
+    if (!githubStats?.stats?.consistency?.weeklyActivity) return [];
+    return githubStats.stats.consistency.weeklyActivity.slice(-12);
+  }, [githubStats]);
 
   if (loading) {
     return (
@@ -359,362 +379,715 @@ const Progress = () => {
             <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
             <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
             <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
-            <Button variant="ghost" onClick={handleLogout}>Logout</Button>
+            <Button variant="ghost" onClick={handleLogout}><LogOut className="w-4 h-4 mr-2" />Logout</Button>
           </nav>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold">Progress Analytics</h2>
-            <p className="text-sm text-muted-foreground">
-              Track your LeetCode progress and discover areas to improve.
-            </p>
-          </div>
+      <div className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold">Progress Analytics</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Track your coding progress across multiple platforms
+          </p>
         </div>
 
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle>Progress Sources</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="rounded-lg border border-border/60 bg-muted/60 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Link2 className="w-4 h-4 text-primary" />
-                <span className="font-semibold">LeetCode Profile</span>
-                {isLeetConnected ? (
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                ) : derivedLeetUsername ? (
-                  <XCircle className="w-4 h-4 text-amber-500" />
-                ) : null}
-              </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="leetcode" className="flex items-center gap-2">
+              <Code2 className="w-4 h-4" />
+              LeetCode
+            </TabsTrigger>
+            <TabsTrigger value="github" className="flex items-center gap-2">
+              <Github className="w-4 h-4" />
+              GitHub
+            </TabsTrigger>
+          </TabsList>
 
-              {derivedLeetUsername ? (
-                <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <span className="font-mono">@{derivedLeetUsername}</span>
-                  <Button variant="link" size="sm" className="px-0" asChild>
-                    <a
-                      href={`https://leetcode.com/${derivedLeetUsername}/`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open profile
-                    </a>
+          {/* LeetCode Tab */}
+          <TabsContent value="leetcode" className="space-y-6 mt-6">
+            {/* Username Input */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-orange-500" />
+                  LeetCode Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input
+                    placeholder="Enter LeetCode username"
+                    value={leetUsername}
+                    onChange={(e) => setLeetUsername(e.target.value)}
+                    className="max-w-xs"
+                    onKeyDown={(e) => e.key === 'Enter' && fetchLeetCodeStats()}
+                  />
+                  <Button
+                    onClick={fetchLeetCodeStats}
+                    disabled={leetLoading || !leetUsername.trim()}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${leetLoading ? "animate-spin" : ""}`} />
+                    {leetLoading ? "Fetching..." : "Get Stats"}
                   </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Add your LeetCode profile link under Profile → Coding Profiles to unlock automatic stats.
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={() => refreshLeetCodeStats()}
-                  disabled={verifying || !derivedLeetUsername}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`w-4 h-4 ${verifying ? "animate-spin" : ""}`} />
-                  {verifying ? "Refreshing..." : "Refresh stats"}
-                </Button>
-                {lastUpdated && (
-                  <span className="text-xs text-muted-foreground">Last refreshed {lastUpdated}</span>
-                )}
-              </div>
-
-              {isLeetConnected && (
-                <p className="text-xs text-muted-foreground">
-                  We reuse your saved profile link, so you never have to re-enter your LeetCode username here.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-6">
-          <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-            <Card className="border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base">LeetCode Snapshot</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLeetConnected ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {leetSummaryMetrics.map((metric) => (
-                      <div
-                        key={metric.label}
-                        className="rounded-lg border bg-card px-4 py-3 shadow-sm"
+                  {leetStats && (
+                    <Button variant="outline" asChild>
+                      <a
+                        href={leetStats.profileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2"
                       >
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                          {metric.label}
-                        </div>
-                        <div className="mt-1 text-lg font-semibold">
-                          {typeof metric.value === "number"
-                            ? metric.value.toLocaleString()
-                            : metric.value}
-                        </div>
-                      </div>
-                    ))}
+                        <ExternalLink className="w-4 h-4" />
+                        View Profile
+                      </a>
+                    </Button>
+                  )}
+                </div>
+                
+                {leetStats && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Connected as <span className="font-mono">@{leetStats.username}</span>
+                    <span className="text-xs">
+                      · Last updated {new Date(leetStats.fetchedAt).toLocaleString()}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Refresh your LeetCode stats to see recent progress.
-                  </p>
+                )}
+                
+                {leetError && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <XCircle className="w-4 h-4" />
+                    {leetError}
+                  </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className="border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Difficulty Mix</CardTitle>
-              </CardHeader>
-              <CardContent className="flex items-center justify-center">
-                {hasDifficultyData ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={difficultyPieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={80}
-                        paddingAngle={4}
-                        isAnimationActive
-                        animationDuration={900}
-                      >
-                        {difficultyPieData.map((entry, index) => (
-                          <Cell
-                            key={entry.name}
-                            fill={PIE_COLORS[index % PIE_COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number, name) => [
-                          `${Number(value).toLocaleString()} problems`,
-                          name,
-                        ]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center w-full">
-                    Solve a few problems to unlock the difficulty breakdown.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Top 5 Problem Domains</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {topDomains.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Your domain strengths will appear here once LeetCode stats are synced.
-                </p>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-[3fr_2fr]">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={topDomains}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="tag"
-                        tick={{ fontSize: 11 }}
-                        interval={0}
-                        angle={-15}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis allowDecimals={false} width={32} />
-                      <Tooltip formatter={(value: number) => [`${value} solved`, "Solved"]} />
-                      <Bar dataKey="count" fill="#22c55e" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <ul className="space-y-2 text-sm">
-                    {topDomains.map((domain: any, idx: number) => (
-                      <li
-                        key={domain.tag}
-                        className="flex items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2"
-                      >
-                        <span className="font-medium">
-                          {idx + 1}. {domain.tag}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {domain.count} problems
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+            {/* Stats Display */}
+            {leetStats && (
+              <>
+                {/* Summary Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Trophy className="w-4 h-4" />
+                        Total Solved
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {leetStats.stats.problemStats.totalSolved}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Flame className="w-4 h-4" />
+                        Streak
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {leetStats.stats.consistency.streak} days
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <TrendingUp className="w-4 h-4" />
+                        Last 7 Days
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {leetStats.stats.consistency.last7Days}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Calendar className="w-4 h-4" />
+                        Last 30 Days
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {leetStats.stats.consistency.last30Days}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Calendar className="w-4 h-4" />
+                        Active Days
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {leetStats.stats.consistency.activeDays}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Trophy className="w-4 h-4" />
+                        Best Day
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {leetStats.stats.consistency.bestDay?.count || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              )}
-            </CardContent>
-          </Card>
 
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Submission Calendar</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Last 52 weeks of LeetCode activity
-              </p>
-            </CardHeader>
-            <CardContent>
-              {calendarWeeks.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No submission history available yet.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex flex-col justify-between py-1 text-[10px] leading-none text-muted-foreground">
-                      <span>Mon</span>
-                      <span>Wed</span>
-                      <span>Fri</span>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <div className="flex gap-[3px] pr-4">
-                        {calendarWeeks.map((week, weekIndex) => (
-                          <div key={`week-${weekIndex}`} className="flex flex-col gap-[3px]">
-                            {week.map((day, dayIndex) => {
-                              if (!day?.date) {
-                                return (
-                                  <div
-                                    key={`empty-${weekIndex}-${dayIndex}`}
-                                    className="w-3 h-3 rounded-sm bg-transparent"
+                {/* Difficulty & Domains Row */}
+                <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+                  {/* Difficulty Mix */}
+                  <Card className="shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base">Difficulty Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {hasDifficultyData ? (
+                        <div className="flex items-center gap-8">
+                          <ResponsiveContainer width="50%" height={200}>
+                            <PieChart>
+                              <Pie
+                                data={difficultyPieData}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={45}
+                                outerRadius={80}
+                                paddingAngle={4}
+                              >
+                                {difficultyPieData.map((entry, index) => (
+                                  <Cell
+                                    key={entry.name}
+                                    fill={PIE_COLORS[index % PIE_COLORS.length]}
                                   />
-                                );
-                              }
-                              const label = `${day.date}: ${day.count} submission${
-                                day.count === 1 ? "" : "s"
-                              }`;
-                              return (
-                                <div
-                                  key={`${day.date}-${dayIndex}`}
-                                  title={label}
-                                  className={`w-3 h-3 rounded-sm transition-colors duration-200 ${getHeatmapClass(
-                                    day.count
-                                  )}`}
-                                />
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span>Less</span>
-                    <div className="flex gap-1">
-                      {heatmapLegend.map((item) => (
-                        <div key={item.label} className={`w-3 h-3 rounded-sm ${item.className}`} />
-                      ))}
-                    </div>
-                    <span>More</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Weekly Submission Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {weeklyAreaSeries.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  Not enough data yet to plot a weekly trend.
-                </div>
-              ) : (
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={weeklyAreaSeries}>
-                      <defs>
-                        <linearGradient id="leetcodeWeeklyGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-                      <XAxis
-                        dataKey="week"
-                        tickFormatter={(value) => {
-                          const date = new Date(value);
-                          if (Number.isNaN(date.getTime())) return value;
-                          return date.toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          });
-                        }}
-                        minTickGap={16}
-                      />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip formatter={(value: number) => [`${value} solved`, "Solved"]} />
-                      <Area
-                        type="monotone"
-                        dataKey="total"
-                        stroke="#16a34a"
-                        fill="url(#leetcodeWeeklyGradient)"
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Recent LeetCode Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {leetRecentSessions.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  We&apos;ll show imported LeetCode practice sessions here after your next sync.
-                </div>
-              ) : (
-                <ul className="space-y-3">
-                  {leetRecentSessions.map((session: any, index: number) => {
-                    const date = session.date ? new Date(session.date) : null;
-                    const key = session._id || `${session.platform}-${index}`;
-                    return (
-                      <li
-                        key={key}
-                        className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2 shadow-sm"
-                      >
-                        <div>
-                          <div className="text-sm font-medium">
-                            {session.activity || "Practice Session"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {date && !Number.isNaN(date.getTime())
-                              ? date.toLocaleDateString()
-                              : "Unknown date"}
-                            {" · "}
-                            {(Number(session.problemsSolved) || 0).toLocaleString()} problems
-                            {" · "}
-                            {(Number(session.minutesSpent) || 0).toLocaleString()} mins
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
+                              <span className="text-sm">Easy</span>
+                              <span className="font-bold">{leetStats.stats.problemStats.easy}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                              <span className="text-sm">Medium</span>
+                              <span className="font-bold">{leetStats.stats.problemStats.medium}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full bg-sky-500"></div>
+                              <span className="text-sm">Hard</span>
+                              <span className="font-bold">{leetStats.stats.problemStats.hard}</span>
+                            </div>
                           </div>
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Solve some problems to see the breakdown
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Domains */}
+                  <Card className="shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base">Top Domains</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {topDomains.length > 0 ? (
+                        <ul className="space-y-2">
+                          {topDomains.map((domain, idx) => (
+                            <li
+                              key={domain.tag}
+                              className="flex items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2"
+                            >
+                              <span className="text-sm font-medium">
+                                {idx + 1}. {domain.tag}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                {domain.count}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No domain data available yet
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Submission Calendar */}
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Submission Calendar</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Last 52 weeks of activity
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    {calendarWeeks.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex gap-3">
+                          <div className="flex flex-col justify-between py-1 text-[10px] leading-none text-muted-foreground">
+                            <span>Mon</span>
+                            <span>Wed</span>
+                            <span>Fri</span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <div className="flex gap-[3px] pr-4">
+                              {calendarWeeks.map((week, weekIndex) => (
+                                <div key={`week-${weekIndex}`} className="flex flex-col gap-[3px]">
+                                  {week.map((day, dayIndex) => {
+                                    if (!day?.date) {
+                                      return (
+                                        <div
+                                          key={`empty-${weekIndex}-${dayIndex}`}
+                                          className="w-3 h-3 rounded-sm bg-transparent"
+                                        />
+                                      );
+                                    }
+                                    return (
+                                      <div
+                                        key={`${day.date}-${dayIndex}`}
+                                        title={`${day.date}: ${day.count} submissions`}
+                                        className={`w-3 h-3 rounded-sm ${getHeatmapClass(day.count)}`}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <span>Less</span>
+                          <div className="flex gap-1">
+                            <div className="w-3 h-3 rounded-sm bg-muted" />
+                            <div className="w-3 h-3 rounded-sm bg-emerald-300" />
+                            <div className="w-3 h-3 rounded-sm bg-emerald-400" />
+                            <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+                            <div className="w-3 h-3 rounded-sm bg-emerald-600" />
+                          </div>
+                          <span>More</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No submission history available
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {!leetStats && !leetLoading && (
+              <Card className="shadow-sm">
+                <CardContent className="py-12 text-center">
+                  <Code2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Connect Your LeetCode Profile</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    Enter your LeetCode username above to view your problem-solving statistics,
+                    difficulty breakdown, and submission history.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* GitHub Tab */}
+          <TabsContent value="github" className="space-y-6 mt-6">
+            {/* Username Input */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Github className="w-5 h-5" />
+                  GitHub Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input
+                    placeholder="Enter GitHub username"
+                    value={githubUsername}
+                    onChange={(e) => setGithubUsername(e.target.value)}
+                    className="max-w-xs"
+                    onKeyDown={(e) => e.key === 'Enter' && fetchGitHubStats()}
+                  />
+                  <Button
+                    onClick={fetchGitHubStats}
+                    disabled={githubLoading || !githubUsername.trim()}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${githubLoading ? "animate-spin" : ""}`} />
+                    {githubLoading ? "Fetching..." : "Get Stats"}
+                  </Button>
+                  {githubStats && (
+                    <Button variant="outline" asChild>
+                      <a
+                        href={githubStats.profileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View Profile
+                      </a>
+                    </Button>
+                  )}
+                </div>
+                
+                {githubStats && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Connected as <span className="font-mono">@{githubStats.username}</span>
+                    <span className="text-xs">
+                      · Last updated {new Date(githubStats.fetchedAt).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                
+                {githubError && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <XCircle className="w-4 h-4" />
+                    {githubError}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Stats Display */}
+            {githubStats && (
+              <>
+                {/* Profile Overview */}
+                <Card className="shadow-sm">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-6">
+                      {githubStats.stats.profile.avatar && (
+                        <img
+                          src={githubStats.stats.profile.avatar}
+                          alt={githubStats.stats.profile.username}
+                          className="w-20 h-20 rounded-full"
+                        />
+                      )}
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <h3 className="text-xl font-bold">
+                            {githubStats.stats.profile.name || githubStats.stats.profile.username}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            @{githubStats.stats.profile.username}
+                          </p>
+                        </div>
+                        {githubStats.stats.profile.bio && (
+                          <p className="text-sm">{githubStats.stats.profile.bio}</p>
+                        )}
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          {githubStats.stats.profile.company && (
+                            <span className="flex items-center gap-1">
+                              <Users className="w-4 h-4" />
+                              {githubStats.stats.profile.company}
+                            </span>
+                          )}
+                          {githubStats.stats.profile.location && (
+                            <span>{githubStats.stats.profile.location}</span>
+                          )}
+                          <span>{githubStats.stats.profile.accountAge}</span>
+                        </div>
+                        <div className="flex gap-6 text-sm">
+                          <span>
+                            <strong>{githubStats.stats.profile.followers}</strong> followers
+                          </span>
+                          <span>
+                            <strong>{githubStats.stats.profile.following}</strong> following
+                          </span>
+                          <span>
+                            <strong>{githubStats.stats.profile.publicRepos}</strong> repos
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Summary Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <FolderGit2 className="w-4 h-4" />
+                        Repositories
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {githubStats.stats.repos.total}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Star className="w-4 h-4" />
+                        Total Stars
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {githubStats.stats.repos.totalStars}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <GitFork className="w-4 h-4" />
+                        Total Forks
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {githubStats.stats.repos.totalForks}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Flame className="w-4 h-4" />
+                        Current Streak
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {githubStats.stats.consistency.currentStreak}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <GitPullRequest className="w-4 h-4" />
+                        PRs Merged
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {githubStats.stats.openSource.pullRequestsMerged}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <CircleDot className="w-4 h-4" />
+                        Issues Closed
+                      </div>
+                      <div className="text-2xl font-bold mt-1">
+                        {githubStats.stats.openSource.issuesClosed}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Languages & Repos Row */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Language Breakdown */}
+                  <Card className="shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base">Tech Stack</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {languageData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={languageData} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" />
+                            <YAxis dataKey="name" type="category" width={80} />
+                            <Tooltip
+                              formatter={(value: number) => [`${value} repos`, "Repos"]}
+                            />
+                            <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                              {languageData.map((entry, index) => (
+                                <Cell
+                                  key={entry.name}
+                                  fill={LANGUAGE_COLORS[index % LANGUAGE_COLORS.length]}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No language data available
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Repos */}
+                  <Card className="shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base">Top Repositories</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {githubStats.stats.repos.topRepos.length > 0 ? (
+                        <ul className="space-y-3">
+                          {githubStats.stats.repos.topRepos.slice(0, 5).map((repo) => (
+                            <li
+                              key={repo.id}
+                              className="rounded-md border bg-card px-3 py-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <a
+                                  href={repo.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-medium text-sm hover:underline"
+                                >
+                                  {repo.name}
+                                </a>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Star className="w-3 h-3" />
+                                    {repo.stars}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <GitFork className="w-3 h-3" />
+                                    {repo.forks}
+                                  </span>
+                                </div>
+                              </div>
+                              {repo.description && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                  {repo.description}
+                                </p>
+                              )}
+                              {repo.language && (
+                                <span className="inline-block text-xs bg-muted px-2 py-0.5 rounded mt-2">
+                                  {repo.language}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No repositories found
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Weekly Activity Chart */}
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Weekly Activity</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Commits per week over the last 12 weeks
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    {weeklyActivityData.length > 0 ? (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={weeklyActivityData}>
+                            <defs>
+                              <linearGradient id="githubWeeklyGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                            <XAxis
+                              dataKey="week"
+                              tickFormatter={(value) => {
+                                const date = new Date(value);
+                                if (Number.isNaN(date.getTime())) return value;
+                                return date.toLocaleDateString(undefined, {
+                                  month: "short",
+                                  day: "numeric",
+                                });
+                              }}
+                            />
+                            <YAxis allowDecimals={false} />
+                            <Tooltip
+                              formatter={(value: number) => [`${value} commits`, "Commits"]}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="commits"
+                              stroke="#4f46e5"
+                              fill="url(#githubWeeklyGradient)"
+                              strokeWidth={2}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No activity data available
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Open Source Stats */}
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Open Source Contributions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">
+                          {githubStats.stats.openSource.pullRequestsOpened}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">PRs Opened</div>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {githubStats.stats.openSource.pullRequestsMerged}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">PRs Merged</div>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {githubStats.stats.openSource.issuesOpened}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Issues Opened</div>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {githubStats.stats.openSource.issuesClosed}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Issues Closed</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {!githubStats && !githubLoading && (
+              <Card className="shadow-sm">
+                <CardContent className="py-12 text-center">
+                  <Github className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Connect Your GitHub Profile</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    Enter your GitHub username above to view your repository statistics,
+                    tech stack, contribution history, and open source activity.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
 };
 
 export default Progress;
-
-

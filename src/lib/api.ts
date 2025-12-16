@@ -344,6 +344,22 @@ export const studentApi = {
     );
   },
 
+  parseAndAutofillResume: (file: File, token: string) => {
+    const formData = new FormData();
+    formData.append('resume', file);
+    return api.post<{
+      message: string;
+      parsedData: any;
+      updatedFields: string[];
+      projectsAdded: number;
+      certificationsAdded: number;
+    }>(
+      '/students/parse-resume',
+      formData,
+      token
+    );
+  },
+
   // Public leaderboard
   getLeaderboard: (limit?: number) =>
     api.get(`/students/leaderboard${typeof limit === 'number' ? `?limit=${limit}` : ''}`),
@@ -548,6 +564,125 @@ export const interviewApi = {
       token
     );
   },
+};
+
+// Platform stats types
+export interface LeetCodeStats {
+  success: boolean;
+  platform: 'leetcode';
+  username: string;
+  profileUrl: string;
+  stats: {
+    profile: {
+      username: string;
+      totalSolved: number;
+      ranking?: number;
+    };
+    problemStats: {
+      easy: number;
+      medium: number;
+      hard: number;
+      totalSolved: number;
+    };
+    consistency: {
+      streak: number;
+      activeDays: number;
+      last7Days: number;
+      last30Days: number;
+      bestDay: { date: string; count: number } | null;
+      calendar: Record<string, number>;
+    };
+    domains: Array<{ tag: string; count: number }>;
+    calendarRange?: { start: string; end: string };
+  };
+  fetchedAt: string;
+  autoLinked: boolean;
+}
+
+export interface GitHubStats {
+  success: boolean;
+  platform: 'github';
+  username: string;
+  profileUrl: string;
+  stats: {
+    profile: {
+      avatar: string;
+      username: string;
+      name: string;
+      bio: string;
+      location: string;
+      blog: string;
+      company: string;
+      accountAge: string;
+      createdAt: string;
+      followers: number;
+      following: number;
+      publicRepos: number;
+    };
+    repos: {
+      total: number;
+      original: number;
+      forked: number;
+      totalStars: number;
+      totalForks: number;
+      topRepos: Array<{
+        id: number;
+        name: string;
+        description: string;
+        language: string;
+        stars: number;
+        forks: number;
+        url: string;
+        updatedAt: string;
+      }>;
+    };
+    languages: Array<{ name: string; count: number; percentage: number }>;
+    consistency: {
+      totalCommits: number;
+      currentStreak: number;
+      longestStreak: number;
+      activeWeeks: number;
+      averageCommitsPerWeek: number;
+      weeklyActivity: Array<{ week: string; commits: number }>;
+    };
+    openSource: {
+      pullRequestsOpened: number;
+      pullRequestsMerged: number;
+      issuesOpened: number;
+      issuesClosed: number;
+      contributedRepos: string[];
+    };
+  };
+  fetchedAt: string;
+  autoLinked: boolean;
+}
+
+export interface SavedPlatformStats {
+  success: boolean;
+  platform: 'leetcode' | 'github';
+  connected: boolean;
+  username: string | null;
+  profileUrl?: string;
+  stats: LeetCodeStats['stats'] | GitHubStats['stats'] | null;
+  fetchedAt?: string;
+}
+
+export const platformApi = {
+  // Fetch fresh LeetCode stats by username
+  getLeetCodeStats: (username: string, token: string) =>
+    api.get<LeetCodeStats>(`/platforms/leetcode/stats?username=${encodeURIComponent(username)}`, token),
+
+  // Fetch fresh GitHub stats by username
+  getGitHubStats: (username: string, token: string) =>
+    api.get<GitHubStats>(`/platforms/github/stats?username=${encodeURIComponent(username)}`, token),
+
+  // Get saved platform data for the current user
+  getSavedStats: (platform: 'leetcode' | 'github', token: string) =>
+    api.get<SavedPlatformStats>(`/platforms/${platform}/saved`, token),
+
+  // Disconnect a platform
+  disconnect: (platform: 'leetcode' | 'github', token: string) =>
+    api.delete<{ success: boolean; message: string }>(`/platforms/${platform}/disconnect`, token),
 };
 
 export default api;

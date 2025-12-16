@@ -16,6 +16,18 @@ const projectSchema = new mongoose.Schema(
     verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     feedback: { type: String, trim: true },
     submittedAt: { type: Date, default: Date.now },
+    isFavorite: { type: Boolean, default: false },
+    _githubData: {
+      stars: { type: Number, default: 0 },
+      forks: { type: Number, default: 0 },
+      watchers: { type: Number, default: 0 },
+      openIssues: { type: Number, default: 0 },
+      isFork: { type: Boolean, default: false },
+      lastUpdated: { type: Date },
+      createdAt: { type: Date },
+      homepage: { type: String, trim: true },
+      size: { type: Number, default: 0 },
+    },
   },
   { _id: true }
 );
@@ -234,6 +246,148 @@ const studentSchema = new mongoose.Schema(
     oauthProvider: { type: String, enum: ['google', 'github', null], default: null },
     // Email verification status
     emailVerified: { type: Boolean, default: false },
+    
+    // ========== GITHUB PROFILE INTEGRATION (Manual Connection) ==========
+    // Connected GitHub username (for manual profile integration)
+    connectedGithubUsername: { type: String, trim: true },
+    
+    // Category 1: GitHub Profile Overview
+    githubProfile: {
+      type: new mongoose.Schema(
+        {
+          avatar: { type: String },
+          username: { type: String },
+          name: { type: String },
+          bio: { type: String },
+          location: { type: String },
+          blog: { type: String },
+          company: { type: String },
+          accountAge: { type: String },
+          createdAt: { type: Date },
+          publicRepos: { type: Number, default: 0 },
+          followers: { type: Number, default: 0 },
+          following: { type: Number, default: 0 },
+          lastRefreshed: { type: Date },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
+    
+    // Category 2: GitHub Repositories
+    githubRepos: {
+      type: new mongoose.Schema(
+        {
+          repos: {
+            type: [new mongoose.Schema(
+              {
+                id: { type: Number },
+                name: { type: String },
+                fullName: { type: String },
+                description: { type: String },
+                language: { type: String },
+                stars: { type: Number, default: 0 },
+                forks: { type: Number, default: 0 },
+                watchers: { type: Number, default: 0 },
+                openIssues: { type: Number, default: 0 },
+                isFork: { type: Boolean, default: false },
+                isPrivate: { type: Boolean, default: false },
+                url: { type: String },
+                homepage: { type: String },
+                topics: { type: [String], default: [] },
+                createdAt: { type: Date },
+                updatedAt: { type: Date },
+                pushedAt: { type: Date },
+                size: { type: Number },
+                defaultBranch: { type: String },
+              },
+              { _id: false }
+            )],
+            default: [],
+          },
+          totalCount: { type: Number, default: 0 },
+          originalRepos: { type: Number, default: 0 },
+          forkedRepos: { type: Number, default: 0 },
+          topLanguages: {
+            type: [new mongoose.Schema(
+              {
+                language: { type: String },
+                count: { type: Number },
+              },
+              { _id: false }
+            )],
+            default: [],
+          },
+          totalStars: { type: Number, default: 0 },
+          totalForks: { type: Number, default: 0 },
+          lastRefreshed: { type: Date },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
+    
+    // Category 3: GitHub Coding Consistency
+    githubConsistency: {
+      type: new mongoose.Schema(
+        {
+          totalCommits: { type: Number, default: 0 },
+          commitsPerWeek: { type: Number, default: 0 },
+          activeWeeks: { type: Number, default: 0 },
+          totalWeeks: { type: Number, default: 13 },
+          consistencyPercentage: { type: Number, default: 0 },
+          lastCommitDate: { type: Date },
+          daysSinceLastCommit: { type: Number },
+          weeklyBreakdown: {
+            type: [new mongoose.Schema(
+              {
+                weekNumber: { type: Number },
+                commits: { type: Number },
+                weekStart: { type: String },
+              },
+              { _id: false }
+            )],
+            default: [],
+          },
+          consistencyScore: { type: Number, default: 0, min: 0, max: 100 },
+          lastRefreshed: { type: Date },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
+    
+    // Category 4: GitHub Open Source Contributions
+    githubOpenSource: {
+      type: new mongoose.Schema(
+        {
+          pullRequests: {
+            opened: { type: Number, default: 0 },
+            merged: { type: Number, default: 0 },
+            closed: { type: Number, default: 0 },
+            total: { type: Number, default: 0 },
+          },
+          issues: {
+            opened: { type: Number, default: 0 },
+            closed: { type: Number, default: 0 },
+            total: { type: Number, default: 0 },
+          },
+          reviews: {
+            given: { type: Number, default: 0 },
+          },
+          contributions: {
+            reposContributedTo: { type: Number, default: 0 },
+            reposList: { type: [String], default: [] },
+          },
+          openSourceScore: { type: Number, default: 0, min: 0, max: 100 },
+          lastRefreshed: { type: Date },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
+    // ========== END GITHUB PROFILE INTEGRATION ==========
+    
     validatedSkills: {
       type: [
         new mongoose.Schema(

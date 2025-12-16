@@ -14,6 +14,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const interviewRoutes = require('./routes/interviewRoutes');
 const githubRoutes = require('./routes/githubRoutes');
 const googleRoutes = require('./routes/googleRoutes');
+const githubProfileRoutes = require('./routes/githubProfileRoutes');
+const platformRoutes = require('./routes/platformRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const gamificationRoutes = require('./routes/gamificationRoutes');
 const seedDemoData = require('./utils/seedData');
@@ -88,6 +90,8 @@ app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/interviews', interviewRoutes);
+app.use('/api/github-profile', githubProfileRoutes);
+app.use('/api/platforms', platformRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/gamification', gamificationRoutes);
 

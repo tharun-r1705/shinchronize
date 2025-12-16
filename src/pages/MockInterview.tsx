@@ -7,7 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft,
   ShieldCheck,
   Users2,
   Timer,
@@ -17,6 +16,8 @@ import {
   Database,
   Brain,
   Cloud,
+  LogOut,
+  ArrowLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -79,6 +80,11 @@ const MockInterview = () => {
   const [selectedStack, setSelectedStack] = useState<TechStackOption | null>(null);
   const stackTiles = useMemo(() => techStacks, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/student/login");
+  };
+
   const fetchHistory = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -108,24 +114,36 @@ const MockInterview = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Practice Space</p>
-            <h1 className="text-2xl font-bold">Adaptive Mock Interview</h1>
-            <p className="text-sm text-muted-foreground">
-              Pick a stack, run a 10-question MCQ test, then switch stacks anytime to build a richer attempt log.
-            </p>
-          </div>
-          <Button variant="ghost" onClick={() => navigate("/student/dashboard")}> 
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to dashboard
-          </Button>
+      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            EvolvEd
+          </h1>
+          <nav className="flex gap-4 items-center">
+            <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
+            <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
+            <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
+            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
+            <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
+            <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </nav>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-6">
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Practice Space</p>
+          <h1 className="text-3xl font-bold">Adaptive Mock Interview</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Pick a stack, run a 10-question MCQ test, then switch stacks anytime to build a richer attempt log.
+          </p>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <div className="space-y-6">
           {selectedStack ? (
             <Card className="shadow-card">
               <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -194,12 +212,12 @@ const MockInterview = () => {
               </CardContent>
             </Card>
           )}
-        </div>
+          </div>
 
-        <div className="space-y-6">
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>How the test works</CardTitle>
+          <div className="space-y-6">
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle>How the test works</CardTitle>
               <CardDescription>Each attempt is saved for recruiters with your stack, difficulty curve, and final verdict.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -277,8 +295,9 @@ const MockInterview = () => {
               </p>
             </CardContent>
           </Card>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

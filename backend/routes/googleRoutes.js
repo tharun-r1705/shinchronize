@@ -1,5 +1,39 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const Student = require('../models/Student');
+const crypto = require('crypto');
+
+/**
+ * Encrypt Google access token for secure storage
+ */
+function encryptToken(token) {
+  const encryptionKey = process.env.GOOGLE_TOKEN_ENCRYPTION_KEY;
+  
+  if (!encryptionKey || encryptionKey.length !== 64) {
+    throw new Error('Invalid GOOGLE_TOKEN_ENCRYPTION_KEY');
+  }
+
+  const algorithm = 'aes-256-gcm';
+  const key = Buffer.from(encryptionKey, 'hex');
+  const iv = crypto.randomBytes(16);
+  
+  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  let encrypted = cipher.update(token, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  
+  const authTag = cipher.getAuthTag();
+  
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+}
+
+/**
+ * Generate a random password for OAuth users
+ */
+function generateRandomPassword() {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 /**
  * Google OAuth Login - Initiates OAuth flow
@@ -128,16 +162,102 @@ router.get('/callback', async (req, res) => {
 
     console.log('✅ Google profile fetched:', userData.email);
 
-    // TODO: Here you would:
-    // 1. Check if user exists in database by Google ID or email
-    // 2. Create new user or update existing user's Google connection
-    // 3. Generate JWT token
-    // 4. Set the JWT in an httpOnly cookie or return it for localStorage
+    // Extract Google user data
+    const fullName = userData.name || '';
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
 
-    // For now, redirect back to frontend with googleconnected flag
-    // The frontend will detect this and handle the login flow
-    console.log('🟢 Redirecting to frontend with success flag');
-    res.redirect(`${frontendUrl}/student/login?googleconnected=true&email=${userData.email}`);
+    // Check if user already exists (by Google ID or email)
+    let student = await Student.findOne({
+      $or: [
+        { 'googleAuth.googleId': userData.id },
+        { email: userData.email },
+      ],
+    });
+
+    if (student) {
+      console.log('✅ [Google OAuth] Existing user found:', student.email);
+      
+      // Update existing user's Google connection
+      student.googleAuth = {
+        googleId: userData.id,
+        email: userData.email,
+        name: userData.name,
+        picture: userData.picture,
+        encryptedAccessToken: encryptToken(accessToken),
+        connectedAt: student.googleAuth?.connectedAt || new Date(),
+        lastLoginAt: new Date(),
+      };
+      
+      // Update profile fields if not already set
+      if (!student.avatarUrl && userData.picture) {
+        student.avatarUrl = userData.picture;
+      }
+      
+      // Mark OAuth provider if not set
+      if (!student.oauthProvider) {
+        student.oauthProvider = 'google';
+      }
+      
+      // Mark email as verified (Google verifies emails)
+      student.emailVerified = true;
+      
+      await student.save();
+      console.log('✅ [Google OAuth] User updated successfully');
+    } else {
+      console.log('🟢 [Google OAuth] Creating new user...');
+      
+      if (!userData.email) {
+        console.error('❌ [Google OAuth] No email available from Google');
+        return res.redirect(`${frontendUrl}/student/login?error=no_email&message=${encodeURIComponent('No email found in your Google account.')}`);
+      }
+
+      // Generate random password (OAuth users won't use it)
+      const randomPassword = generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      student = new Student({
+        name: userData.name || userData.email.split('@')[0],
+        firstName,
+        lastName,
+        email: userData.email,
+        password: hashedPassword,
+        avatarUrl: userData.picture,
+        googleAuth: {
+          googleId: userData.id,
+          email: userData.email,
+          name: userData.name,
+          picture: userData.picture,
+          encryptedAccessToken: encryptToken(accessToken),
+          connectedAt: new Date(),
+          lastLoginAt: new Date(),
+        },
+        oauthProvider: 'google',
+        emailVerified: true,
+      });
+
+      await student.save();
+      console.log('✅ [Google OAuth] New user created:', student.email);
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: student._id,
+        email: student.email,
+        role: 'student',
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('✅ [Google OAuth] JWT token generated');
+
+    // Redirect to frontend with token
+    const redirectUrl = `${frontendUrl}/student/login?googleconnected=true&token=${token}&email=${userData.email}`;
+    console.log('🟢 [Google OAuth] Redirecting to frontend with success flag');
+    res.redirect(redirectUrl);
 
   } catch (error) {
     console.error('❌ Google OAuth error:', error);

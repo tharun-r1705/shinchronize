@@ -61,6 +61,10 @@ const {
   updateLeetCodeStats,
   importLinkedInProfile,
   syncGitHubProfile,
+  syncGitHubDataManually,
+  toggleProjectFavorite,
+  getFavoriteProjects,
+  getGitHubProjects,
 } = require('../controllers/studentController');
 const { authenticate } = require('../utils/authMiddleware');
 const {
@@ -222,6 +226,14 @@ router.post('/coding-sync', authenticate(['student']), syncCodingActivity);
 
 // GitHub profile sync with rate limiting
 router.post('/github-sync', authenticate(['student']), syncGitHubProfile);
+
+// GitHub data sync - Manual trigger for full sync including projects
+router.post('/sync-github', authenticate(['student']), syncGitHubDataManually);
+
+// Project favorites and filters
+router.patch('/projects/:projectId/favorite', authenticate(['student']), toggleProjectFavorite);
+router.get('/projects/favorites', authenticate(['student']), getFavoriteProjects);
+router.get('/projects/github', authenticate(['student']), getGitHubProjects);
 
 // Update LeetCode stats (admin or self with student auth)
 router.post('/:id/update-leetcode', authenticate(['student','admin']), updateLeetCodeStats);
