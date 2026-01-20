@@ -8,7 +8,7 @@ const morgan = require('morgan');
 const studentRoutes = require('./routes/studentRoutes');
 const recruiterRoutes = require('./routes/recruiterRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const interviewRoutes = require('./routes/interviewRoutes');
+const agentRoutes = require('./routes/agentRoutes');
 const seedDemoData = require('./utils/seedData');
 
 const app = express();
@@ -31,7 +31,7 @@ const connectToDatabase = async () => {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
-    
+
     cachedDb = db;
     if (!isProd) {
       console.log('✅ Connected to MongoDB Atlas');
@@ -52,9 +52,9 @@ app.use(async (req, res, next) => {
     }
     next();
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Database connection failed', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Database connection failed',
+      error: error.message
     });
   }
 });
@@ -71,7 +71,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/interviews', interviewRoutes);
+app.use('/api/agent', agentRoutes);
 
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);

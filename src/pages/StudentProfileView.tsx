@@ -6,15 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Calendar, 
-  GraduationCap, 
-  Phone, 
-  Mail, 
-  Globe, 
-  Github, 
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  GraduationCap,
+  Phone,
+  Mail,
+  Globe,
+  Github,
   Linkedin,
   ExternalLink,
   Award,
@@ -62,7 +62,7 @@ const StudentProfileView = () => {
 
         // Get the specific student profile
         const studentData = await recruiterApi.getStudentProfile(studentId, token);
-        
+
         if (!studentData) {
           setError("Student not found");
           return;
@@ -124,7 +124,7 @@ const StudentProfileView = () => {
         score: entry.score || 0
       }));
     }
-    
+
     // Generate sample data if no history available
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
     const currentScore = student.readinessScore || 0;
@@ -183,12 +183,12 @@ const StudentProfileView = () => {
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
+      <header className="bg-card border-b sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate('/recruiter/dashboard')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -216,8 +216,8 @@ const StudentProfileView = () => {
                 <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
                   <div className="w-24 h-24 bg-gradient-secondary rounded-full flex items-center justify-center text-3xl font-bold text-secondary-foreground mb-4">
                     {student.avatarUrl ? (
-                      <img 
-                        src={student.avatarUrl} 
+                      <img
+                        src={student.avatarUrl}
                         alt={student.name}
                         className="w-24 h-24 rounded-full object-cover"
                       />
@@ -549,8 +549,8 @@ const StudentProfileView = () => {
                     <div className="flex flex-wrap gap-4 justify-center mt-4">
                       {skillDistributionData.map((entry, index) => (
                         <div key={index} className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
+                          <div
+                            className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: entry.color }}
                           ></div>
                           <span className="text-sm">{entry.name} ({entry.value})</span>
@@ -623,17 +623,17 @@ const StudentProfileView = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                         <YAxis stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip 
-                          contentStyle={{ 
+                        <Tooltip
+                          contentStyle={{
                             backgroundColor: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '8px'
                           }}
                         />
-                        <Line 
-                          type="monotone" 
-                          dataKey="score" 
-                          stroke="hsl(var(--primary))" 
+                        <Line
+                          type="monotone"
+                          dataKey="score"
+                          stroke="hsl(var(--primary))"
                           strokeWidth={3}
                           dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 6 }}
                         />
@@ -655,21 +655,21 @@ const StudentProfileView = () => {
                       <span className="font-bold">{student.isProfileComplete ? '100%' : '75%'}</span>
                     </div>
                     <Progress value={student.isProfileComplete ? 100 : 75} />
-                    
+
                     <div className="flex justify-between items-center">
                       <span>Project Verification Rate</span>
                       <span className="font-bold">
-                        {student.projects?.length > 0 
+                        {student.projects?.length > 0
                           ? Math.round((student.projects.filter((p: any) => p.status === 'verified').length / student.projects.length) * 100)
                           : 0
                         }%
                       </span>
                     </div>
-                    <Progress 
-                      value={student.projects?.length > 0 
+                    <Progress
+                      value={student.projects?.length > 0
                         ? (student.projects.filter((p: any) => p.status === 'verified').length / student.projects.length) * 100
                         : 0
-                      } 
+                      }
                     />
                   </CardContent>
                 </Card>

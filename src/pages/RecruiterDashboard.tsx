@@ -10,15 +10,17 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useEffect, useState } from "react";
-import { recruiterApi, interviewApi, InterviewSessionDTO } from "@/lib/api";
+import { recruiterApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import AIRecruiterAssistant from "@/components/AIRecruiterAssistant";
+import { LogoutConfirmDialog } from "@/components/LogoutConfirmDialog";
 
 const RecruiterDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [minScore, setMinScore] = useState("");
   const [maxScore, setMaxScore] = useState("");
@@ -30,8 +32,6 @@ const RecruiterDashboard = () => {
   const [minProjects, setMinProjects] = useState("");
   const [minCGPA, setMinCGPA] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [interviewSessions, setInterviewSessions] = useState<InterviewSessionDTO[]>([]);
-  const [selectedInterview, setSelectedInterview] = useState<InterviewSessionDTO | null>(null);
 
   // Predefined trending skills
   const trendingSkills = [
@@ -83,24 +83,6 @@ const RecruiterDashboard = () => {
     fetchStudents();
   }, [navigate, toast, selectedSkills, minScore, maxScore, minProjects, minCGPA, searchQuery]);
 
-  useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        const response = await interviewApi.getRecruiterSessions('me', { limit: 10 }, token);
-        const sessions = response.sessions || [];
-        setInterviewSessions(sessions);
-        if (sessions.length > 0) {
-          setSelectedInterview(sessions[0]);
-        }
-      } catch (error) {
-        console.error('Failed to load interview sessions', error);
-      }
-    };
-
-    fetchSessions();
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -117,7 +99,7 @@ const RecruiterDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const params: any = {};
-      
+
       if (minScore) params.minScore = minScore;
       if (maxScore) params.maxScore = maxScore;
       if (searchQuery) params.college = searchQuery;
@@ -216,7 +198,7 @@ const RecruiterDashboard = () => {
         const projectSkills = student.projects?.flatMap((p: any) => p.tags || []) || [];
         const profileSkills = student.skills || [];
         const allStudentSkills = [...projectSkills, ...profileSkills];
-        
+
         return selectedSkills.some(skill =>
           allStudentSkills.some((s: string) =>
             s.toLowerCase().includes(skill.toLowerCase())
@@ -282,7 +264,7 @@ const RecruiterDashboard = () => {
     // Use actual readiness history if available
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
     const history = student.readinessHistory.slice(-6); // Last 6 entries
-    
+
     return months.map((month, index) => ({
       month,
       score: history[index]?.score || 0
@@ -303,20 +285,16 @@ const RecruiterDashboard = () => {
   const studentAData = comparedStudents.length > 0 ? getStudentGrowthData(comparedStudents[0]) : [];
   const studentBData = comparedStudents.length > 1 ? getStudentGrowthData(comparedStudents[1]) : [];
   const studentCData = comparedStudents.length > 2 ? getStudentGrowthData(comparedStudents[2]) : [];
-  
+
   const studentAName = comparedStudents[0]?.name || "Student A";
   const studentBName = comparedStudents[1]?.name || "Student B";
   const studentCName = comparedStudents[2]?.name || "Student C";
 
-  const interviewChartData = (selectedInterview?.learningCurve || []).map((point, index) => ({
-    turn: index + 1,
-    score: point.overall,
-  }));
 
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Top Navigation */}
-      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
+      <header className="bg-card border-b sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-secondary bg-clip-text text-transparent">
             EvolvEd Recruiter
@@ -325,7 +303,12 @@ const RecruiterDashboard = () => {
             <Button variant="ghost" onClick={() => navigate("/recruiter/dashboard")}>
               Dashboard
             </Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLogoutDialog(true)}
+              className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-300 shadow-sm"
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
@@ -363,8 +346,8 @@ const RecruiterDashboard = () => {
               {/* Basic Search */}
               <div className="flex flex-col md:flex-row gap-4 mb-4">
                 <div className="flex-1">
-                  <Input 
-                    placeholder="Search by name or college..." 
+                  <Input
+                    placeholder="Search by name or college..."
                     className="w-full"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -388,7 +371,7 @@ const RecruiterDashboard = () => {
                       <TrendingUp className="w-4 h-4" />
                       Skills
                     </h5>
-                    
+
                     {/* Trending Skills */}
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">Trending Skills (click to add):</p>
@@ -544,81 +527,6 @@ const RecruiterDashboard = () => {
           </Card>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="mb-8 grid gap-6 lg:grid-cols-[2fr_1fr]"
-        >
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Mock interview learning curve</span>
-                <Badge variant="secondary">
-                  {selectedInterview ? selectedInterview.role : 'No session selected'}
-                </Badge>
-              </CardTitle>
-              <CardDescription>
-                Live Groq evaluations are stored for recruiters. Track readiness momentum before scheduling a live screen.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {selectedInterview && interviewChartData.length > 0 ? (
-                <div className="h-64">
-                  <ResponsiveContainer>
-                    <LineChart data={interviewChartData} margin={{ left: 12, right: 12 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="turn" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}`} tickLine={false} axisLine={false} />
-                      <Tooltip formatter={(value) => [`${value}/100`, 'Score']} />
-                      <Line type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={2} dot />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No mock interview data yet. Encourage candidates to practice so their confidence curve appears here.</p>
-              )}
-              {selectedInterview && (
-                <div className="mt-4 text-sm text-muted-foreground">
-                  <p>Turns completed: {selectedInterview.learningCurve?.length || 0}</p>
-                  <p>Current status: {selectedInterview.status}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Candidates recently coached</CardTitle>
-              <CardDescription>Tap to view their learning curves.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {interviewSessions.length === 0 && (
-                <p className="text-sm text-muted-foreground">No mock interviews recorded yet.</p>
-              )}
-              {interviewSessions.map((sessionItem) => (
-                <button
-                  key={sessionItem._id}
-                  onClick={() => setSelectedInterview(sessionItem)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                    selectedInterview?._id === sessionItem._id ? 'border-primary bg-primary/5' : 'hover:border-primary/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{sessionItem.student?.name || 'Candidate'}</p>
-                      <p className="text-xs text-muted-foreground">{sessionItem.role}</p>
-                    </div>
-                    <Badge variant="outline">{sessionItem.overallScore || 0}/100</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(sessionItem.createdAt || '').toLocaleDateString()} • {sessionItem.learningCurve?.length || 0} turns
-                  </p>
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
 
         {/* Top Candidates */}
         <motion.div
@@ -636,7 +544,7 @@ const RecruiterDashboard = () => {
                   <div className="flex-1">
                     <h4 className="font-semibold mb-1">Dynamic Match Scoring Active</h4>
                     <p className="text-sm text-muted-foreground mb-3">
-                      Students are now ranked by relevance to your search criteria. The match score considers skill alignment, 
+                      Students are now ranked by relevance to your search criteria. The match score considers skill alignment,
                       relevant projects, certifications, consistency, and academic performance.
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -670,7 +578,7 @@ const RecruiterDashboard = () => {
               </CardContent>
             </Card>
           )}
-          
+
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold">
               {topCandidates.length > 0 ? 'Top Candidates' : 'No students found'}
@@ -680,7 +588,7 @@ const RecruiterDashboard = () => {
                 <Badge variant="secondary" className="px-3 py-1">
                   {selectedStudents.length} selected
                 </Badge>
-                <Button 
+                <Button
                   onClick={handleCompare}
                   className="bg-gradient-secondary"
                   disabled={selectedStudents.length < 2}
@@ -688,7 +596,7 @@ const RecruiterDashboard = () => {
                   <GitCompare className="w-4 h-4 mr-2" />
                   Compare Students
                 </Button>
-                <Button 
+                <Button
                   onClick={clearComparison}
                   variant="outline"
                 >
@@ -700,11 +608,10 @@ const RecruiterDashboard = () => {
           {topCandidates.length > 0 ? (
             <div className="grid gap-4">
               {topCandidates.map((candidate: any, index: number) => (
-                <Card 
-                  key={candidate._id || index} 
-                  className={`shadow-card hover:shadow-glow transition-shadow ${
-                    selectedStudents.includes(candidate._id) ? 'ring-2 ring-secondary' : ''
-                  }`}
+                <Card
+                  key={candidate._id || index}
+                  className={`shadow-card hover:shadow-glow transition-shadow ${selectedStudents.includes(candidate._id) ? 'ring-2 ring-secondary' : ''
+                    }`}
                 >
                   <CardContent className="pt-6">
                     <div className="flex flex-col md:flex-row gap-6">
@@ -759,7 +666,7 @@ const RecruiterDashboard = () => {
                                 const projectSkills = candidate.projects?.flatMap((p: any) => p.tags || []) || [];
                                 const profileSkills = candidate.skills || [];
                                 const allSkills = [...new Set([...profileSkills, ...projectSkills])];
-                                
+
                                 return allSkills.length > 0 ? (
                                   allSkills.slice(0, 3).map((skill: string, i: number) => (
                                     <Badge key={i} variant="secondary">{skill}</Badge>
@@ -771,14 +678,14 @@ const RecruiterDashboard = () => {
                             </div>
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="w-full md:w-auto"
                           onClick={() => navigate(`/recruiter/student/${candidate._id}`)}
                         >
                           View Full Profile
                         </Button>
-                        
+
                         {/* Score Breakdown Dialog */}
                         {(selectedSkills.length > 0 || minProjects || minCGPA || minScore) && candidate.dynamicScore !== undefined && (
                           <Dialog>
@@ -806,7 +713,7 @@ const RecruiterDashboard = () => {
                                       {Math.round((candidate.originalReadinessScore || 0) * 0.20)}
                                     </Badge>
                                   </div>
-                                  
+
                                   {selectedSkills.length > 0 && (
                                     <div className="flex justify-between items-center p-2.5 bg-primary/5 rounded-lg border border-primary/20">
                                       <div className="flex-1">
@@ -842,7 +749,7 @@ const RecruiterDashboard = () => {
                                       </Badge>
                                     </div>
                                   )}
-                                  
+
                                   <div className="flex justify-between items-center p-2.5 bg-muted/50 rounded-lg">
                                     <div className="flex-1">
                                       <p className="font-semibold text-sm">Project Relevance</p>
@@ -854,7 +761,7 @@ const RecruiterDashboard = () => {
                                       ~{Math.min((candidate.projects?.length || 0) * 5, 25)}
                                     </Badge>
                                   </div>
-                                  
+
                                   <div className="flex justify-between items-center p-2.5 bg-muted/50 rounded-lg">
                                     <div className="flex-1">
                                       <p className="font-semibold text-sm">Certifications</p>
@@ -866,7 +773,7 @@ const RecruiterDashboard = () => {
                                       ~{Math.min((candidate.certifications?.length || 0) * 2, 10)}
                                     </Badge>
                                   </div>
-                                  
+
                                   <div className="flex justify-between items-center p-2.5 bg-muted/50 rounded-lg">
                                     <div className="flex-1">
                                       <p className="font-semibold text-sm">Consistency</p>
@@ -878,7 +785,7 @@ const RecruiterDashboard = () => {
                                       ~{Math.round(Math.min((candidate.leetcodeStats?.streak || 0) / 10 + (candidate.projects?.length || 0) / 2, 10))}
                                     </Badge>
                                   </div>
-                                  
+
                                   <div className="flex justify-between items-center p-2.5 bg-muted/50 rounded-lg">
                                     <div className="flex-1">
                                       <p className="font-semibold text-sm">Academic Performance</p>
@@ -891,7 +798,7 @@ const RecruiterDashboard = () => {
                                     </Badge>
                                   </div>
                                 </div>
-                                
+
                                 <div className="border-t pt-3">
                                   <div className="flex justify-between items-center p-3 bg-gradient-secondary/10 rounded-lg border-2 border-secondary">
                                     <p className="text-base font-bold">Total Match Score</p>
@@ -900,7 +807,7 @@ const RecruiterDashboard = () => {
                                     </Badge>
                                   </div>
                                 </div>
-                                
+
                                 <div className="text-xs text-muted-foreground space-y-1 p-2.5 bg-muted/30 rounded">
                                   <p className="font-semibold">Scoring Formula:</p>
                                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
@@ -963,7 +870,7 @@ const RecruiterDashboard = () => {
                   <TabsTrigger value="comparison">Growth Comparison</TabsTrigger>
                   <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="comparison" className="space-y-6">
                   {comparedStudents.length >= 2 ? (
                     <div className={`grid ${comparedStudents.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
@@ -977,17 +884,17 @@ const RecruiterDashboard = () => {
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                             <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                             <YAxis stroke="hsl(var(--muted-foreground))" />
-                            <Tooltip 
-                              contentStyle={{ 
+                            <Tooltip
+                              contentStyle={{
                                 backgroundColor: 'hsl(var(--card))',
                                 border: '1px solid hsl(var(--border))',
                                 borderRadius: '8px'
                               }}
                             />
-                            <Line 
-                              type="monotone" 
-                              dataKey="score" 
-                              stroke="hsl(var(--primary))" 
+                            <Line
+                              type="monotone"
+                              dataKey="score"
+                              stroke="hsl(var(--primary))"
                               strokeWidth={3}
                             />
                           </LineChart>
@@ -1009,17 +916,17 @@ const RecruiterDashboard = () => {
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                             <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                             <YAxis stroke="hsl(var(--muted-foreground))" />
-                            <Tooltip 
-                              contentStyle={{ 
+                            <Tooltip
+                              contentStyle={{
                                 backgroundColor: 'hsl(var(--card))',
                                 border: '1px solid hsl(var(--border))',
                                 borderRadius: '8px'
                               }}
                             />
-                            <Line 
-                              type="monotone" 
-                              dataKey="score" 
-                              stroke="hsl(var(--secondary))" 
+                            <Line
+                              type="monotone"
+                              dataKey="score"
+                              stroke="hsl(var(--secondary))"
                               strokeWidth={3}
                             />
                           </LineChart>
@@ -1042,17 +949,17 @@ const RecruiterDashboard = () => {
                               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                               <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                               <YAxis stroke="hsl(var(--muted-foreground))" />
-                              <Tooltip 
-                                contentStyle={{ 
+                              <Tooltip
+                                contentStyle={{
                                   backgroundColor: 'hsl(var(--card))',
                                   border: '1px solid hsl(var(--border))',
                                   borderRadius: '8px'
                                 }}
                               />
-                              <Line 
-                                type="monotone" 
-                                dataKey="score" 
-                                stroke="hsl(var(--accent))" 
+                              <Line
+                                type="monotone"
+                                dataKey="score"
+                                stroke="hsl(var(--accent))"
                                 strokeWidth={3}
                               />
                             </LineChart>
@@ -1104,8 +1011,8 @@ const RecruiterDashboard = () => {
                               <div className="flex items-center gap-2">
                                 <CheckCircle2 className="w-4 h-4 text-primary" />
                                 <span className="text-sm">
-                                  {comparedStudents[0]?.readinessScore >= comparedStudents[1]?.readinessScore 
-                                    ? `${studentAName} has a higher readiness score` 
+                                  {comparedStudents[0]?.readinessScore >= comparedStudents[1]?.readinessScore
+                                    ? `${studentAName} has a higher readiness score`
                                     : `${studentBName} has a higher readiness score`}
                                 </span>
                               </div>
@@ -1113,7 +1020,7 @@ const RecruiterDashboard = () => {
                                 <CheckCircle2 className="w-4 h-4 text-primary" />
                                 <span className="text-sm">
                                   {(comparedStudents[0]?.projects?.length || 0) >= (comparedStudents[1]?.projects?.length || 0)
-                                    ? `${studentAName} has more project experience` 
+                                    ? `${studentAName} has more project experience`
                                     : `${studentBName} has more project experience`}
                                 </span>
                               </div>
@@ -1140,9 +1047,14 @@ const RecruiterDashboard = () => {
       </div>
 
       {/* AI Recruiter Assistant */}
-      <AIRecruiterAssistant 
-        students={students} 
+      <AIRecruiterAssistant
+        students={students}
         selectedStudents={selectedStudents}
+      />
+      <LogoutConfirmDialog
+        isOpen={showLogoutDialog}
+        onClose={() => setShowLogoutDialog(false)}
+        onConfirm={handleLogout}
       />
     </div>
   );

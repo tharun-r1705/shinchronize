@@ -116,7 +116,7 @@ const AdminPanel = () => {
   };
 
   const getIcon = (type: string) => {
-    switch(type) {
+    switch (type) {
       case "certificate":
         return <Award className="w-5 h-5 text-primary" />;
       case "project":
@@ -127,7 +127,7 @@ const AdminPanel = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    switch(status) {
+    switch (status) {
       case "pending":
         return <Badge variant="outline" className="flex items-center gap-1"><Clock className="w-3 h-3" />Pending</Badge>;
       case "verified":
@@ -146,7 +146,7 @@ const AdminPanel = () => {
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Top Navigation */}
-      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
+      <header className="bg-card border-b sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-accent bg-clip-text text-transparent">
             EvolvEd Admin

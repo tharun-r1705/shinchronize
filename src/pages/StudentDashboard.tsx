@@ -9,18 +9,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  TrendingUp, Award, Upload, FileText, Trophy, 
+import {
+  TrendingUp, Award, Upload, FileText, Trophy,
   Target, Zap, Star, BookOpen, Code, Brain, LogOut,
-  Link2, Edit, Trash2, CheckCircle2, Calendar
+  Link2, Edit, Trash2, CheckCircle2, Calendar, ArrowRight, Sparkles
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useEffect, useState } from "react";
 import { studentApi } from "@/lib/api";
-import MockInterviewChatbot from "@/components/MockInterviewChatbot";
 import { useToast } from "@/hooks/use-toast";
+import { StudentNavbar } from "@/components/StudentNavbar";
 
 interface MentorSuggestions {
   overview: string;
@@ -50,7 +50,7 @@ const StudentDashboard = () => {
   const { toast } = useToast();
   const [student, setStudent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Project dialog state
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -58,7 +58,7 @@ const StudentDashboard = () => {
   const [projectDescription, setProjectDescription] = useState("");
   const [projectDomain, setProjectDomain] = useState("");
   const [projectTags, setProjectTags] = useState("");
-  
+
   // Certificate dialog state
   const [certDialogOpen, setCertDialogOpen] = useState(false);
   const [certName, setCertName] = useState("");
@@ -66,7 +66,7 @@ const StudentDashboard = () => {
   const [certDomain, setCertDomain] = useState("");
   const [certId, setCertId] = useState("");
   const [certDate, setCertDate] = useState("");
-  
+
   // Event dialog state
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [eventName, setEventName] = useState("");
@@ -86,9 +86,8 @@ const StudentDashboard = () => {
   const [skillScore, setSkillScore] = useState(50);
   const [editingSkillName, setEditingSkillName] = useState<string | null>(null);
 
-  const [mentorSuggestions, setMentorSuggestions] = useState<MentorSuggestions | null>(null);
-  const [mentorStatus, setMentorStatus] = useState<"idle" | "loading" | "error">("loading");
-  const [mentorError, setMentorError] = useState<string | null>(null);
+  // State for suggestions is removed as it's now a separate page
+  const [mentorSuggestions, setMentorSuggestions] = useState<any>(null); // Kept for minimal compatibility if needed elsewhere, but cleared from main flow
 
   const domains = [
     "Web Development",
@@ -108,62 +107,16 @@ const StudentDashboard = () => {
     "Other"
   ];
 
-    const formatTimestamp = (value?: string | null) => {
-      if (!value) return null;
-      const parsed = new Date(value);
-      if (Number.isNaN(parsed.getTime())) {
-        return value;
-      }
-      return parsed.toLocaleString();
-    };
+  const formatTimestamp = (value?: string | null) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    return parsed.toLocaleString();
+  };
 
-    const fetchMentorSuggestions = async (authToken: string, options: { silent?: boolean } = {}) => {
-      const { silent = false } = options;
-      if (!authToken) {
-        setMentorStatus("error");
-        setMentorError("Authentication token missing");
-        return;
-      }
-
-      setMentorStatus("loading");
-      setMentorError(null);
-
-      try {
-        const response = await studentApi.getMentorSuggestions(authToken);
-        const suggestions = (response as { suggestions?: MentorSuggestions })?.suggestions;
-
-        setMentorSuggestions(suggestions ?? null);
-        setMentorStatus("idle");
-      } catch (error: any) {
-        const message = error?.message || "Failed to fetch mentor suggestions";
-        setMentorSuggestions(null);
-        setMentorStatus("error");
-        setMentorError(message);
-
-        if (!silent) {
-          toast({
-            title: "AI mentor unavailable",
-            description: message,
-            variant: "destructive",
-          });
-        }
-      }
-    };
-
-    const handleMentorRefresh = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast({
-          title: "Session expired",
-          description: "Please sign in again to regenerate mentor suggestions",
-          variant: "destructive",
-        });
-        navigate('/student/login');
-        return;
-      }
-
-      await fetchMentorSuggestions(token);
-    };
+  // Mentor fetch functions removed from dashboard
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -181,7 +134,6 @@ const StudentDashboard = () => {
 
         const data = await studentApi.getProfile(token);
         setStudent(data);
-        await fetchMentorSuggestions(token, { silent: true });
       } catch (error: any) {
         toast({
           title: "Error loading profile",
@@ -198,16 +150,6 @@ const StudentDashboard = () => {
 
     fetchStudentData();
   }, [navigate, toast]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userType');
-    localStorage.removeItem('studentData');
-    toast({
-      title: "Logged out successfully",
-    });
-    navigate('/');
-  };
 
   const handleProjectSubmit = async () => {
     if (!projectName || !projectDomain) {
@@ -528,17 +470,17 @@ const StudentDashboard = () => {
     try {
       // Create updated skillRadar object
       const currentSkillRadar = student?.skillRadar || {};
-      
+
       const updatedSkillRadar = {
         ...currentSkillRadar,
         [skillNameToUse]: skillScore,
       };
 
       const response = await studentApi.updateProfile({ skillRadar: updatedSkillRadar }, token);
-      
-      toast({ 
+
+      toast({
         title: editingSkillName ? "Skill updated successfully" : "Skill added successfully",
-        variant: "default" 
+        variant: "default"
       });
 
       // Refresh student data
@@ -585,7 +527,7 @@ const StudentDashboard = () => {
       delete updatedSkillRadar[skillToDelete];
 
       await studentApi.updateProfile({ skillRadar: updatedSkillRadar }, token);
-      
+
       toast({ title: "Skill deleted successfully", variant: "default" });
 
       // Refresh student data
@@ -603,14 +545,14 @@ const StudentDashboard = () => {
   // Transform coding logs for weekly activity chart
   const getWeeklyData = () => {
     if (!student?.codingLogs) return [];
-    
+
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const weekData = days.map(day => ({ day, activity: 0 }));
-    
+
     // Get logs from the last 7 days
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
+
     student.codingLogs.forEach((log: any) => {
       const logDate = new Date(log.date);
       if (logDate >= sevenDaysAgo) {
@@ -619,7 +561,7 @@ const StudentDashboard = () => {
         weekData[adjustedIndex].activity += log.minutesSpent || 0;
       }
     });
-    
+
     return weekData;
   };
 
@@ -646,46 +588,46 @@ const StudentDashboard = () => {
     const badges = [];
     const streakDays = student?.streakDays || 0;
     const projectCount = student?.projects?.length || 0;
-    
+
     // Always show these 3 core achievements
-    
+
     // 1. Streak Achievement (30-day target)
     if (streakDays >= 30) {
-      badges.push({ 
-        icon: Zap, 
-        name: "30-Day Streak Achieved", 
+      badges.push({
+        icon: Zap,
+        name: "30-Day Streak Achieved",
         description: `${streakDays} days and counting!`,
         color: "text-yellow-500",
         bgColor: "bg-yellow-100 dark:bg-yellow-900/30",
         earned: true
       });
     }
-    
+
     // 2. Projects Achievement (from student data)
     if (projectCount > 0) {
-      badges.push({ 
-        icon: Code, 
-        name: "Project Builder", 
+      badges.push({
+        icon: Code,
+        name: "Project Builder",
         description: `${projectCount} project${projectCount > 1 ? 's' : ''} completed`,
         color: "text-blue-500",
         bgColor: "bg-blue-100 dark:bg-blue-900/30",
         earned: true
       });
     }
-    
+
     // 3. Skills Achievement (from skill radar)
     const skillCount = student?.skillRadar ? Object.keys(student.skillRadar).length : 0;
     if (skillCount > 0) {
-      badges.push({ 
-        icon: Brain, 
-        name: "Skill Developer", 
+      badges.push({
+        icon: Brain,
+        name: "Skill Developer",
         description: `${skillCount} skill${skillCount > 1 ? 's' : ''} tracked`,
         color: "text-indigo-500",
         bgColor: "bg-indigo-100 dark:bg-indigo-900/30",
         earned: true
       });
     }
-    
+
     return badges.slice(0, 3); // Ensure only 3 badges max
   };
 
@@ -695,13 +637,13 @@ const StudentDashboard = () => {
     const streakDays = student?.streakDays || 0;
     const projectCount = student?.projects?.length || 0;
     const skillRadar = student?.skillRadar || {};
-    
+
     // Get lowest skill from skill radar for improvement target
     const skills = Object.entries(skillRadar).map(([skill, score]) => ({ skill, score: Number(score) }));
-    const lowestSkill = skills.length > 0 
+    const lowestSkill = skills.length > 0
       ? skills.reduce((min, curr) => curr.score < min.score ? curr : min, skills[0])
       : null;
-    
+
     // 1. 30-Day Streak Goal
     if (streakDays < 30) {
       next.push({
@@ -713,7 +655,7 @@ const StudentDashboard = () => {
         unit: "days"
       });
     }
-    
+
     // 2. Project Completion Goal (always show, target is +2 from current)
     const projectTarget = Math.max(5, projectCount + 2);
     next.push({
@@ -724,7 +666,7 @@ const StudentDashboard = () => {
       remaining: Math.max(0, projectTarget - projectCount),
       unit: "projects"
     });
-    
+
     // 3. Skill Improvement Goal (from skill radar)
     if (lowestSkill && lowestSkill.score < 75) {
       const targetScore = 75;
@@ -747,7 +689,7 @@ const StudentDashboard = () => {
         unit: "skill"
       });
     }
-    
+
     return next.slice(0, 3); // Exactly 3 goals
   };
 
@@ -782,26 +724,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Top Navigation */}
-      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            EvolvEd
-          </h1>
-          <nav className="flex gap-4 items-center">
-            <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
-            <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <StudentNavbar />
 
       <div className="container mx-auto px-4 py-8">
         {/* Profile Card */}
@@ -842,22 +765,6 @@ const StudentDashboard = () => {
           </Card>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="mb-8"
-        >
-          <MockInterviewChatbot variant="panel" displayMode="graph-only" />
-          <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-muted-foreground">
-            <span>
-              Track your interview learning curve and share the graph with recruiters instantly.
-            </span>
-            <Button variant="link" className="px-0" onClick={() => navigate('/student/mock-interview')}>
-              Open full workspace →
-            </Button>
-          </div>
-        </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-6 mb-6">
           {/* Learning Journal */}
@@ -882,7 +789,7 @@ const StudentDashboard = () => {
                     <TabsTrigger value="certs">Certs</TabsTrigger>
                     <TabsTrigger value="events">Events</TabsTrigger>
                   </TabsList>
-                  
+
                   <TabsContent value="projects" className="space-y-4">
                     <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
                       <DialogTrigger asChild>
@@ -912,7 +819,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setProjectName(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="project-github">GitHub Link</Label>
                             <Input
@@ -922,7 +829,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setProjectGithub(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="project-domain">Domain/Category *</Label>
                             <Select value={projectDomain} onValueChange={setProjectDomain}>
@@ -938,7 +845,7 @@ const StudentDashboard = () => {
                               </SelectContent>
                             </Select>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="project-description">Description</Label>
                             <Textarea
@@ -949,7 +856,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setProjectDescription(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="project-tags">Technologies/Tags (comma-separated)</Label>
                             <Input
@@ -973,7 +880,7 @@ const StudentDashboard = () => {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    
+
                     <div className="space-y-2">
                       {student.projects && student.projects.length > 0 ? (
                         student.projects.slice(0, 3).map((project: any, index: number) => (
@@ -985,9 +892,9 @@ const StudentDashboard = () => {
                                   {project.tags?.join(', ') || 'No tags'}
                                 </p>
                                 {project.githubLink && (
-                                  <a 
-                                    href={project.githubLink} 
-                                    target="_blank" 
+                                  <a
+                                    href={project.githubLink}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
                                   >
@@ -1024,7 +931,7 @@ const StudentDashboard = () => {
                     </div>
                   </TabsContent>
 
-                  
+
 
                   <TabsContent value="certs">
                     <Dialog open={certDialogOpen} onOpenChange={setCertDialogOpen}>
@@ -1055,7 +962,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setCertName(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="cert-provider">Provider/Issuing Organization</Label>
                             <Input
@@ -1065,7 +972,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setCertProvider(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="cert-domain">Domain/Category *</Label>
                             <Select value={certDomain} onValueChange={setCertDomain}>
@@ -1081,7 +988,7 @@ const StudentDashboard = () => {
                               </SelectContent>
                             </Select>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="cert-id">Certificate ID/Credential ID</Label>
                             <Input
@@ -1091,7 +998,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setCertId(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="cert-date">Issue Date</Label>
                             <Input
@@ -1112,7 +1019,7 @@ const StudentDashboard = () => {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    
+
                     <div className="space-y-2 mt-4">
                       {student.certifications && student.certifications.length > 0 ? (
                         student.certifications.slice(0, 3).map((cert: any, index: number) => (
@@ -1188,7 +1095,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setEventName(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="event-domain">Domain/Category *</Label>
                             <Select value={eventDomain} onValueChange={setEventDomain}>
@@ -1204,7 +1111,7 @@ const StudentDashboard = () => {
                               </SelectContent>
                             </Select>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="event-description">Description/Achievement</Label>
                             <Textarea
@@ -1215,7 +1122,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setEventDescription(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="event-date">Event Date</Label>
                             <Input
@@ -1225,7 +1132,7 @@ const StudentDashboard = () => {
                               onChange={(e) => setEventDate(e.target.value)}
                             />
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label htmlFor="event-location">Location/Platform</Label>
                             <Input
@@ -1246,7 +1153,7 @@ const StudentDashboard = () => {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    
+
                     <div className="space-y-2 mt-4">
                       {student.events && student.events.length > 0 ? (
                         student.events.slice(0, 3).map((event: any, index: number) => (
@@ -1450,17 +1357,17 @@ const StudentDashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" />
                       <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px'
                         }}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="activity" 
-                        stroke="hsl(var(--primary))" 
+                      <Line
+                        type="monotone"
+                        dataKey="activity"
+                        stroke="hsl(var(--primary))"
                         strokeWidth={3}
                         dot={{ fill: 'hsl(var(--primary))', r: 4 }}
                       />
@@ -1519,7 +1426,7 @@ const StudentDashboard = () => {
                           )}
                         </DialogTitle>
                         <DialogDescription>
-                          {editingSkillName 
+                          {editingSkillName
                             ? "Update your proficiency level for this skill"
                             : "Add a technical skill and rate your proficiency (0-100)"
                           }
@@ -1542,18 +1449,18 @@ const StudentDashboard = () => {
                             <Label htmlFor="skillScore" className="text-sm font-medium">
                               Proficiency Level
                             </Label>
-                            <Badge 
+                            <Badge
                               variant={
                                 skillScore >= 80 ? "default" :
-                                skillScore >= 60 ? "secondary" :
-                                "outline"
+                                  skillScore >= 60 ? "secondary" :
+                                    "outline"
                               }
                               className="px-3 py-1"
                             >
                               {skillScore >= 80 ? "🏆 Expert" :
-                               skillScore >= 60 ? "💪 Intermediate" :
-                               skillScore >= 40 ? "🌱 Beginner" :
-                               "📚 Learning"}
+                                skillScore >= 60 ? "💪 Intermediate" :
+                                  skillScore >= 40 ? "🌱 Beginner" :
+                                    "📚 Learning"}
                             </Badge>
                           </div>
                           <div className="bg-muted/50 rounded-lg p-4 space-y-3">
@@ -1617,34 +1524,34 @@ const StudentDashboard = () => {
                     <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-lg p-6">
                       <ResponsiveContainer width="100%" height={300}>
                         <RadarChart data={skillsData}>
-                          <PolarGrid 
-                            stroke="hsl(var(--border))" 
+                          <PolarGrid
+                            stroke="hsl(var(--border))"
                             strokeDasharray="3 3"
                           />
-                          <PolarAngleAxis 
-                            dataKey="skill" 
-                            tick={{ 
-                              fill: 'hsl(var(--foreground))', 
+                          <PolarAngleAxis
+                            dataKey="skill"
+                            tick={{
+                              fill: 'hsl(var(--foreground))',
                               fontSize: 13,
                               fontWeight: 500
                             }}
                           />
-                          <PolarRadiusAxis 
-                            angle={90} 
-                            domain={[0, 100]} 
+                          <PolarRadiusAxis
+                            angle={90}
+                            domain={[0, 100]}
                             stroke="hsl(var(--muted-foreground))"
                             tick={{ fontSize: 11 }}
                           />
-                          <Radar 
-                            name="Skills" 
-                            dataKey="score" 
-                            stroke="hsl(var(--primary))" 
-                            fill="hsl(var(--primary))" 
+                          <Radar
+                            name="Skills"
+                            dataKey="score"
+                            stroke="hsl(var(--primary))"
+                            fill="hsl(var(--primary))"
                             fillOpacity={0.4}
                             strokeWidth={2.5}
                           />
-                          <Tooltip 
-                            contentStyle={{ 
+                          <Tooltip
+                            contentStyle={{
                               backgroundColor: 'hsl(var(--card))',
                               border: '1px solid hsl(var(--border))',
                               borderRadius: '8px',
@@ -1679,18 +1586,18 @@ const StudentDashboard = () => {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="font-semibold text-base truncate">{skillData.skill}</span>
-                                    <Badge 
+                                    <Badge
                                       variant={
                                         skillData.score >= 80 ? "default" :
-                                        skillData.score >= 60 ? "secondary" :
-                                        "outline"
+                                          skillData.score >= 60 ? "secondary" :
+                                            "outline"
                                       }
                                       className="shrink-0 text-xs"
                                     >
                                       {skillData.score >= 80 ? "Expert" :
-                                       skillData.score >= 60 ? "Intermediate" :
-                                       skillData.score >= 40 ? "Beginner" :
-                                       "Learning"}
+                                        skillData.score >= 60 ? "Intermediate" :
+                                          skillData.score >= 40 ? "Beginner" :
+                                            "Learning"}
                                     </Badge>
                                   </div>
                                   <Progress value={skillData.score} className="h-2 mt-2" />
@@ -1729,7 +1636,7 @@ const StudentDashboard = () => {
                     <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
                       Start tracking your technical proficiency by adding your first skill
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => setSkillRadarDialogOpen(true)}
                       className="gap-2"
                     >
@@ -1743,197 +1650,27 @@ const StudentDashboard = () => {
           </motion.div>
         </div>
 
-        {/* AI Mentor */}
+        {/* AI Mentor section moved to dedicated AI page */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
           className="mt-6"
         >
-          <Card className="shadow-card border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  AI Mentor Suggestions
-                </CardTitle>
-                {mentorSuggestions?.generatedAt && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Updated {formatTimestamp(mentorSuggestions.generatedAt)}
-                    {mentorSuggestions.model ? ` • ${mentorSuggestions.model}` : ""}
-                  </p>
-                )}
+          <Card className="shadow-card border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 p-8 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-6 h-6 text-primary" />
               </div>
-            </CardHeader>
-            <CardContent>
-              {mentorStatus === "loading" && (
-                <div className="space-y-4">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-20 w-full" />
-                  <Skeleton className="h-24 w-full" />
-                </div>
-              )}
-              {mentorStatus === "error" && (
-                <div className="p-4 border border-destructive/30 rounded-lg bg-destructive/5">
-                  <p className="text-sm text-destructive font-medium mb-2">
-                    {mentorError || "Unable to generate mentor suggestions."}
-                  </p>
-                  <Button variant="destructive" size="sm" onClick={async () => {
-                    const token = localStorage.getItem('token');
-                    if (!token) {
-                      toast({ title: 'Not authenticated', description: 'Please login', variant: 'destructive' });
-                      navigate('/student/login');
-                      return;
-                    }
-                    await fetchMentorSuggestions(token);
-                  }}>
-                    Retry
-                  </Button>
-                </div>
-              )}
-              {mentorStatus === "idle" && mentorSuggestions && (
-                <div className="space-y-6">
-                  {mentorSuggestions.overview && (
-                    <p className="text-sm leading-relaxed text-muted-foreground bg-card border border-primary/10 rounded-lg p-4">
-                      {mentorSuggestions.overview}
-                    </p>
-                  )}
-
-                  {mentorSuggestions.strengths?.length > 0 && (
-                    <section className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        <Star className="w-4 h-4 text-primary" />
-                        Strengths to celebrate
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {mentorSuggestions.strengths.map((item, index) => (
-                          <div
-                            key={`${item.title}-${index}`}
-                            className="p-4 rounded-lg border border-primary/10 bg-card"
-                          >
-                            <p className="font-medium mb-2 text-sm text-foreground">{item.title}</p>
-                            <p className="text-sm text-muted-foreground">{item.detail}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {mentorSuggestions.opportunities?.length > 0 && (
-                    <section className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        <Target className="w-4 h-4 text-primary" />
-                        Prioritised growth areas
-                      </div>
-                      <div className="space-y-3">
-                        {mentorSuggestions.opportunities.map((item, index) => (
-                          <div
-                            key={`${item.title}-${index}`}
-                            className="p-4 border border-border/60 rounded-lg bg-card/80"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-semibold text-sm text-foreground flex items-center gap-2">
-                                <Zap className="w-4 h-4 text-primary" />
-                                {item.title}
-                              </p>
-                              {item.impact && (
-                                <Badge variant="outline" className="text-xs uppercase tracking-wide">
-                                  {item.impact}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-2">{item.detail}</p>
-                            {item.actions && item.actions.length > 0 && (
-                              <ul className="mt-3 text-sm text-muted-foreground space-y-1 list-disc pl-5">
-                                {item.actions.map((action, idx) => (
-                                  <li key={`${item.title}-action-${idx}`}>{action}</li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {mentorSuggestions.actionPlan?.length > 0 && (
-                    <section className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                        Action plan
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {mentorSuggestions.actionPlan.map((item, index) => (
-                          <div
-                            key={`${item.title}-${index}`}
-                            className="p-4 rounded-lg border border-primary/15 bg-card"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="font-semibold text-sm text-foreground">{item.title}</p>
-                              {item.timeframe && (
-                                <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
-                                  {item.timeframe}
-                                </Badge>
-                              )}
-                            </div>
-                            {item.steps && item.steps.length > 0 && (
-                              <ul className="mt-3 text-sm text-muted-foreground space-y-1 list-disc pl-5">
-                                {item.steps.map((step, idx) => (
-                                  <li key={`${item.title}-step-${idx}`}>{step}</li>
-                                ))}
-                              </ul>
-                            )}
-                            {item.metrics && item.metrics.length > 0 && (
-                              <p className="mt-3 text-xs text-muted-foreground">
-                                <span className="font-semibold text-foreground">Measure:</span> {item.metrics.join(' • ')}
-                              </p>
-                            )}
-                            {item.resources && item.resources.length > 0 && (
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                <span className="font-semibold text-foreground">Resources:</span> {item.resources.join(' • ')}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {mentorSuggestions.quickWins && mentorSuggestions.quickWins.length > 0 && (
-                    <section className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        <BookOpen className="w-4 h-4 text-primary" />
-                        Quick wins
-                      </div>
-                      <ul className="grid gap-2 md:grid-cols-2">
-                        {mentorSuggestions.quickWins.map((win, index) => (
-                          <li
-                            key={`quickwin-${index}`}
-                            className="flex items-start gap-2 p-3 rounded-lg border border-primary/10 bg-card"
-                          >
-                            <Award className="w-4 h-4 text-primary mt-0.5" />
-                            <span className="text-sm text-muted-foreground">{win}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  )}
-
-                  {mentorSuggestions.mindset && (
-                    <div className="p-4 rounded-lg border border-primary/20 bg-primary/10 text-sm text-foreground">
-                      <p className="font-medium mb-1 text-black">Keep the momentum</p>
-                      <p className="text-black">{mentorSuggestions.mindset}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {mentorStatus === "idle" && !mentorSuggestions && (
-                <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground bg-card/70">
-                  AI mentor suggestions will appear once you add more skills, projects, and activity. Update your profile and regenerate to see personalised advice.
-                </div>
-              )}
-            </CardContent>
+              <h3 className="text-xl font-bold mb-2">Deep Insights with Zenith AI</h3>
+              <p className="text-muted-foreground mb-6">
+                Get a comprehensive analysis of your trajectory, core competencies, and a personalized strategic action plan.
+              </p>
+              <Button onClick={() => navigate('/student/ai')} className="bg-gradient-primary rounded-full px-8">
+                View My AI Recommendations
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </Card>
         </motion.div>
       </div>

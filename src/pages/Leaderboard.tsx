@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { StudentNavbar } from "@/components/StudentNavbar";
 import { studentApi } from "@/lib/api";
 
 type LeaderboardEntry = {
@@ -34,16 +35,6 @@ const Leaderboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userType');
-    localStorage.removeItem('studentData');
-    localStorage.removeItem('studentToken');
-    toast({
-      title: "Logged out successfully",
-    });
-    navigate('/');
-  };
 
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -129,7 +120,7 @@ const Leaderboard = () => {
   }, []);
 
   const getRankIcon = (rank: number) => {
-    switch(rank) {
+    switch (rank) {
       case 1:
         return <Trophy className="w-8 h-8 text-yellow-500" />;
       case 2:
@@ -142,7 +133,7 @@ const Leaderboard = () => {
   };
 
   const getRankBg = (rank: number) => {
-    switch(rank) {
+    switch (rank) {
       case 1:
         return "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500/30";
       case 2:
@@ -239,7 +230,7 @@ const Leaderboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted/30">
-        <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
+        <header className="bg-card border-b sticky top-0 z-50 shadow-sm">
           <div className="container mx-auto px-4 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">EvolvEd</h1>
           </div>
@@ -254,7 +245,7 @@ const Leaderboard = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-muted/30">
-        <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
+        <header className="bg-card border-b sticky top-0 z-50 shadow-sm">
           <div className="container mx-auto px-4 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">EvolvEd</h1>
           </div>
@@ -268,23 +259,7 @@ const Leaderboard = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Top Navigation */}
-      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            EvolvEd
-          </h1>
-          <nav className="flex gap-4 items-center">
-            <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
-            <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
-            <Button variant="ghost" onClick={handleLogout}>Logout</Button>
-          </nav>
-        </div>
-      </header>
+      <StudentNavbar />
 
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
@@ -333,7 +308,7 @@ const Leaderboard = () => {
                   <div className="flex flex-col md:items-end gap-3">
                     <div className="text-lg font-semibold">
                       {currentUserEntry ? (
-                        <>{"Current Rank: " }<span className="text-2xl">#{currentUserEntry.rank}</span></>
+                        <>{"Current Rank: "}<span className="text-2xl">#{currentUserEntry.rank}</span></>
                       ) : (
                         "Outside Top 50"
                       )}
@@ -342,8 +317,8 @@ const Leaderboard = () => {
                       {currentUserEntry
                         ? `Readiness Score: ${currentUserEntry.score}%`
                         : currentStudentMeta?.readinessScore
-                        ? `Your latest readiness score: ${currentStudentMeta.readinessScore}%`
-                        : "Keep improving your readiness to break into the leaderboard."}
+                          ? `Your latest readiness score: ${currentStudentMeta.readinessScore}%`
+                          : "Keep improving your readiness to break into the leaderboard."}
                     </p>
                     <div className="flex gap-2">
                       {currentUserEntry ? (
@@ -515,20 +490,18 @@ const Leaderboard = () => {
                     transition={{ delay: 0.5 + index * 0.05 }}
                   >
                     <Card
-                      className={`${getRankBg(student.rank)} border transition-all hover:shadow-md ${
-                        isCurrentUser ? "ring-2 ring-primary/80 shadow-glow" : ""
-                      }`}
+                      className={`${getRankBg(student.rank)} border transition-all hover:shadow-md ${isCurrentUser ? "ring-2 ring-primary/80 shadow-glow" : ""
+                        }`}
                     >
                       <CardContent className="pt-6">
                         <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                           <div className="flex items-center gap-4 flex-shrink-0">
                             {getRankIcon(student.rank)}
                             <div
-                              className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold ${
-                                isCurrentUser
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-gradient-primary text-primary-foreground"
-                              }`}
+                              className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold ${isCurrentUser
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-gradient-primary text-primary-foreground"
+                                }`}
                             >
                               {getInitials(student.name)}
                             </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { StudentNavbar } from "@/components/StudentNavbar";
 import { Link2, RefreshCw, CheckCircle, XCircle, LogOut } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -61,16 +62,6 @@ const Progress = () => {
   const [verifying, setVerifying] = useState(false);
   const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userType');
-    localStorage.removeItem('studentData');
-    localStorage.removeItem('studentToken');
-    toast({
-      title: "Logged out successfully",
-    });
-    navigate('/');
-  };
 
   const leetStats = student?.leetcodeStats;
   const derivedLeetUsername = useMemo(
@@ -347,22 +338,7 @@ const Progress = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            EvolvEd
-          </h1>
-          <nav className="flex gap-4 items-center">
-            <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
-            <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
-            <Button variant="ghost" onClick={handleLogout}>Logout</Button>
-          </nav>
-        </div>
-      </header>
+      <StudentNavbar />
 
       <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -589,9 +565,8 @@ const Progress = () => {
                                   />
                                 );
                               }
-                              const label = `${day.date}: ${day.count} submission${
-                                day.count === 1 ? "" : "s"
-                              }`;
+                              const label = `${day.date}: ${day.count} submission${day.count === 1 ? "" : "s"
+                                }`;
                               return (
                                 <div
                                   key={`${day.date}-${dayIndex}`}

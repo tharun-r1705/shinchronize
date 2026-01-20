@@ -131,86 +131,6 @@ export interface SyncCodingActivityResponse {
   codingProfiles: CodingProfilesPayload;
 }
 
-export interface InterviewRubric {
-  clarity: number;
-  technicalAccuracy: number;
-  communication: number;
-  relevance: number;
-  confidence: number;
-}
-
-export interface InterviewTurnOption {
-  key: string;
-  text: string;
-}
-
-export interface InterviewTurnDTO {
-  _id: string;
-  question: string;
-  focusAreas: string[];
-  difficulty: "easy" | "medium" | "hard" | "expert";
-  answer?: string;
-  feedback?: string;
-  coachTips?: string[];
-  askedAt?: string;
-  answeredAt?: string;
-  rubric?: InterviewRubric;
-  options?: InterviewTurnOption[];
-  selectedOptionKey?: string;
-  correctOptionKey?: string;
-  isCorrect?: boolean;
-}
-
-export interface InterviewLearningPoint {
-  turnId?: string;
-  turnIndex: number;
-  clarity: number;
-  technicalAccuracy: number;
-  communication: number;
-  relevance: number;
-  confidence: number;
-  overall: number;
-  difficulty: "easy" | "medium" | "hard" | "expert";
-  createdAt?: string;
-}
-
-export interface InterviewSessionDTO {
-  _id: string;
-  role: string;
-  roleLevel: string;
-  status: "active" | "paused" | "completed";
-  overallScore: number;
-  currentDifficulty: "easy" | "medium" | "hard" | "expert";
-  turns?: InterviewTurnDTO[];
-  learningCurve: InterviewLearningPoint[];
-  proficiencyVector?: {
-    technicalDepth?: number;
-    problemSolving?: number;
-    communication?: number;
-  };
-  meta?: {
-    totalQuestions: number;
-    totalAnswers: number;
-    maxQuestions: number;
-  };
-  maxQuestions?: number;
-  mode?: "practice" | "test";
-  summary?: {
-    highlights?: string[];
-    improvements?: string[];
-    recommendation?: string;
-    overallFeedback?: string;
-    scorePercent?: number;
-  };
-  testStats?: {
-    correctAnswers: number;
-    incorrectAnswers: number;
-  };
-  createdAt?: string;
-  updatedAt?: string;
-  student?: Pick<StudentProfileDTO, "_id" | "name" | "college" | "readinessScore" | "avatarUrl">;
-}
-
 interface RequestOptions extends RequestInit {
   token?: string;
 }
@@ -468,86 +388,55 @@ export const adminApi = {
   getAllRecruiters: (token: string) => api.get('/admin/recruiters', token),
 };
 
-export const interviewApi = {
-  startSession: (
-    data: {
-      role: string;
-      roleLevel?: "basic" | "intermediate" | "advanced";
-      focusAreas?: string[];
-      baselineSkillNotes?: string;
-      studentId?: string;
-      mode?: "practice" | "test";
-      questionCount?: number;
-    },
-    token: string
-  ) => api.post<{ session: InterviewSessionDTO }>('/interviews/session', data, token),
+// Agent API for AI Mentor
+export interface AgentMessage {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp?: string;
+  toolCalls?: Array<{
+    name: string;
+    arguments: Record<string, unknown>;
+    result: unknown;
+  }>;
+}
 
-  requestQuestion: (sessionId: string, token: string) =>
-    api.post<{ turn: InterviewTurnDTO; coachingTip?: string; session: Partial<InterviewSessionDTO> }>(
-      `/interviews/${sessionId}/question`,
-      {},
-      token
-    ),
+export interface AgentChatResponse {
+  success: boolean;
+  response: string;
+  toolsUsed: string[];
+  conversationId: string;
+  timestamp: string;
+}
 
-  submitAnswer: (
-    params: { sessionId: string; turnId?: string; answer: string; selectedOptionKey: string },
-    token: string
-  ) => {
-    const endpoint = params.turnId
-      ? `/interviews/${params.sessionId}/turns/${params.turnId}/answer`
-      : `/interviews/${params.sessionId}/answer`;
+export interface AgentHistoryResponse {
+  success: boolean;
+  messages: AgentMessage[];
+  conversationId: string | null;
+  metadata?: {
+    startedAt: string;
+    lastActiveAt: string;
+    messageCount: number;
+    toolsUsed: string[];
+  };
+}
 
-    return api.post<{
-      turn: InterviewTurnDTO;
-      evaluation: {
-        feedback: string;
-        rubric: InterviewRubric;
-        overall: number;
-        improvements: string[];
-        nextDifficulty: string;
-        coaching: string[];
-        isCorrect?: boolean;
-        correctOptionKey?: string;
-        rationale?: string;
-      };
-      session: Partial<InterviewSessionDTO> & {
-        learningCurve: InterviewLearningPoint[];
-      };
-    }>(endpoint, { answer: params.answer, selectedOptionKey: params.selectedOptionKey }, token);
-  },
+export const agentApi = {
+  // Send a message to the AI agent
+  sendMessage: (message: string, token: string) =>
+    api.post<AgentChatResponse>('/agent/chat', { message }, token),
 
-  getSessionSummary: (sessionId: string, token: string) =>
-    api.get<{ session: InterviewSessionDTO }>(`/interviews/${sessionId}`, token),
+  // Get conversation history
+  getHistory: (token: string, limit?: number) =>
+    api.get<AgentHistoryResponse>(`/agent/history${limit ? `?limit=${limit}` : ''}`, token),
 
-  getStudentHistory: (
-    studentId: string,
-    params: { limit?: number; status?: string } = {},
-    token: string
-  ) => {
-    const searchParams = new URLSearchParams();
-    if (params.limit) searchParams.set('limit', String(params.limit));
-    if (params.status) searchParams.set('status', params.status);
-    return api.get<{ sessions: InterviewSessionDTO[] }>(
-      `/interviews/student/${studentId}/history${searchParams.toString() ? `?${searchParams.toString()}` : ''}`,
-      token
-    );
-  },
+  // Clear conversation history
+  clearConversation: (token: string) =>
+    api.delete<{ success: boolean; message: string }>('/agent/conversation', token),
 
-  getActiveSession: (token: string) =>
-    api.get<{ session: InterviewSessionDTO | null }>('/interviews/student/me/active', token),
-
-  getRecruiterSessions: (
-    recruiterId: string,
-    params: { limit?: number } = {},
-    token: string
-  ) => {
-    const searchParams = new URLSearchParams();
-    if (params.limit) searchParams.set('limit', String(params.limit));
-    return api.get<{ sessions: InterviewSessionDTO[] }>(
-      `/interviews/recruiter/${recruiterId}/candidates${searchParams.toString() ? `?${searchParams.toString()}` : ''}`,
-      token
-    );
-  },
+  // Get proactive nudges
+  getNudges: (token: string) =>
+    api.get<{ success: boolean; nudges: any[] }>('/agent/nudges', token),
 };
+
 
 export default api;

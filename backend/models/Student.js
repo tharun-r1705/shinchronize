@@ -69,37 +69,60 @@ const eventSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const goalSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    targetDate: { type: Date },
+    category: {
+      type: String,
+      enum: ['skill', 'project', 'certification', 'placement', 'coding', 'other'],
+      default: 'other'
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'in_progress', 'completed', 'abandoned'],
+      default: 'pending'
+    },
+    progress: { type: Number, min: 0, max: 100, default: 0 },
+    createdAt: { type: Date, default: Date.now },
+    completedAt: { type: Date }
+  },
+  { _id: true }
+);
+
 const studentSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, select: false },
-  firstName: { type: String, trim: true },
-  lastName: { type: String, trim: true },
-  avatarUrl: { type: String, trim: true },
-  dateOfBirth: { type: Date },
-  gender: { type: String, trim: true },
-  college: { type: String, trim: true },
-  branch: { type: String, trim: true },
-  year: { type: String, trim: true },
-  graduationYear: { type: Number },
-  cgpa: { type: Number, min: 0, max: 10 },
-  phone: { type: String, trim: true },
-  location: { type: String, trim: true },
-  portfolioUrl: { type: String, trim: true },
-  linkedinUrl: { type: String, trim: true },
-  githubUrl: { type: String, trim: true },
-  resumeUrl: { type: String, trim: true },
-  leetcodeUrl: { type: String, trim: true },
-  hackerrankUrl: { type: String, trim: true },
-  headline: { type: String, trim: true },
-  summary: { type: String, trim: true },
-  skills: { type: [String], default: [] },
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
+    avatarUrl: { type: String, trim: true },
+    dateOfBirth: { type: Date },
+    gender: { type: String, trim: true },
+    college: { type: String, trim: true },
+    branch: { type: String, trim: true },
+    year: { type: String, trim: true },
+    graduationYear: { type: Number },
+    cgpa: { type: Number, min: 0, max: 10 },
+    phone: { type: String, trim: true },
+    location: { type: String, trim: true },
+    portfolioUrl: { type: String, trim: true },
+    linkedinUrl: { type: String, trim: true },
+    githubUrl: { type: String, trim: true },
+    resumeUrl: { type: String, trim: true },
+    leetcodeUrl: { type: String, trim: true },
+    hackerrankUrl: { type: String, trim: true },
+    headline: { type: String, trim: true },
+    summary: { type: String, trim: true },
+    skills: { type: [String], default: [] },
     projects: { type: [projectSchema], default: [] },
     codingLogs: { type: [codingLogSchema], default: [] },
     certifications: { type: [certificationSchema], default: [] },
     events: { type: [eventSchema], default: [] },
-  badges: { type: [String], default: [] },
+    goals: { type: [goalSchema], default: [] },
+    badges: { type: [String], default: [] },
     skillRadar: {
       type: Map,
       of: Number,
@@ -188,7 +211,7 @@ const studentSchema = new mongoose.Schema(
         return ret;
       },
     },
-    toObject: { 
+    toObject: {
       virtuals: true,
       transform: (_, ret) => {
         // Convert Map to plain object for skillRadar

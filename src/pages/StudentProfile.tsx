@@ -29,6 +29,7 @@ import {
   LinkedInProfileAutofill,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { StudentNavbar } from "@/components/StudentNavbar";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -342,7 +343,7 @@ const StudentProfile = () => {
         hackerrank: hackerrankUsername,
       };
 
-  const payload: UpdateStudentProfilePayload = {
+      const payload: UpdateStudentProfilePayload = {
         name: `${formState.firstName} ${formState.lastName}`.trim(),
         firstName: formState.firstName.trim(),
         lastName: formState.lastName.trim(),
@@ -386,13 +387,6 @@ const StudentProfile = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userType");
-    localStorage.removeItem("studentData");
-    toast({ title: "Logged out successfully" });
-    navigate("/");
-  };
 
   if (loading) {
     return (
@@ -407,25 +401,7 @@ const StudentProfile = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            EvolvEd
-          </h1>
-          <nav className="flex gap-4 items-center">
-            <Button variant="ghost" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/profile')}>Profile</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/progress')}>Progress</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/mock-interview')}>Mock Interview</Button>
-            <Button variant="ghost" onClick={() => navigate('/student/resume')}>Resume</Button>
-            <Button variant="ghost" onClick={() => navigate('/leaderboard')}>Leaderboard</Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <StudentNavbar />
 
       <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
         <Button

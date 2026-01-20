@@ -14,7 +14,7 @@ const loadPdfParse = async () => {
     return cachedPdfParse;
   }
 
-  const mod = await import('pdf-parse/dist/esm/index.js');
+  const mod = await import('pdf-parse');
   const parser = mod?.default || mod?.pdf;
 
   if (typeof parser !== 'function') {
@@ -74,15 +74,15 @@ const login = asyncHandler(async (req, res) => {
 
 const getProfile = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
-  
+
   // Calculate and attach base readiness score
   const { total, breakdown } = calculateReadinessScore(student);
-  
+
   // Convert to plain object and add readiness score
   const studentObj = student.toObject();
   studentObj.baseReadinessScore = total;
   studentObj.readinessBreakdown = breakdown;
-  
+
   res.json(studentObj);
 });
 
@@ -232,10 +232,10 @@ const syncCodingActivity = asyncHandler(async (req, res) => {
 
   // Simple duplicate guard by date+platform+activity
   const existingKey = new Set(
-    student.codingLogs.map((l) => `${new Date(l.date).toISOString().slice(0,10)}|${l.platform}|${l.activity}`)
+    student.codingLogs.map((l) => `${new Date(l.date).toISOString().slice(0, 10)}|${l.platform}|${l.activity}`)
   );
   const uniqueLogs = newLogs.filter((l) => {
-    const key = `${new Date(l.date).toISOString().slice(0,10)}|${l.platform}|${l.activity}`;
+    const key = `${new Date(l.date).toISOString().slice(0, 10)}|${l.platform}|${l.activity}`;
     if (existingKey.has(key)) return false;
     existingKey.add(key);
     return true;
@@ -586,7 +586,7 @@ const deleteStudent = asyncHandler(async (req, res) => {
 const updateProject = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const projectId = req.params.projectId;
-  
+
   const project = student.projects.id(projectId);
   if (!project) {
     return res.status(404).json({ message: 'Project not found' });
@@ -616,7 +616,7 @@ const updateProject = asyncHandler(async (req, res) => {
 const deleteProject = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const projectId = req.params.projectId;
-  
+
   const project = student.projects.id(projectId);
   if (!project) {
     return res.status(404).json({ message: 'Project not found' });
@@ -640,7 +640,7 @@ const deleteProject = asyncHandler(async (req, res) => {
 const updateCertification = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const certId = req.params.certId;
-  
+
   const cert = student.certifications.id(certId);
   if (!cert) {
     return res.status(404).json({ message: 'Certification not found' });
@@ -671,7 +671,7 @@ const updateCertification = asyncHandler(async (req, res) => {
 const deleteCertification = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const certId = req.params.certId;
-  
+
   const cert = student.certifications.id(certId);
   if (!cert) {
     return res.status(404).json({ message: 'Certification not found' });
@@ -695,7 +695,7 @@ const deleteCertification = asyncHandler(async (req, res) => {
 const updateEvent = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const eventId = req.params.eventId;
-  
+
   const event = student.events.id(eventId);
   if (!event) {
     return res.status(404).json({ message: 'Event not found' });
@@ -727,7 +727,7 @@ const updateEvent = asyncHandler(async (req, res) => {
 const deleteEvent = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
   const eventId = req.params.eventId;
-  
+
   const event = student.events.id(eventId);
   if (!event) {
     return res.status(404).json({ message: 'Event not found' });
@@ -916,7 +916,7 @@ Provide ONLY the JSON response, no additional text.`;
     });
 
     const responseText = chatCompletion.choices[0]?.message?.content || '{}';
-    
+
     // Extract JSON from response (in case there's extra text)
     let analysis;
     try {
@@ -963,11 +963,11 @@ Provide ONLY the JSON response, no additional text.`;
     });
   } catch (error) {
     console.error('Groq AI Error:', error);
-    
+
     // Check if it's a Groq internal server error
     if (error.status === 500 || error.message.includes('Internal Server Error')) {
       console.log('Groq API is experiencing issues. Providing fallback response.');
-      
+
       // Provide a basic analysis based on resume length and structure
       const basicAnalysis = {
         overallScore: 75,
@@ -1007,14 +1007,14 @@ Provide ONLY the JSON response, no additional text.`;
           issues: ['AI analysis temporarily unavailable - please try again shortly']
         }
       };
-      
+
       return res.json({
         message: 'AI service temporarily unavailable. Providing basic analysis.',
         analysis: basicAnalysis,
         warning: 'Groq AI is experiencing high demand. Please try again in a few minutes for detailed analysis.'
       });
     }
-    
+
     if (!process.env.GROQ_API_KEY) {
       return buildAndReturnLocal('AI key missing. Returned heuristic analysis.');
     }
@@ -1029,7 +1029,7 @@ Provide ONLY the JSON response, no additional text.`;
     }
 
     const analysis = buildLocalResumeAnalysis(resumeText, targetRole || 'Software Engineer');
-    return res.json({ 
+    return res.json({
       message: 'Failed to reach Groq AI. Provided heuristic analysis instead.',
       analysis,
       warning: error.message,
@@ -1042,7 +1042,7 @@ Provide ONLY the JSON response, no additional text.`;
 const extractResumeText = asyncHandler(async (req, res) => {
   console.log('Extract resume text called');
   console.log('File received:', req.file ? 'Yes' : 'No');
-  
+
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
@@ -1058,11 +1058,18 @@ const extractResumeText = asyncHandler(async (req, res) => {
     const pdfParse = await loadPdfParse();
     const bufferCopy = Buffer.from(req.file.buffer);
     const data = await pdfParse(bufferCopy);
-    
+
     console.log('PDF parsed successfully, pages:', data.numpages);
     console.log('Text length:', data.text ? data.text.length : 0);
-    
+
     const text = data.text;
+
+    // IMPORTANT: Fix for memory leak/shared state in pdf-parse library
+    // The library uses a shared result object that appends pages across requests.
+    // We must manually clear it after each use.
+    if (data && data.pages && Array.isArray(data.pages)) {
+      data.pages.length = 0;
+    }
 
     if (!text || text.trim().length === 0) {
       console.log('No text extracted from PDF');
@@ -1070,7 +1077,7 @@ const extractResumeText = asyncHandler(async (req, res) => {
     }
 
     console.log('Text extracted successfully, length:', text.trim().length);
-    
+
     // Clear the buffer immediately after use
     req.file.buffer = null;
     req.file = null;
@@ -1085,7 +1092,7 @@ const extractResumeText = asyncHandler(async (req, res) => {
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    
+
     // Provide more specific error message
     let errorMessage = 'Failed to parse PDF file';
     if (error.message.includes('Invalid PDF')) {
@@ -1093,8 +1100,8 @@ const extractResumeText = asyncHandler(async (req, res) => {
     } else if (error.message.includes('password')) {
       errorMessage = 'This PDF is password-protected and cannot be processed';
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       message: errorMessage,
       error: error.message,
       details: 'Please try a different PDF file or use the "Paste Text" option'
@@ -1111,6 +1118,12 @@ const importLinkedInProfile = asyncHandler(async (req, res) => {
     const pdfParse = await loadPdfParse();
     const data = await pdfParse(req.file.buffer);
     const text = data.text ? data.text.trim() : '';
+
+    // IMPORTANT: Fix for shared state in pdf-parse library
+    if (data && data.pages && Array.isArray(data.pages)) {
+      data.pages.length = 0;
+    }
+
     if (!text) {
       return res.status(400).json({ message: 'Unable to extract text from the uploaded PDF' });
     }

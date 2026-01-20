@@ -1,0 +1,66 @@
+# Student Information Report: Application Knowledge Overview
+
+This report outlines the categories and specific pieces of information that the Shinchronize application collects, maintains, and derives about its users (students).
+
+---
+
+## 1. Identity & Personal Profile
+The application maintains a comprehensive personal profile for each student:
+*   **Basic Identity:** Full name (First & Last), Email address (used for login and communication), and Gender.
+*   **Contact Information:** Phone number and current Location (City/Country).
+*   **Profile Visuals:** Avatar/Profile Picture.
+*   **Bio/Professional Narrative:** A professional headline and a long-form "About You" summary.
+
+## 2. Academic Background
+To help recruiters filter by academic criteria, the app tracks:
+*   **Institution:** College name.
+*   **Specialization:** Department or Branch of study.
+*   **Progress:** Current year of study and expected Graduation Year.
+*   **Performance:** CGPA/GPA (on a 10-point scale).
+
+## 3. Professional Presence & Online Identity
+The app serves as a hub for the student's various professional links:
+*   **Social & Professional:** LinkedIn profile, GitHub profile.
+*   **Work Samples:** Portfolio/Personal website URL and Resume link.
+*   **Coding Platform Handles:** LeetCode and HackerRank usernames.
+
+## 4. Skills & Technical Expertise
+The application builds a technical profile through:
+*   **Self-Reported Skills:** A list of technical and soft skills (e.g., JavaScript, React, System Design).
+*   **Skill Radar Data:** A mapping of specific skill categories to numeric scores, often visualized in a radar chart.
+*   **LinkedIn Integration:** The ability to auto-populate skills, headline, and summary by parsing an uploaded LinkedIn PDF export.
+
+## 5. Tangible Evidence of Work
+The platform acts as a repository for proof-of-work:
+*   **Projects:** Comprehensive details including title, description, GitHub links, and tags.
+*   **Verification Status:** Projects go through a lifecycle (Pending → Verified/Rejected). The app knows which admin verified a project and any feedback they provided.
+*   **Certifications:** Records of professional certifications, including the provider, issue date, and certificate ID.
+*   **Events:** Participation in hackathons or events, including outcomes and points awarded.
+
+## 6. Daily Activity & Performance Tracking
+Shinchronize tracks habits and consistency:
+*   **Coding Logs:** Detailed logs of practice sessions (date, platform, activity type, minutes spent, and problems solved).
+*   **Streaks:** Consecutive days of activity on the platform.
+*   **Engagement:** "Last active" timestamps and profile completion status.
+
+## 7. Deep Analytics (External Integration)
+Specifically for LeetCode, the application performs a deep sync to understand external performance:
+*   **Problem-Solving Stats:** Total problems solved, broken down by difficulty (Easy, Medium, Hard).
+*   **Domain Strengths:** Identification of top problem-solving domains (e.g., Arrays, Dynamic Programming).
+*   **Historical Activity:** A 52-week submission calendar (heatmap) and weekly submission trends.
+*   **Best Performance:** Data on the student's highest performance days (most submissions in 24 hours).
+
+## 8. Placement Readiness & Intelligence
+The application uses the collected data to derive strategic insights:
+*   **Readiness Score:** An overall percentage indicating how "ready" a student is for placement.
+*   **Score Breakdown:** Analysis of how the score is composed (Consistency, Growth Rate, Skill Diversity, Projects).
+*   **Predictive Insights:** Projected timelines to reach benchmarks and milestones.
+*   **AI Growth Story:** An AI-generated narrative that summarizes the student's journey, highlighting resilience, adaptability, and specific strengths.
+
+## 9. Professional Interest
+The application keeps track of "Market Interest":
+*   **Recruiter Interest:** It knows which recruiters have "saved" the student for later consideration.
+
+---
+*Report Generated: 2026-01-20*
+*Scope: Shinchronize Platform Data Models & Analytics Engines*
