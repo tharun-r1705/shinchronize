@@ -35,6 +35,7 @@ export const StudentNavbar = () => {
         { label: "Profile", path: "/student/profile", private: true },
         { label: "AI Mentor", path: "/student/ai", private: true, special: true },
         { label: "Progress", path: "/student/progress", private: true },
+        { label: "Market", path: "/student/market", private: true },
         { label: "Resume", path: "/student/resume", private: true },
         { label: "Leaderboard", path: "/leaderboard", private: false },
     ].filter(item => !item.private || token);

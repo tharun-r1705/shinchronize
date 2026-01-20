@@ -10,6 +10,7 @@ const recruiterRoutes = require('./routes/recruiterRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const agentRoutes = require('./routes/agentRoutes');
 const seedDemoData = require('./utils/seedData');
+const seedMarketData = require('./utils/seedMarketData');
 
 const app = express();
 
@@ -68,10 +69,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'EvolvEd API', timestamp: new Date().toISOString() });
 });
 
+const marketRoutes = require('./routes/marketRoutes');
+
 app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/market', marketRoutes);
 
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);
@@ -93,6 +97,7 @@ const startServer = async () => {
 
     if (process.env.SEED_DEMO_DATA === 'true') {
       await seedDemoData();
+      await seedMarketData();
     }
 
     const PORT = process.env.PORT || 5000;

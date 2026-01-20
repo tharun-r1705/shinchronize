@@ -216,6 +216,45 @@ const toolDefinitions = [
                 required: ['targetRole']
             }
         }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'updateProfile',
+            description: 'Update the student\'s profile information. Use this when the student provides new information like date of birth, location, or social links.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    firstName: { type: 'string' },
+                    lastName: { type: 'string' },
+                    dateOfBirth: { type: 'string', description: 'Date of birth in ISO format (YYYY-MM-DD)' },
+                    location: { type: 'string' },
+                    headline: { type: 'string' },
+                    summary: { type: 'string' },
+                    githubUrl: { type: 'string' },
+                    linkedinUrl: { type: 'string' },
+                    portfolioUrl: { type: 'string' }
+                },
+                required: []
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'addProject',
+            description: 'Add a new project to the student\'s profile.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string', description: 'The title of the project' },
+                    description: { type: 'string', description: 'Detailed description of the project' },
+                    githubLink: { type: 'string', description: 'URL to the GitHub repository' },
+                    tags: { type: 'array', items: { type: 'string' }, description: 'Technologies used (e.g., ["React", "Node.js"])' }
+                },
+                required: ['title']
+            }
+        }
     }
 ];
 
@@ -231,6 +270,8 @@ const toolHandlers = {
     getQuickSuggestions: suggestionTools.getQuickSuggestions,
     getProjects: profileTools.getProjects,
     getCertifications: profileTools.getCertifications,
+    updateProfile: profileTools.updateProfile,
+    addProject: profileTools.addProject,
     compareWithPeers: readinessTools.compareWithPeers,
     getSkillGaps: suggestionTools.getSkillGaps,
     getProjectRecommendations: suggestionTools.getProjectRecommendations

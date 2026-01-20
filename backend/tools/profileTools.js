@@ -24,6 +24,7 @@ async function getStudentProfile(studentId, args = {}) {
         year: student.year,
         graduationYear: student.graduationYear,
         cgpa: student.cgpa,
+        dateOfBirth: student.dateOfBirth,
         location: student.location,
         headline: student.headline,
         summary: student.summary,
@@ -39,6 +40,75 @@ async function getStudentProfile(studentId, args = {}) {
         certificationCount: (student.certifications || []).length,
         eventCount: (student.events || []).length,
         isProfileComplete: student.isProfileComplete
+    };
+}
+
+/**
+ * Update student profile information
+ */
+async function updateProfile(studentId, args = {}) {
+    const student = await Student.findById(studentId);
+    if (!student) {
+        throw new Error('Student not found');
+    }
+
+    const allowedUpdates = [
+        'firstName', 'lastName', 'dateOfBirth', 'gender', 'college',
+        'branch', 'year', 'graduationYear', 'cgpa', 'phone',
+        'location', 'portfolioUrl', 'linkedinUrl', 'githubUrl',
+        'resumeUrl', 'headline', 'summary'
+    ];
+
+    Object.keys(args).forEach(key => {
+        if (allowedUpdates.includes(key)) {
+            student[key] = args[key];
+        }
+    });
+
+    await student.save();
+
+    return {
+        success: true,
+        message: 'Profile updated successfully',
+        updatedFields: Object.keys(args).filter(key => allowedUpdates.includes(key))
+    };
+}
+
+/**
+ * Add a new project to the student profile
+ */
+async function addProject(studentId, args = {}) {
+    const student = await Student.findById(studentId);
+    if (!student) {
+        throw new Error('Student not found');
+    }
+
+    if (!args.title) {
+        throw new Error('Project title is required');
+    }
+
+    const newProject = {
+        title: args.title,
+        description: args.description || '',
+        githubLink: args.githubLink || '',
+        tags: args.tags || [],
+        status: 'pending',
+        submittedAt: new Date()
+    };
+
+    student.projects.push(newProject);
+    await student.save();
+
+    const addedProject = student.projects[student.projects.length - 1];
+
+    return {
+        success: true,
+        message: 'Project added successfully',
+        project: {
+            id: addedProject._id.toString(),
+            title: addedProject.title,
+            status: addedProject.status
+        }
     };
 }
 
@@ -95,6 +165,8 @@ async function getCertifications(studentId, args = {}) {
 
 module.exports = {
     getStudentProfile,
+    updateProfile,
+    addProject,
     getProjects,
     getCertifications
 };

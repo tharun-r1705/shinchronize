@@ -439,4 +439,59 @@ export const agentApi = {
 };
 
 
+export interface SkillMarketData {
+  _id: string;
+  skillName: string;
+  category: string;
+  demandScore: number;
+  jobCount: number;
+  avgSalary: number;
+  yoyGrowth: number;
+  trend: 'rising' | 'stable' | 'declining';
+  predictedGrowth6m: number;
+  relatedSkills: string[];
+}
+
+export interface TrendPredictions {
+  rising: SkillMarketData[];
+  stable: SkillMarketData[];
+  declining: SkillMarketData[];
+}
+
+export interface SkillROIRecommendation {
+  skillName: string;
+  category: string;
+  currentScore: number;
+  marketDemand: number;
+  predictedGrowth: number;
+  roiScore: number;
+  avgSalary: number;
+  timeInvestment: string;
+  impact: 'High' | 'Medium' | 'Low';
+}
+
+export interface CompanySkillProfile {
+  _id: string;
+  companyName: string;
+  logoUrl: string;
+  industry: string;
+  type: 'faang' | 'startup' | 'enterprise' | 'other';
+  requiredSkills: Array<{
+    skillName: string;
+    importance: string;
+    proficiencyLevel: number;
+  }>;
+  avgSalaryRange: { min: number; max: number; currency: string };
+  location: string;
+  hiringActive: boolean;
+}
+
+export const marketApi = {
+  getSkills: () => api.get<SkillMarketData[]>('/market/skills'),
+  getTrends: () => api.get<TrendPredictions>('/market/trends'),
+  getROI: (token: string) => api.get<SkillROIRecommendation[]>('/market/roi', token),
+  getCompanies: (q?: string, type?: string) =>
+    api.get<CompanySkillProfile[]>(`/market/companies${q || type ? `?q=${q || ''}&type=${type || ''}` : ''}`),
+};
+
 export default api;
