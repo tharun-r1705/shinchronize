@@ -12,13 +12,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   TrendingUp, Award, Upload, FileText, Trophy,
   Target, Zap, Star, BookOpen, Code, Brain, LogOut,
-  Link2, Edit, Trash2, CheckCircle2, Calendar, ArrowRight, Sparkles
+  Link2, Edit, Trash2, CheckCircle2, Calendar, ArrowRight, Sparkles,
+  ArrowUpRight, BarChart3
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useEffect, useState } from "react";
-import { studentApi } from "@/lib/api";
+import { studentApi, marketApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { StudentNavbar } from "@/components/StudentNavbar";
 
@@ -87,7 +88,9 @@ const StudentDashboard = () => {
   const [editingSkillName, setEditingSkillName] = useState<string | null>(null);
 
   // State for suggestions is removed as it's now a separate page
-  const [mentorSuggestions, setMentorSuggestions] = useState<any>(null); // Kept for minimal compatibility if needed elsewhere, but cleared from main flow
+  const [mentorSuggestions, setMentorSuggestions] = useState<any>(null);
+  const [marketTrends, setMarketTrends] = useState<any>(null);
+  const [marketROI, setMarketROI] = useState<any[]>([]);
 
   const domains = [
     "Web Development",
@@ -150,6 +153,27 @@ const StudentDashboard = () => {
 
     fetchStudentData();
   }, [navigate, toast]);
+
+  useEffect(() => {
+    const fetchMarketGlimpse = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const [trends, roi] = await Promise.all([
+          marketApi.getTrends(),
+          marketApi.getROI(token)
+        ]);
+
+        setMarketTrends(trends);
+        setMarketROI(roi.slice(0, 2));
+      } catch (error) {
+        console.error("Error fetching market glimpse:", error);
+      }
+    };
+
+    fetchMarketGlimpse();
+  }, []);
 
   const handleProjectSubmit = async () => {
     if (!projectName || !projectDomain) {
@@ -765,6 +789,59 @@ const StudentDashboard = () => {
           </Card>
         </motion.div>
 
+        {/* Market Tracker Glimpse */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8"
+        >
+          <Card className="border-none shadow-premium bg-gradient-to-r from-indigo-600/10 via-background to-primary/10 overflow-hidden relative group cursor-pointer hover:shadow-2xl transition-all duration-500" onClick={() => navigate('/student/market')}>
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+              <TrendingUp className="w-32 h-32" />
+            </div>
+            <CardContent className="p-6">
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-6 relative z-10">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className="bg-primary text-primary-foreground hover:bg-primary/90">New: Market Analytics</Badge>
+                    <div className="flex items-center gap-1 text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-tighter">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Trends
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-bold tracking-tight">Dynamic Skill Market Tracker</h3>
+                  <p className="text-muted-foreground max-w-lg">
+                    Real-time analysis of job markets at FAANG & startups. See which skills are trending for 2025 and your personal investment ROI.
+                  </p>
+                  <Button variant="link" className="px-0 text-primary font-bold group-hover:translate-x-2 transition-transform">
+                    Explore full market data <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-4 items-center justify-center lg:justify-end">
+                  {marketROI?.[0] && (
+                    <div className="bg-primary text-primary-foreground p-4 rounded-xl shadow-lg w-[160px] text-center transform hover:-translate-y-1 transition-transform">
+                      <div className="text-[10px] uppercase font-bold opacity-80 mb-1">Top ROI Match</div>
+                      <div className="font-bold text-lg">{marketROI[0].skillName}</div>
+                      <div className="text-xs opacity-90">{marketROI[0].roiScore} Market Score</div>
+                    </div>
+                  )}
+
+                  {marketTrends?.rising?.slice(0, 3).map((skill: any, i: number) => (
+                    <div key={i} className="bg-card/80 backdrop-blur-sm p-4 rounded-xl border border-emerald-500/20 shadow-sm w-[140px] text-center group-hover:border-emerald-500/50 transition-colors">
+                      <div className="text-[10px] uppercase font-bold text-emerald-600 flex items-center justify-center gap-1 mb-1">
+                        <ArrowUpRight className="w-3 h-3" /> {skill.predictedGrowth6m}%
+                      </div>
+                      <div className="font-bold">{skill.skillName}</div>
+                      <div className="text-[10px] text-muted-foreground">Trending Up</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-6 mb-6">
           {/* Learning Journal */}

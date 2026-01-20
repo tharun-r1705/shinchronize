@@ -358,7 +358,7 @@ const SkillMarketTracker = () => {
                                         <CardContent className="p-6 relative">
                                             <h4 className="font-bold mb-2">Want a custom roadmap?</h4>
                                             <p className="text-xs opacity-90 mb-4">Talk to Zenith, your AI Mentor, to build a strategy for these skills.</p>
-                                            <Button variant="secondary" className="w-full text-indigo-700 font-bold" onClick={() => window.location.href = '/student/ai'}>
+                                            <Button className="w-full bg-white text-indigo-600 hover:bg-slate-50 font-bold border-none shadow-sm" onClick={() => window.location.href = '/student/ai'}>
                                                 Talk to Zenith
                                             </Button>
                                             <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
