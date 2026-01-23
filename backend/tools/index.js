@@ -101,6 +101,19 @@ const toolDefinitions = [
                     targetDate: {
                         type: 'string',
                         description: 'Target completion date in ISO format (YYYY-MM-DD)'
+                    },
+                    targetValue: {
+                        type: 'number',
+                        description: 'Numeric target for the goal (e.g., 5 projects, 50 problems)'
+                    },
+                    unit: {
+                        type: 'string',
+                        description: 'Unit label for the target (e.g., projects, problems, skills)'
+                    },
+                    autoTrack: {
+                        type: 'string',
+                        description: 'Auto-tracking source for progress updates',
+                        enum: ['none', 'projects', 'certifications', 'coding_problems', 'coding_logs', 'skills']
                     }
                 },
                 required: ['title']
@@ -233,7 +246,11 @@ const toolDefinitions = [
                     summary: { type: 'string' },
                     githubUrl: { type: 'string' },
                     linkedinUrl: { type: 'string' },
-                    portfolioUrl: { type: 'string' }
+                    portfolioUrl: { type: 'string' },
+                    leetcodeUrl: { type: 'string' },
+                    hackerrankUrl: { type: 'string' },
+                    leetcodeUsername: { type: 'string', description: 'The student\'s LeetCode username (not the full URL)' },
+                    hackerrankUsername: { type: 'string', description: 'The student\'s HackerRank username (not the full URL)' }
                 },
                 required: []
             }
@@ -255,6 +272,35 @@ const toolDefinitions = [
                 required: ['title']
             }
         }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'removeGoal',
+            description: 'Remove a specific goal. Use this when the student wants to delete a goal.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    goalId: {
+                        type: 'string',
+                        description: 'The ID of the goal to remove'
+                    }
+                },
+                required: ['goalId']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'clearGoals',
+            description: 'Remove all goals for the student. Use this when the student wants to start fresh and remove all existing goals.',
+            parameters: {
+                type: 'object',
+                properties: {},
+                required: []
+            }
+        }
     }
 ];
 
@@ -274,7 +320,9 @@ const toolHandlers = {
     addProject: profileTools.addProject,
     compareWithPeers: readinessTools.compareWithPeers,
     getSkillGaps: suggestionTools.getSkillGaps,
-    getProjectRecommendations: suggestionTools.getProjectRecommendations
+    getProjectRecommendations: suggestionTools.getProjectRecommendations,
+    removeGoal: goalTools.removeGoal,
+    clearGoals: goalTools.clearGoals
 };
 
 // Execute a tool by name
@@ -289,7 +337,7 @@ async function executeTool(toolName, args, studentId) {
 
 // Check if a tool requires confirmation (write operations)
 function requiresConfirmation(toolName) {
-    const writeTools = ['addGoal', 'updateGoalProgress', 'addProject', 'updateProfile', 'syncCodingPlatforms'];
+    const writeTools = ['addGoal', 'updateGoalProgress', 'addProject', 'updateProfile', 'syncCodingPlatforms', 'removeGoal', 'clearGoals'];
     return writeTools.includes(toolName);
 }
 

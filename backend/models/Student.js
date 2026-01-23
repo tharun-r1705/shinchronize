@@ -74,10 +74,18 @@ const goalSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     targetDate: { type: Date },
+    targetValue: { type: Number, min: 0 },
+    currentValue: { type: Number, min: 0, default: 0 },
+    unit: { type: String, trim: true },
     category: {
       type: String,
       enum: ['skill', 'project', 'certification', 'placement', 'coding', 'other'],
       default: 'other'
+    },
+    autoTrack: {
+      type: String,
+      enum: ['none', 'projects', 'certifications', 'coding_problems', 'coding_logs', 'skills'],
+      default: 'none'
     },
     status: {
       type: String,

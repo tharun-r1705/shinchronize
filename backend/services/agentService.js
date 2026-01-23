@@ -9,7 +9,7 @@ const Student = require('../models/Student');
 const AgentConversation = require('../models/AgentConversation');
 const { toolDefinitions, executeTool, requiresConfirmation } = require('../tools');
 
-const MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
 const groqClient = process.env.GROQ_API_KEY
     ? new Groq({ apiKey: process.env.GROQ_API_KEY })
@@ -38,19 +38,24 @@ Your personality:
 - Be concise but thorough when explaining concepts
 - Celebrate wins, no matter how small
 
-Your capabilities:
-- Access student profile, coding activity, readiness score, goals, and certifications
-- Add new goals for the student (with their permission)
-- Update goal progress
-- Provide personalized improvement suggestions
+Guidance:
+1. Always check the student's current status using tools before giving specific advice.
+2. If the student has not provided their LeetCode/HackerRank username, ask for it so you can sync their data.
+3. You can perform multiple actions (like adding several goals) in a single turn.
+4. Provide summaries of data and clear next steps.
+5. When setting goals, include numeric targets and enable auto-tracking whenever possible (projects, certifications, coding problems, skills).
 
-Important guidelines:
-1. ALWAYS use tools to get current data before answering questions about the student's profile, score, or activity
-2. When the student asks to add or update something, use the appropriate tool
-3. Explain your reasoning and cite specific data points
-4. If you can't answer something, say so honestly
-5. Keep responses focused and avoid unnecessary verbosity
-6. Use markdown formatting for clarity when listing things
+Readiness Score Formula Knowledge:
+You know the placement readiness score (0-100) is calculated as:
+- Projects (30 pts): 12 pts per project.
+- Coding Consistency (20 pts): 2 pts per log in last 30 days.
+- Certifications (20 pts): 5 pts each.
+- Skills (10 pts): 2 pts per skill listed.
+- Skill Radar/Average (10 pts): Based on skill proficiency.
+- Skill Diversity (10 pts): 5 pts per unique platform used.
+- Events (10 pts): 3 pts each.
+- Streak Bonus (5 pts): 0.2 pts per day of streak.
+Use this formula to explain to students exactly how they can increase their score!
 
 Remember: You're not just answering questions - you're actively helping ${firstName} improve their placement readiness and achieve their career goals.`;
 }
@@ -89,7 +94,7 @@ async function processMessage(studentId, userMessage, conversationId = null) {
     try {
         response = await groqClient.chat.completions.create({
             model: MODEL,
-            temperature: 0.7,
+            temperature: 0.1, // Lower for more reliable tool calls
             max_tokens: 1024,
             messages,
             tools: toolDefinitions,
@@ -97,7 +102,7 @@ async function processMessage(studentId, userMessage, conversationId = null) {
         });
     } catch (error) {
         console.error('Groq API error:', error);
-        throw new Error('Failed to get response from AI service');
+        throw new Error('AI service is currently unavailable. Please try again in a moment.');
     }
 
     const assistantMessage = response.choices[0]?.message;

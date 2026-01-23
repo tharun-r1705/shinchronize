@@ -82,6 +82,15 @@ async function syncCodingPlatforms(studentId, args = {}) {
     const leet = await fetchLeetCodeActivity(student.codingProfiles?.leetcode);
     const hr = await fetchHackerRankActivity(student.codingProfiles?.hackerrank);
 
+    // Update LeetCode Stats if successful
+    if (leet.success && leet.stats) {
+        student.leetcodeStats = {
+            ...leet.stats,
+            username: student.codingProfiles?.leetcode,
+            fetchedAt: new Date()
+        };
+    }
+
     const newLogs = [];
     const toCodingLog = (source) => (act) => ({
         platform: source,
@@ -119,9 +128,9 @@ async function syncCodingPlatforms(studentId, args = {}) {
     await student.save();
 
     return {
+        success: true,
         addedLogs: uniqueLogs.length,
-        leetcodeSummary: leet.summary,
-        hackerRankSummary: hr.summary,
+        leetcode: student.leetcodeStats,
         newReadinessScore: total
     };
 }

@@ -655,66 +655,45 @@ const StudentDashboard = () => {
     return badges.slice(0, 3); // Ensure only 3 badges max
   };
 
-  // Get next 3 specific achievements to unlock
-  const getNextAchievements = () => {
-    const next = [];
-    const streakDays = student?.streakDays || 0;
-    const projectCount = student?.projects?.length || 0;
-    const skillRadar = student?.skillRadar || {};
+  // Get top 3 active goals (AI mentor + student-defined)
+  const getActiveGoals = () => {
+    const goals = (student?.goals || []).filter((goal: any) =>
+      goal.status !== 'completed' && goal.status !== 'abandoned'
+    );
 
-    // Get lowest skill from skill radar for improvement target
-    const skills = Object.entries(skillRadar).map(([skill, score]) => ({ skill, score: Number(score) }));
-    const lowestSkill = skills.length > 0
-      ? skills.reduce((min, curr) => curr.score < min.score ? curr : min, skills[0])
-      : null;
+    const iconMap: Record<string, any> = {
+      project: Code,
+      coding: Zap,
+      certification: Award,
+      skill: Brain,
+      placement: Target,
+      other: Star
+    };
 
-    // 1. 30-Day Streak Goal
-    if (streakDays < 30) {
-      next.push({
-        icon: Zap,
-        name: "Achieve 30-Day Streak",
-        description: "Maintain daily learning consistency",
-        progress: Math.min(100, (streakDays / 30) * 100),
-        remaining: 30 - streakDays,
-        unit: "days"
-      });
-    }
+    const mapped = goals.map((goal: any) => {
+      const targetValue = typeof goal.targetValue === 'number' && goal.targetValue > 0 ? goal.targetValue : null;
+      const currentValue = typeof goal.currentValue === 'number' ? goal.currentValue : null;
+      const progress = typeof goal.progress === 'number' ? goal.progress : 0;
+      const unit = goal.unit || (goal.category === 'project' ? 'projects' : goal.category === 'coding' ? 'problems' : 'steps');
+      const remaining = targetValue && currentValue !== null
+        ? Math.max(0, targetValue - currentValue)
+        : Math.max(0, Math.round(100 - progress));
 
-    // 2. Project Completion Goal (always show, target is +2 from current)
-    const projectTarget = Math.max(5, projectCount + 2);
-    next.push({
-      icon: Code,
-      name: `Complete ${projectTarget} Projects`,
-      description: "Build and showcase your work",
-      progress: Math.min(100, (projectCount / projectTarget) * 100),
-      remaining: Math.max(0, projectTarget - projectCount),
-      unit: "projects"
+      return {
+        id: goal._id || goal.id,
+        icon: iconMap[goal.category] || Star,
+        name: goal.title,
+        description: goal.description || 'Keep progressing toward this goal.',
+        progress,
+        remaining,
+        unit,
+        progressLabel: targetValue && currentValue !== null
+          ? `${currentValue}/${targetValue} ${unit}`
+          : `${Math.round(progress)}%`
+      };
     });
 
-    // 3. Skill Improvement Goal (from skill radar)
-    if (lowestSkill && lowestSkill.score < 75) {
-      const targetScore = 75;
-      next.push({
-        icon: Brain,
-        name: `Improve ${lowestSkill.skill}`,
-        description: `Reach ${targetScore}% proficiency`,
-        progress: Math.min(100, (lowestSkill.score / targetScore) * 100),
-        remaining: Math.max(0, Math.ceil(targetScore - lowestSkill.score)),
-        unit: "points"
-      });
-    } else if (skills.length === 0) {
-      // If no skills tracked yet
-      next.push({
-        icon: Brain,
-        name: "Track Your First Skill",
-        description: "Start measuring your progress",
-        progress: 0,
-        remaining: 1,
-        unit: "skill"
-      });
-    }
-
-    return next.slice(0, 3); // Exactly 3 goals
+    return mapped.slice(0, 3);
   };
 
   if (isLoading) {
@@ -744,7 +723,7 @@ const StudentDashboard = () => {
   const weeklyData = getWeeklyData();
   const skillsData = getSkillsData();
   const badges = getBadges();
-  const nextAchievements = getNextAchievements();
+  const activeGoals = getActiveGoals();
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -1299,7 +1278,7 @@ const StudentDashboard = () => {
                   Achievements & Goals
                 </CardTitle>
                 <CardDescription>
-                  Your top 3 milestones: Streak, Projects & Skills
+                  Track achievements and AI-generated goals tied to your progress
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1339,39 +1318,50 @@ const StudentDashboard = () => {
                 )}
 
                 {/* Next Achievements to Unlock */}
-                {nextAchievements.length > 0 && (
+                {activeGoals.length > 0 && (
                   <div className="space-y-3 pt-4 border-t">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm flex items-center gap-2">
                         <Target className="w-4 h-4 text-primary" />
-                        Your Goals ({nextAchievements.length}/3)
+                        Your Goals ({activeGoals.length}/3)
                       </h4>
                     </div>
                     <div className="space-y-3">
-                      {nextAchievements.map((achievement, index) => (
-                        <div key={index} className="space-y-2 p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
+                      {activeGoals.map((goal) => (
+                        <div key={goal.id} className="space-y-2 p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-2 flex-1 min-w-0">
-                              <achievement.icon className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                              <goal.icon className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm">{achievement.name}</p>
-                                <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                                <p className="font-semibold text-sm">{goal.name}</p>
+                                <p className="text-xs text-muted-foreground">{goal.description}</p>
                               </div>
                             </div>
                             <Badge variant="outline" className="text-xs shrink-0">
-                              {achievement.remaining} {achievement.unit}
+                              {goal.remaining} {goal.unit}
                             </Badge>
                           </div>
                           <div className="space-y-1">
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Progress</span>
-                              <span className="font-medium">{Math.round(achievement.progress)}%</span>
+                              <span className="font-medium">{goal.progressLabel}</span>
                             </div>
-                            <Progress value={achievement.progress} className="h-2" />
+                            <Progress value={goal.progress} className="h-2" />
                           </div>
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {activeGoals.length === 0 && (
+                  <div className="space-y-4 pt-4 border-t text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No active goals yet. Ask Zenith to set goals that auto-update with your projects.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/student/ai')}>
+                      Set goals with AI Mentor
+                    </Button>
                   </div>
                 )}
 

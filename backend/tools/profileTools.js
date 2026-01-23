@@ -4,6 +4,7 @@
  */
 
 const Student = require('../models/Student');
+const { syncAutoGoals } = require('../utils/goalSync');
 
 /**
  * Get student profile information
@@ -56,7 +57,7 @@ async function updateProfile(studentId, args = {}) {
         'firstName', 'lastName', 'dateOfBirth', 'gender', 'college',
         'branch', 'year', 'graduationYear', 'cgpa', 'phone',
         'location', 'portfolioUrl', 'linkedinUrl', 'githubUrl',
-        'resumeUrl', 'headline', 'summary'
+        'resumeUrl', 'headline', 'summary', 'leetcodeUrl', 'hackerrankUrl'
     ];
 
     Object.keys(args).forEach(key => {
@@ -64,6 +65,16 @@ async function updateProfile(studentId, args = {}) {
             student[key] = args[key];
         }
     });
+
+    // Handle special mappings for coding profiles
+    if (args.leetcodeUsername) {
+        if (!student.codingProfiles) student.codingProfiles = {};
+        student.codingProfiles.leetcode = args.leetcodeUsername;
+    }
+    if (args.hackerrankUsername) {
+        if (!student.codingProfiles) student.codingProfiles = {};
+        student.codingProfiles.hackerrank = args.hackerrankUsername;
+    }
 
     await student.save();
 
@@ -97,6 +108,7 @@ async function addProject(studentId, args = {}) {
     };
 
     student.projects.push(newProject);
+    syncAutoGoals(student);
     await student.save();
 
     const addedProject = student.projects[student.projects.length - 1];

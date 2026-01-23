@@ -7,6 +7,7 @@ const { generateMentorSuggestions } = require('../utils/aiMentor');
 const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/codingIntegrations');
 const { fetchLeetCodeStats } = require('../utils/leetcode');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
+const { syncAutoGoals } = require('../utils/goalSync');
 
 let cachedPdfParse = null;
 const loadPdfParse = async () => {
@@ -74,6 +75,11 @@ const login = asyncHandler(async (req, res) => {
 
 const getProfile = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
+
+  const goalsUpdated = syncAutoGoals(student);
+  if (goalsUpdated) {
+    await student.save();
+  }
 
   // Calculate and attach base readiness score
   const { total, breakdown } = calculateReadinessScore(student);
@@ -276,6 +282,11 @@ const updateLeetCodeStats = asyncHandler(async (req, res) => {
     // Optionally persist username into codingProfiles
     student.codingProfiles = { ...(student.codingProfiles || {}), leetcode: username };
 
+    const goalsUpdated = syncAutoGoals(student);
+    if (goalsUpdated) {
+      await student.save();
+    }
+
     const { total, breakdown } = calculateReadinessScore(student);
     student.readinessScore = total;
     student.readinessHistory.push({ score: total });
@@ -300,6 +311,7 @@ const addProject = asyncHandler(async (req, res) => {
   };
 
   student.projects.push(project);
+  syncAutoGoals(student);
   await student.save();
 
   const addedProject = student.projects[student.projects.length - 1];
@@ -346,6 +358,7 @@ const addCodingLog = asyncHandler(async (req, res) => {
 
   student.codingLogs.push(codingLog);
   student.lastActiveAt = new Date();
+  syncAutoGoals(student);
   await student.save();
 
   const { total, breakdown } = calculateReadinessScore(student);
@@ -374,6 +387,7 @@ const addCertification = asyncHandler(async (req, res) => {
   };
 
   student.certifications.push(certification);
+  syncAutoGoals(student);
   await student.save();
 
   const addedCertification = student.certifications[student.certifications.length - 1];
@@ -597,7 +611,7 @@ const updateProject = asyncHandler(async (req, res) => {
   if (req.body.githubLink !== undefined) project.githubLink = req.body.githubLink;
   if (req.body.description !== undefined) project.description = req.body.description;
   if (req.body.tags) project.tags = req.body.tags;
-
+  syncAutoGoals(student);
   await student.save();
 
   // Recalculate readiness score
@@ -623,6 +637,7 @@ const deleteProject = asyncHandler(async (req, res) => {
   }
 
   project.deleteOne();
+  syncAutoGoals(student);
   await student.save();
 
   // Recalculate readiness score
@@ -652,7 +667,7 @@ const updateCertification = asyncHandler(async (req, res) => {
   if (req.body.certificateId !== undefined) cert.certificateId = req.body.certificateId;
   if (req.body.issuedDate !== undefined) cert.issuedDate = req.body.issuedDate;
   if (req.body.fileLink !== undefined) cert.fileLink = req.body.fileLink;
-
+  syncAutoGoals(student);
   await student.save();
 
   // Recalculate readiness score
@@ -678,6 +693,7 @@ const deleteCertification = asyncHandler(async (req, res) => {
   }
 
   cert.deleteOne();
+  syncAutoGoals(student);
   await student.save();
 
   // Recalculate readiness score
