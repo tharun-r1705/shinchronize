@@ -5,7 +5,15 @@
 
 const Roadmap = require('../models/Roadmap');
 const Student = require('../models/Student');
-const { v4: uuidv4 } = require('uuid');
+let uuidv4;
+
+async function getUuidV4() {
+    if (!uuidv4) {
+        const { v4 } = await import('uuid');
+        uuidv4 = v4;
+    }
+    return uuidv4;
+}
 
 /**
  * Create a new personalized roadmap
@@ -22,8 +30,10 @@ async function createRoadmap(studentId, args) {
     // Create milestones with proper structure
     const allowedResourceTypes = ['video', 'article', 'course', 'book', 'tool', 'tutorial', 'documentation', 'other'];
 
+    const uuid = await getUuidV4();
+
     const formattedMilestones = (milestones || []).map((m, index) => ({
-        id: uuidv4(),
+        id: uuid(),
         title: m.title,
         description: m.description || '',
         category: m.category || 'skill',
@@ -163,8 +173,10 @@ async function addMilestone(studentId, args) {
 
     const allowedResourceTypes = ['video', 'article', 'course', 'book', 'tool', 'tutorial', 'documentation', 'other'];
 
+    const uuid = await getUuidV4();
+
     const newMilestone = {
-        id: uuidv4(),
+        id: uuid(),
         title,
         description: description || '',
         category: category || 'skill',
