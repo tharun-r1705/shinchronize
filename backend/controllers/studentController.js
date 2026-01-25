@@ -8,6 +8,7 @@ const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/cod
 const { fetchLeetCodeStats } = require('../utils/leetcode');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
 const { syncAutoGoals } = require('../utils/goalSync');
+const { generateDomainInsight } = require('../utils/domainInsights');
 
 let cachedPdfParse = null;
 const loadPdfParse = async () => {
@@ -552,14 +553,12 @@ const getLeaderboard = asyncHandler(async (req, res) => {
       projects: Array.isArray(s.projects) ? s.projects : [],
       badges: Array.isArray(s.badges) ? s.badges : [],
       avatarUrl: s.avatarUrl || '',
-      verifiedProjectsCount: Array.isArray(s.projects)
-        ? s.projects.filter((p) => p.status === 'verified' || p.verified).length
-        : 0,
+      projectsCount: Array.isArray(s.projects) ? s.projects.length : 0,
     }))
     .sort((a, b) => {
       if (b.readinessScore !== a.readinessScore) return b.readinessScore - a.readinessScore;
       if (b.streakDays !== a.streakDays) return b.streakDays - a.streakDays;
-      return b.verifiedProjectsCount - a.verifiedProjectsCount;
+      return b.projectsCount - a.projectsCount;
     })
     .slice(0, limit)
     .map((s, idx) => ({
@@ -569,10 +568,10 @@ const getLeaderboard = asyncHandler(async (req, res) => {
       college: s.college,
       score: s.readinessScore,
       streak: s.streakDays,
-      projects: s.verifiedProjectsCount,
+      projects: s.projectsCount,
       badges: s.badges, // array of strings
       avatarUrl: s.avatarUrl,
-      achievements: `${s.verifiedProjectsCount} Verified Projects • ${s.streakDays} Day Streak`,
+      achievements: `${s.projectsCount} Project${s.projectsCount !== 1 ? 's' : ''} • ${s.streakDays} Day Streak`,
     }));
 
   res.json({ leaderboard: withDerived });
@@ -1178,6 +1177,30 @@ const importLinkedInProfile = asyncHandler(async (req, res) => {
   }
 });
 
+const getDomainInsights = asyncHandler(async (req, res) => {
+  const student = await Student.findById(req.user._id);
+  if (!student) {
+    return res.status(404).json({ message: 'Student not found' });
+  }
+
+  const skills = student.skills || [];
+  const skillRadar = student.skillRadar || {};
+
+  if (skills.length === 0 && Object.keys(skillRadar).length === 0) {
+    return res.json({
+      domain: null,
+      type: 'prompt',
+      content: {
+        title: 'Add Your Skills',
+        text: 'Add skills to your profile to get personalized domain insights and interview tips!'
+      }
+    });
+  }
+
+  const insight = await generateDomainInsight(skills, skillRadar);
+  res.json(insight);
+});
+
 module.exports = {
   signup,
   login,
@@ -1205,4 +1228,5 @@ module.exports = {
   syncCodingActivity,
   updateLeetCodeStats,
   importLinkedInProfile,
+  getDomainInsights,
 };

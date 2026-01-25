@@ -10,8 +10,12 @@ import {
     Info,
     Building2,
     DollarSign,
-    Briefcase
+    Briefcase,
+    CheckCircle2,
+    XCircle,
+    Sparkles
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { StudentNavbar } from "@/components/StudentNavbar";
-import { marketApi, SkillMarketData, TrendPredictions, SkillROIRecommendation, CompanySkillProfile } from "@/lib/api";
+import { marketApi, studentApi, SkillMarketData, TrendPredictions, SkillROIRecommendation, CompanySkillProfile } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 const SkillMarketTracker = () => {
@@ -31,22 +35,29 @@ const SkillMarketTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [companyType, setCompanyType] = useState("all");
+    const [studentProfile, setStudentProfile] = useState<any>(null);
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+
+    // State for real-time search
+    const [isSearching, setIsSearching] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const [skillsData, trendsData, roiData, companiesData] = await Promise.all([
+                const [skillsData, trendsData, roiData, companiesData, profileData] = await Promise.all([
                     marketApi.getSkills(),
                     marketApi.getTrends(),
                     token ? marketApi.getROI(token) : Promise.resolve([]),
-                    marketApi.getCompanies()
+                    marketApi.getCompanies(),
+                    token ? studentApi.getProfile(token) : Promise.resolve(null)
                 ]);
 
                 setSkills(skillsData);
                 setTrends(trendsData);
                 setRoiReport(roiData);
                 setCompanies(companiesData);
+                setStudentProfile(profileData);
             } catch (error: any) {
                 toast({
                     title: "Error loading market data",
@@ -61,7 +72,48 @@ const SkillMarketTracker = () => {
         fetchData();
     }, [toast]);
 
+    // Real-time search debounce effect
+    useEffect(() => {
+        if (!searchQuery.trim()) return;
+
+        const delayDebounceFn = setTimeout(async () => {
+            if (isSearching) return; // Prevent double triggering if button was clicked
+
+            setIsSearching(true);
+            try {
+                const data = await marketApi.getCompanies(searchQuery, companyType);
+                setCompanies(data);
+            } catch (error) {
+                console.error("Search error:", error);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery, companyType]);
+
+    const calculateMatchScore = (company: CompanySkillProfile) => {
+        if (!studentProfile || !studentProfile.skillRadar) return 0;
+
+        let totalScore = 0;
+        let possibleScore = 0;
+
+        company.requiredSkills.forEach(req => {
+            const importanceWeight = req.importance === 'must-have' ? 1.5 : 1;
+            const studentSkillLevel = (studentProfile.skillRadar[req.skillName] || 0) / 20; // 0-100 to 0-5
+
+            totalScore += Math.min(studentSkillLevel, req.proficiencyLevel) * importanceWeight;
+            possibleScore += req.proficiencyLevel * importanceWeight;
+        });
+
+        return possibleScore > 0 ? Math.round((totalScore / possibleScore) * 100) : 0;
+    };
+
     const handleSearch = async () => {
+        if (!searchQuery.trim() || isSearching) return;
+
+        setIsSearching(true);
         try {
             const data = await marketApi.getCompanies(searchQuery, companyType);
             setCompanies(data);
@@ -71,6 +123,8 @@ const SkillMarketTracker = () => {
                 description: error.message,
                 variant: "destructive",
             });
+        } finally {
+            setIsSearching(false);
         }
     };
 
@@ -225,74 +279,222 @@ const SkillMarketTracker = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                         >
-                            <Card>
-                                <CardHeader>
+                            <Card className="border-none shadow-premium overflow-hidden">
+                                <CardHeader className="bg-gradient-to-r from-indigo-600 to-violet-700 text-white">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         <div>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <Building2 className="w-5 h-5 text-primary" />
-                                                Company-Specific Skill Database
-                                            </CardTitle>
-                                            <CardDescription>Know exactly what target companies are looking for</CardDescription>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <CardTitle className="flex items-center gap-2 text-white">
+                                                    <Building2 className="w-6 h-6" />
+                                                    Company-Specific Skill Database
+                                                </CardTitle>
+                                                <Badge className="bg-emerald-500 text-white border-none text-[10px] animate-pulse">
+                                                    AI Discovery Active
+                                                </Badge>
+                                            </div>
+                                            <CardDescription className="text-indigo-100">Proactively researching corporate tech stacks for you in real-time</CardDescription>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <div className="relative">
-                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                            <div className="relative group">
+                                                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors ${isSearching ? 'text-white animate-spin' : ''}`} />
                                                 <Input
-                                                    placeholder="Search company..."
-                                                    className="pl-9 w-[200px]"
+                                                    placeholder="Search any company (e.g. Netflix, Uber...)"
+                                                    className="pl-9 w-[260px] bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white focus:text-black transition-all"
                                                     value={searchQuery}
                                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                                 />
                                             </div>
-                                            <Button size="sm" onClick={handleSearch}>Search</Button>
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="secondary"
+                                                            className="font-bold shrink-0 gap-2"
+                                                            onClick={handleSearch}
+                                                            disabled={isSearching}
+                                                        >
+                                                            {isSearching ? <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+                                                            {isSearching ? 'Scanning...' : 'AI Research'}
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs">Can't find a company? Click to have Zenith AI<br />research its tech stack and salaries in real-time.</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
                                         </div>
                                     </div>
+
+                                    <div className="mt-6 flex flex-wrap gap-2">
+                                        {['all', 'faang', 'startup', 'enterprise'].map((type) => (
+                                            <Badge
+                                                key={type}
+                                                className={`cursor-pointer capitalize text-xs px-3 py-1 border-none transition-all ${companyType === type
+                                                    ? "bg-white text-indigo-700 shadow-lg scale-105"
+                                                    : "bg-white/10 text-white hover:bg-white/20"
+                                                    }`}
+                                                onClick={() => setCompanyType(type)}
+                                            >
+                                                {type}
+                                            </Badge>
+                                        ))}
+                                    </div>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {companies.map((company) => (
-                                            <div key={company._id} className="border rounded-xl p-5 hover:bg-muted/30 transition-all">
-                                                <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-lg bg-white border p-2 flex items-center justify-center">
-                                                            {company.logoUrl ? (
-                                                                <img src={company.logoUrl} alt={company.companyName} className="max-w-full max-h-full object-contain" />
-                                                            ) : (
-                                                                <Building2 className="w-6 h-6 text-muted-foreground" />
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="font-bold text-lg">{company.companyName}</h4>
-                                                            <div className="flex gap-2">
-                                                                <Badge variant="outline" className="text-[10px] capitalize">{company.type}</Badge>
-                                                                <span className="text-xs text-muted-foreground">{company.industry} • {company.location}</span>
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-border">
+                                        {isSearching ? (
+                                            <div className="p-20 text-center">
+                                                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                                <p className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent animate-pulse">Zenith is researching this company...</p>
+                                                <p className="text-sm text-muted-foreground mt-2">Connecting to real-time market data to extract tech-stack requirements.</p>
+                                            </div>
+                                        ) : companies.length > 0 ? (
+                                            companies.map((company, idx) => {
+                                                const isSelected = selectedCompanyId === company._id;
+                                                const matchScore = calculateMatchScore(company);
+
+                                                return (
+                                                    <motion.div
+                                                        key={company._id}
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1, backgroundColor: isSelected ? "rgba(var(--primary), 0.03)" : "transparent" }}
+                                                        transition={{ delay: idx * 0.05 }}
+                                                        className={`p-6 transition-all group cursor-pointer ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-950/10' : 'hover:bg-muted/30'}`}
+                                                        onClick={() => setSelectedCompanyId(isSelected ? null : company._id)}
+                                                    >
+                                                        <div className="flex flex-col md:flex-row justify-between gap-6">
+                                                            <div className="flex items-start gap-4">
+                                                                <div className={`w-14 h-14 rounded-2xl bg-white border-2 shadow-sm p-3 flex items-center justify-center transition-colors ${isSelected ? 'border-primary shadow-md scale-105' : 'border-muted group-hover:border-indigo-500/50'}`}>
+                                                                    {company.logoUrl ? (
+                                                                        <img src={company.logoUrl} alt={company.companyName} className="max-w-full max-h-full object-contain" />
+                                                                    ) : (
+                                                                        <Building2 className={`w-8 h-8 ${isSelected ? 'text-primary' : 'text-indigo-500'}`} />
+                                                                    )}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <h4 className={`font-bold text-xl transition-colors ${isSelected ? 'text-primary' : 'group-hover:text-indigo-600'}`}>{company.companyName}</h4>
+                                                                        <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 uppercase text-[90%] scale-90">{company.type}</Badge>
+                                                                        {isSelected && <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5">Selected</Badge>}
+                                                                    </div>
+                                                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 font-medium">
+                                                                        {company.industry} • <span className="opacity-70">{company.location}</span>
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="md:text-right bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10 min-w-[200px]">
+                                                                <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Est. Salary Package</div>
+                                                                <div className="text-xl font-black text-emerald-700">
+                                                                    ₹{(company.avgSalaryRange.min / 100000).toFixed(1)}L - ₹{(company.avgSalaryRange.max / 100000).toFixed(1)}L <span className="text-xs font-bold text-emerald-600/70">PA</span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-semibold">Est. Salary Package</div>
-                                                        <div className="text-lg font-bold text-emerald-600">₹{(company.avgSalaryRange.min / 100000).toFixed(1)}L - ₹{(company.avgSalaryRange.max / 100000).toFixed(1)}L PA</div>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Core Tech Stack</p>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {company.requiredSkills.map((s, i) => (
-                                                            <div key={i} className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-full border border-border">
-                                                                <span className="text-sm font-medium">{s.skillName}</span>
-                                                                <div className="flex gap-0.5">
-                                                                    {[...Array(5)].map((_, idx) => (
-                                                                        <div key={idx} className={`w-1 h-3 rounded-full ${idx < s.proficiencyLevel ? 'bg-primary' : 'bg-muted-foreground/30'}`}></div>
+
+                                                        {/* Condensed View (Tech Stack Tags) */}
+                                                        {!isSelected && (
+                                                            <div className="mt-5 space-y-3">
+                                                                <div className="flex items-center justify-between">
+                                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Core Tech Stack</p>
+                                                                    <p className="text-[10px] font-medium text-muted-foreground uppercase opacity-0 group-hover:opacity-100 transition-opacity">Click to view analysis</p>
+                                                                </div>
+                                                                <div className="flex flex-wrap gap-2.5">
+                                                                    {company.requiredSkills.map((s, i) => (
+                                                                        <div key={i} className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-border shadow-sm group-hover:shadow-md transition-all">
+                                                                            <span className="text-sm font-bold text-foreground">{s.skillName}</span>
+                                                                            <div className="flex gap-1">
+                                                                                {[...Array(5)].map((_, starIdx) => (
+                                                                                    <div key={starIdx} className={`w-1.5 h-3 rounded-full ${starIdx < s.proficiencyLevel ? 'bg-indigo-500' : 'bg-slate-200'}`}></div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
                                                                     ))}
                                                                 </div>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
+                                                        )}
+
+                                                        {/* Expanded View (Match Analysis) */}
+                                                        {isSelected && (
+                                                            <motion.div
+                                                                initial={{ height: 0, opacity: 0 }}
+                                                                animate={{ height: "auto", opacity: 1 }}
+                                                                className="mt-6 border-t pt-6"
+                                                            >
+                                                                <div className="grid md:grid-cols-3 gap-6">
+                                                                    {/* Left: General Match Info */}
+                                                                    <div className="space-y-4">
+                                                                        <div className="bg-card rounded-xl p-4 border shadow-sm">
+                                                                            <p className="text-sm font-medium text-muted-foreground mb-2">Detailed Match Analysis</p>
+                                                                            <div className="flex items-end gap-2">
+                                                                                <span className={`text-4xl font-black ${matchScore > 70 ? 'text-emerald-600' : matchScore > 40 ? 'text-amber-500' : 'text-red-500'}`}>{matchScore}%</span>
+                                                                                <span className="text-sm text-muted-foreground mb-1">Profile Match</span>
+                                                                            </div>
+                                                                            <Progress value={matchScore} className={`h-2 mt-2 ${matchScore > 70 ? "bg-emerald-100" : "bg-slate-100"}`} />
+                                                                        </div>
+                                                                        <Button
+                                                                            className="w-full bg-primary text-primary-foreground gap-2 font-bold shadow-lg shadow-primary/20"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                toast({ title: "Target Locked 🎯", description: `You have set ${company.companyName} as your primary placement goal.` });
+                                                                            }}
+                                                                        >
+                                                                            <Target className="w-4 h-4" />
+                                                                            Set as Target Company
+                                                                        </Button>
+                                                                    </div>
+
+                                                                    {/* Right: Detailed Skill Gap */}
+                                                                    <div className="md:col-span-2 space-y-3">
+                                                                        <h5 className="font-semibold text-sm flex items-center gap-2">
+                                                                            <Briefcase className="w-4 h-4 text-primary" />
+                                                                            Skill Gap Report
+                                                                        </h5>
+                                                                        <div className="grid gap-2">
+                                                                            {company.requiredSkills.map((req, i) => {
+                                                                                const studentLevel = (studentProfile?.skillRadar?.[req.skillName] || 0) / 20; // 0-5
+                                                                                const isMatch = studentLevel >= req.proficiencyLevel;
+                                                                                const gap = Math.max(0, req.proficiencyLevel - studentLevel);
+
+                                                                                return (
+                                                                                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-background border hover:border-primary/30 transition-colors">
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            {isMatch ? (
+                                                                                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                                                                                            ) : (
+                                                                                                <XCircle className="w-5 h-5 text-red-400 shrink-0" />
+                                                                                            )}
+                                                                                            <div>
+                                                                                                <p className="font-bold text-sm">{req.skillName}</p>
+                                                                                                {req.importance === 'must-have' && <span className="text-[10px] text-red-500 font-semibold uppercase">Must Have</span>}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div className="text-right">
+                                                                                            {isMatch ? (
+                                                                                                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Ready</span>
+                                                                                            ) : (
+                                                                                                <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">Gap: +{gap.toFixed(1)} Level</span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </motion.div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="p-20 text-center">
+                                                <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                                                <h3 className="font-bold text-lg">No companies found</h3>
+                                                <p className="text-muted-foreground">Try a different search term or filter.</p>
+                                                <Button variant="link" onClick={() => { setSearchQuery(""); setCompanyType("all"); }} className="mt-2 text-indigo-600">Clear all filters</Button>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>

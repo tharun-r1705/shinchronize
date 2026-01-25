@@ -320,6 +320,20 @@ export const studentApi = {
 
   deleteEvent: (eventId: string, token: string) =>
     api.delete(`/students/events/${eventId}`, token),
+
+  // Domain insights (AI-powered)
+  getDomainInsights: (token: string) =>
+    api.get<{
+      domain: string | null;
+      type: 'fact' | 'interview' | 'prompt';
+      content: {
+        title: string;
+        text?: string;
+        question?: string;
+        hint?: string;
+        answer?: string;
+      };
+    }>('/students/domain-insights', token),
 };
 
 export const recruiterApi = {

@@ -13,7 +13,7 @@ import {
   TrendingUp, Award, Upload, FileText, Trophy,
   Target, Zap, Star, BookOpen, Code, Brain, LogOut,
   Link2, Edit, Trash2, CheckCircle2, Calendar, ArrowRight, Sparkles,
-  ArrowUpRight, BarChart3
+  ArrowUpRight, BarChart3, Lightbulb, RefreshCw, HelpCircle
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -92,6 +92,11 @@ const StudentDashboard = () => {
   const [marketTrends, setMarketTrends] = useState<any>(null);
   const [marketROI, setMarketROI] = useState<any[]>([]);
 
+  // Domain Insight state
+  const [domainInsight, setDomainInsight] = useState<any>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [showAnswer, setShowAnswer] = useState(false);
+
   const domains = [
     "Web Development",
     "Mobile Development",
@@ -155,6 +160,12 @@ const StudentDashboard = () => {
   }, [navigate, toast]);
 
   useEffect(() => {
+    if (student) {
+      localStorage.setItem('studentData', JSON.stringify(student));
+    }
+  }, [student]);
+
+  useEffect(() => {
     const fetchMarketGlimpse = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -173,6 +184,26 @@ const StudentDashboard = () => {
     };
 
     fetchMarketGlimpse();
+  }, []);
+
+  // Fetch domain insights on mount
+  useEffect(() => {
+    const fetchDomainInsights = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      setInsightLoading(true);
+      try {
+        const insight = await studentApi.getDomainInsights(token);
+        setDomainInsight(insight);
+      } catch (error) {
+        console.error("Error fetching domain insights:", error);
+      } finally {
+        setInsightLoading(false);
+      }
+    };
+
+    fetchDomainInsights();
   }, []);
 
   const handleProjectSubmit = async () => {
@@ -817,6 +848,127 @@ const StudentDashboard = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Domain Insight Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-8"
+        >
+          <Card className="shadow-card border-primary/10 bg-gradient-to-r from-violet-500/5 via-background to-fuchsia-500/5">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  {insightLoading ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-full max-w-md" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ) : domainInsight ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-3">
+                        {domainInsight.type === 'fact' ? (
+                          <Lightbulb className="w-5 h-5 text-amber-500" />
+                        ) : domainInsight.type === 'interview' ? (
+                          <HelpCircle className="w-5 h-5 text-blue-500" />
+                        ) : (
+                          <Brain className="w-5 h-5 text-primary" />
+                        )}
+                        <Badge variant="secondary" className="text-xs">
+                          {domainInsight.domain || 'Your Domain'}
+                        </Badge>
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">
+                        {domainInsight.content?.title}
+                      </h3>
+                      {domainInsight.type === 'fact' && (
+                        <p className="text-muted-foreground">
+                          {domainInsight.content?.text}
+                        </p>
+                      )}
+                      {domainInsight.type === 'interview' && (
+                        <div className="space-y-3">
+                          <p className="font-medium text-foreground">
+                            {domainInsight.content?.question}
+                          </p>
+                          <p className="text-sm text-muted-foreground italic">
+                            💡 Hint: {domainInsight.content?.hint}
+                          </p>
+
+                          {/* Show Answer Toggle */}
+                          {domainInsight.content?.answer && (
+                            <div className="pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowAnswer(!showAnswer)}
+                                className="mb-2 gap-2"
+                              >
+                                {showAnswer ? '🙈 Hide Answer' : '👀 Show Answer'}
+                              </Button>
+
+                              {showAnswer && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  className="p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-lg border border-emerald-500/20"
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-1 shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                                        Sample Answer:
+                                      </p>
+                                      <p className="text-sm text-foreground leading-relaxed">
+                                        {domainInsight.content?.answer}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {domainInsight.type === 'prompt' && (
+                        <p className="text-muted-foreground">
+                          {domainInsight.content?.text}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground">Loading domain insights...</p>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={async () => {
+                    const token = localStorage.getItem('token');
+                    if (!token) return;
+                    setInsightLoading(true);
+                    setShowAnswer(false); // Reset answer visibility when refreshing
+                    try {
+                      const insight = await studentApi.getDomainInsights(token);
+                      setDomainInsight(insight);
+                    } catch (e) {
+                      console.error('Failed to fetch domain insight', e);
+                    } finally {
+                      setInsightLoading(false);
+                    }
+                  }}
+                  disabled={insightLoading}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={`w-4 h-4 ${insightLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             </CardContent>
           </Card>

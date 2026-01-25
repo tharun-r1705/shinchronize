@@ -71,10 +71,12 @@ const Leaderboard = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem("studentToken");
+        const token = localStorage.getItem("token");
         if (!token) return;
-        const profile = await studentApi.getProfile(token);
-        setStudentProfile(profile);
+        // Refresh student data
+        const updatedData = await studentApi.getProfile(token);
+        setStudentProfile(updatedData);
+        localStorage.setItem('studentData', JSON.stringify(updatedData));
       } catch (err) {
         console.warn("Failed to fetch student profile", err);
       }

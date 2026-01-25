@@ -122,6 +122,48 @@ const companyData = [
         location: 'Hyderabad, Redmond'
     },
     {
+        companyName: 'Amazon',
+        industry: 'Cloud/E-commerce',
+        type: 'faang',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
+        requiredSkills: [
+            { skillName: 'Java', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'AWS', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'Python', importance: 'preferred', proficiencyLevel: 4 },
+            { skillName: 'NoSQL', importance: 'preferred', proficiencyLevel: 3 }
+        ],
+        avgSalaryRange: { min: 2800000, max: 6500000 },
+        location: 'Bangalore, Seattle'
+    },
+    {
+        companyName: 'Netflix',
+        industry: 'Entertainment/SaaS',
+        type: 'faang',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg',
+        requiredSkills: [
+            { skillName: 'Java', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'Microservices', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'React', importance: 'preferred', proficiencyLevel: 4 },
+            { skillName: 'Spring Boot', importance: 'must-have', proficiencyLevel: 4 }
+        ],
+        avgSalaryRange: { min: 4500000, max: 9500000 },
+        location: 'Remote, Los Gatos'
+    },
+    {
+        companyName: 'Meta',
+        industry: 'Social Media',
+        type: 'faang',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/7b/Meta_Platforms_Inc._logo.svg',
+        requiredSkills: [
+            { skillName: 'React', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'PHP/Hack', importance: 'must-have', proficiencyLevel: 4 },
+            { skillName: 'Python', importance: 'preferred', proficiencyLevel: 4 },
+            { skillName: 'PyTorch', importance: 'preferred', proficiencyLevel: 4 }
+        ],
+        avgSalaryRange: { min: 3500000, max: 8500000 },
+        location: 'Hyderabad, Menlo Park'
+    },
+    {
         companyName: 'Stripe',
         industry: 'Fintech',
         type: 'startup',
@@ -135,6 +177,45 @@ const companyData = [
         location: 'Remote, San Francisco'
     },
     {
+        companyName: 'Adobe',
+        industry: 'Software/Creative',
+        type: 'enterprise',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/8d/Adobe_Corporate_Logo.png',
+        requiredSkills: [
+            { skillName: 'C++', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'Java', importance: 'must-have', proficiencyLevel: 4 },
+            { skillName: 'AWS', importance: 'preferred', proficiencyLevel: 3 }
+        ],
+        avgSalaryRange: { min: 2000000, max: 5500000 },
+        location: 'Noida, San Jose'
+    },
+    {
+        companyName: 'Salesforce',
+        industry: 'CRM/SaaS',
+        type: 'enterprise',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/f/f9/Salesforce.com_logo.svg',
+        requiredSkills: [
+            { skillName: 'Java', importance: 'must-have', proficiencyLevel: 4 },
+            { skillName: 'Apex', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'JavaScript', importance: 'preferred', proficiencyLevel: 4 }
+        ],
+        avgSalaryRange: { min: 2200000, max: 6000000 },
+        location: 'Hyderabad, San Francisco'
+    },
+    {
+        companyName: 'Uber',
+        industry: 'Mobility/Tech',
+        type: 'enterprise',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/5/58/Uber_logo_2018.svg',
+        requiredSkills: [
+            { skillName: 'Go', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'Java', importance: 'must-have', proficiencyLevel: 4 },
+            { skillName: 'Python', importance: 'preferred', proficiencyLevel: 4 }
+        ],
+        avgSalaryRange: { min: 3500000, max: 7500000 },
+        location: 'Bangalore, Amsterdam'
+    },
+    {
         companyName: 'Zomato',
         industry: 'FoodTech',
         type: 'enterprise',
@@ -146,6 +227,32 @@ const companyData = [
         ],
         avgSalaryRange: { min: 1500000, max: 4500000 },
         location: 'Gurugram'
+    },
+    {
+        companyName: 'Swiggy',
+        industry: 'Logistics/Tech',
+        type: 'enterprise',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/en/1/12/Swiggy_logo.svg',
+        requiredSkills: [
+            { skillName: 'Golang', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'Java', importance: 'must-have', proficiencyLevel: 4 },
+            { skillName: 'React', importance: 'preferred', proficiencyLevel: 4 }
+        ],
+        avgSalaryRange: { min: 1800000, max: 5000000 },
+        location: 'Bangalore'
+    },
+    {
+        companyName: 'Cred',
+        industry: 'Fintech',
+        type: 'startup',
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/7/7c/Logo_of_CRED.png/220px-Logo_of_CRED.png',
+        requiredSkills: [
+            { skillName: 'Mobile Dev', importance: 'must-have', proficiencyLevel: 5 },
+            { skillName: 'Node.js', importance: 'must-have', proficiencyLevel: 4 },
+            { skillName: 'React', importance: 'preferred', proficiencyLevel: 4 }
+        ],
+        avgSalaryRange: { min: 2500000, max: 6000000 },
+        location: 'Bangalore'
     }
 ];
 

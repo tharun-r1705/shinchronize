@@ -59,6 +59,7 @@ const {
   syncCodingActivity,
   updateLeetCodeStats,
   importLinkedInProfile,
+  getDomainInsights,
 } = require('../controllers/studentController');
 const { authenticate } = require('../utils/authMiddleware');
 const {
@@ -195,12 +196,15 @@ router.get('/readiness', authenticate(['student']), getReadinessReport);
 // Public leaderboard endpoint
 router.get('/leaderboard', getLeaderboard);
 
+// Domain insights (AI-powered)
+router.get('/domain-insights', authenticate(['student']), getDomainInsights);
+
 // Coding profiles and sync
 router.put('/coding-profiles', authenticate(['student']), updateCodingProfiles);
 router.post('/coding-sync', authenticate(['student']), syncCodingActivity);
 
 // Update LeetCode stats (admin or self with student auth)
-router.post('/:id/update-leetcode', authenticate(['student','admin']), updateLeetCodeStats);
+router.post('/:id/update-leetcode', authenticate(['student', 'admin']), updateLeetCodeStats);
 
 router.get('/', authenticate(['admin']), listStudents);
 router.get('/:id', authenticate(['admin']), idParamValidation, handleValidation, getStudentById);
