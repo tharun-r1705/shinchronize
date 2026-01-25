@@ -70,12 +70,14 @@ app.get('/api/health', (req, res) => {
 });
 
 const marketRoutes = require('./routes/marketRoutes');
+const roadmapRoutes = require('./routes/roadmapRoutes');
 
 app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/api/roadmap', roadmapRoutes);
 
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);

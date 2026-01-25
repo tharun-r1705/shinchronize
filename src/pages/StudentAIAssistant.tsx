@@ -8,17 +8,21 @@ import {
     Sparkles,
     MessageSquare,
     Bell,
-    X
+    X,
+    Map,
+    MessagesSquare
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { agentApi, AgentMessage } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { StudentNavbar } from "@/components/StudentNavbar";
 import { MessageBubble, TypingIndicator } from "@/components/AgentChat";
+import RoadmapVisualizer from "@/components/RoadmapVisualizer";
 
 interface ChatMessage extends AgentMessage {
     toolsUsed?: string[];
@@ -28,7 +32,7 @@ const SUGGESTED_PROMPTS = [
     "What's my current readiness score?",
     "Show me my coding activity",
     "What should I focus on to improve?",
-    "Add a goal to solve 50 LeetCode problems",
+    "Create a roadmap for full stack development",
     "What are my strongest skills?",
 ];
 
@@ -40,6 +44,7 @@ const StudentAIAssistant = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
     const [nudges, setNudges] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState("chat");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -235,117 +240,140 @@ const StudentAIAssistant = () => {
                     </AnimatePresence>
                 </header>
 
-                {/* Chat Container */}
-                <Card className="flex-1 flex flex-col overflow-hidden border-border/50">
-                    {/* Messages Area */}
-                    <CardContent className="flex-1 overflow-y-auto p-4 space-y-2">
-                        {isLoadingHistory ? (
-                            <div className="space-y-4">
-                                <Skeleton className="h-16 w-3/4" />
-                                <Skeleton className="h-12 w-1/2 ml-auto" />
-                                <Skeleton className="h-20 w-3/4" />
-                            </div>
-                        ) : messages.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center py-12">
-                                <motion.div
-                                    initial={{ scale: 0.8, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    className="w-16 h-16 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-2xl flex items-center justify-center mb-4"
-                                >
-                                    <MessageSquare className="w-8 h-8 text-amber-500" />
-                                </motion.div>
-                                <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
-                                <p className="text-muted-foreground text-sm mb-6 max-w-md">
-                                    Ask Zenith about your profile, coding activity, readiness score, or set new goals.
-                                </p>
+                {/* Tabs for Chat and Roadmap */}
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                        <TabsTrigger value="chat" className="flex items-center gap-2">
+                            <MessagesSquare className="w-4 h-4" />
+                            Chat
+                        </TabsTrigger>
+                        <TabsTrigger value="roadmap" className="flex items-center gap-2">
+                            <Map className="w-4 h-4" />
+                            Roadmap
+                        </TabsTrigger>
+                    </TabsList>
 
-                                {/* Suggested Prompts */}
-                                <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                                    {SUGGESTED_PROMPTS.map((prompt, i) => (
-                                        <Button
-                                            key={i}
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-xs hover:border-amber-500/50 hover:bg-amber-500/5"
-                                            onClick={() => sendMessage(prompt)}
+                    {/* Chat Tab */}
+                    <TabsContent value="chat" className="flex-1 flex flex-col mt-0">
+                        <Card className="flex-1 flex flex-col overflow-hidden border-border/50">
+                            {/* Messages Area */}
+                            <CardContent className="flex-1 overflow-y-auto p-4 space-y-2">
+                                {isLoadingHistory ? (
+                                    <div className="space-y-4">
+                                        <Skeleton className="h-16 w-3/4" />
+                                        <Skeleton className="h-12 w-1/2 ml-auto" />
+                                        <Skeleton className="h-20 w-3/4" />
+                                    </div>
+                                ) : messages.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center py-12">
+                                        <motion.div
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="w-16 h-16 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-2xl flex items-center justify-center mb-4"
                                         >
-                                            <Sparkles className="w-3 h-3 mr-1.5 text-amber-500" />
-                                            {prompt}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <>
-                                {messages.map((message, index) => (
-                                    <MessageBubble
-                                        key={index}
-                                        role={message.role}
-                                        content={message.content}
-                                        timestamp={message.timestamp}
-                                        toolsUsed={message.toolsUsed}
-                                        isLatest={index === messages.length - 1}
+                                            <MessageSquare className="w-8 h-8 text-amber-500" />
+                                        </motion.div>
+                                        <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
+                                        <p className="text-muted-foreground text-sm mb-6 max-w-md">
+                                            Ask Zenith about your profile, coding activity, readiness score, or create a personalized roadmap.
+                                        </p>
+
+                                        {/* Suggested Prompts */}
+                                        <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                                            {SUGGESTED_PROMPTS.map((prompt, i) => (
+                                                <Button
+                                                    key={i}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-xs hover:border-amber-500/50 hover:bg-amber-500/5"
+                                                    onClick={() => sendMessage(prompt)}
+                                                >
+                                                    <Sparkles className="w-3 h-3 mr-1.5 text-amber-500" />
+                                                    {prompt}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {messages.map((message, index) => (
+                                            <MessageBubble
+                                                key={index}
+                                                role={message.role}
+                                                content={message.content}
+                                                timestamp={message.timestamp}
+                                                toolsUsed={message.toolsUsed}
+                                                isLatest={index === messages.length - 1}
+                                            />
+                                        ))}
+
+                                        <AnimatePresence>
+                                            {isLoading && <TypingIndicator />}
+                                        </AnimatePresence>
+
+                                        <div ref={messagesEndRef} />
+                                    </>
+                                )}
+                            </CardContent>
+
+                            {/* Input Area */}
+                            <div className="p-4 border-t bg-card/50">
+                                <div className="flex gap-2">
+                                    <Input
+                                        ref={inputRef}
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder="Ask Zenith anything..."
+                                        disabled={isLoading}
+                                        className="flex-1 border-border/50 focus-visible:ring-amber-500/50"
                                     />
-                                ))}
-
-                                <AnimatePresence>
-                                    {isLoading && <TypingIndicator />}
-                                </AnimatePresence>
-
-                                <div ref={messagesEndRef} />
-                            </>
-                        )}
-                    </CardContent>
-
-                    {/* Input Area */}
-                    <div className="p-4 border-t bg-card/50">
-                        <div className="flex gap-2">
-                            <Input
-                                ref={inputRef}
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder="Ask Zenith anything..."
-                                disabled={isLoading}
-                                className="flex-1 border-border/50 focus-visible:ring-amber-500/50"
-                            />
-                            <Button
-                                onClick={() => sendMessage()}
-                                disabled={!input.trim() || isLoading}
-                                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-                            >
-                                <Send className="w-4 h-4" />
-                            </Button>
-                            {messages.length > 0 && (
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={clearConversation}
-                                    className="text-muted-foreground hover:text-destructive"
-                                    title="Clear conversation"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* Quick prompts when conversation exists */}
-                        {messages.length > 0 && !isLoading && (
-                            <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
-                                {SUGGESTED_PROMPTS.slice(0, 3).map((prompt, i) => (
-                                    <Badge
-                                        key={i}
-                                        variant="outline"
-                                        className="cursor-pointer text-xs whitespace-nowrap hover:bg-amber-500/10 hover:border-amber-500/30"
-                                        onClick={() => sendMessage(prompt)}
+                                    <Button
+                                        onClick={() => sendMessage()}
+                                        disabled={!input.trim() || isLoading}
+                                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
                                     >
-                                        {prompt}
-                                    </Badge>
-                                ))}
+                                        <Send className="w-4 h-4" />
+                                    </Button>
+                                    {messages.length > 0 && (
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={clearConversation}
+                                            className="text-muted-foreground hover:text-destructive"
+                                            title="Clear conversation"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* Quick prompts when conversation exists */}
+                                {messages.length > 0 && !isLoading && (
+                                    <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+                                        {SUGGESTED_PROMPTS.slice(0, 3).map((prompt, i) => (
+                                            <Badge
+                                                key={i}
+                                                variant="outline"
+                                                className="cursor-pointer text-xs whitespace-nowrap hover:bg-amber-500/10 hover:border-amber-500/30"
+                                                onClick={() => sendMessage(prompt)}
+                                            >
+                                                {prompt}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                </Card>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Roadmap Tab */}
+                    <TabsContent value="roadmap" className="flex-1 mt-0">
+                        <Card className="flex-1 overflow-hidden border-border/50">
+                            <RoadmapVisualizer />
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </main>
         </div>
     );

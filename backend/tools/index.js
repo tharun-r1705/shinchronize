@@ -8,6 +8,7 @@ const codingTools = require('./codingTools');
 const readinessTools = require('./readinessTools');
 const goalTools = require('./goalTools');
 const suggestionTools = require('./suggestionTools');
+const roadmapTools = require('./roadmapTools');
 
 // Tool definitions for Groq function calling
 const toolDefinitions = [
@@ -301,6 +302,125 @@ const toolDefinitions = [
                 required: []
             }
         }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'createRoadmap',
+            description: 'Create a personalized career roadmap for the student based on their goals, skills, and target role. Use this when the student wants to create a learning path or career plan.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    title: {
+                        type: 'string',
+                        description: 'The title of the roadmap (e.g., "Full Stack Developer Journey")'
+                    },
+                    targetRole: {
+                        type: 'string',
+                        description: 'The target career role for this roadmap'
+                    },
+                    milestones: {
+                        type: 'array',
+                        description: 'Array of milestone objects for the roadmap',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                title: { type: 'string', description: 'Milestone title' },
+                                description: { type: 'string', description: 'What to accomplish' },
+                                category: { 
+                                    type: 'string', 
+                                    enum: ['skill', 'project', 'certification', 'interview', 'networking', 'other']
+                                },
+                                duration: { type: 'string', description: 'Estimated time (e.g., "2 weeks")' },
+                                skills: { type: 'array', items: { type: 'string' }, description: 'Skills to gain' },
+                                resources: { 
+                                    type: 'array', 
+                                    items: { 
+                                        type: 'object',
+                                        properties: {
+                                            title: { type: 'string', description: 'Resource name' },
+                                            url: { type: 'string', description: 'Resource URL' },
+                                            type: { type: 'string', description: 'Resource type (e.g., video, article, course, tutorial, documentation)' }
+                                        }
+                                    }, 
+                                    description: 'Helpful resources with title, url, and type' 
+                                }
+                            },
+                            required: ['title', 'description', 'category']
+                        }
+                    }
+                },
+                required: ['title', 'targetRole', 'milestones']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'getRoadmap',
+            description: 'Get the student\'s current active roadmap with all milestones and progress',
+            parameters: {
+                type: 'object',
+                properties: {},
+                required: []
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'updateMilestoneStatus',
+            description: 'Update the status of a specific milestone in the roadmap',
+            parameters: {
+                type: 'object',
+                properties: {
+                    milestoneId: {
+                        type: 'string',
+                        description: 'The ID of the milestone to update'
+                    },
+                    status: {
+                        type: 'string',
+                        description: 'New status of the milestone',
+                        enum: ['not-started', 'in-progress', 'completed']
+                    }
+                },
+                required: ['milestoneId', 'status']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'addMilestone',
+            description: 'Add a new milestone to the existing roadmap',
+            parameters: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string', description: 'Milestone title' },
+                    description: { type: 'string', description: 'What to accomplish' },
+                    category: { 
+                        type: 'string', 
+                        enum: ['skill', 'project', 'certification', 'interview', 'networking', 'other']
+                    },
+                    duration: { type: 'string', description: 'Estimated time' },
+                    skills: { type: 'array', items: { type: 'string' }, description: 'Skills to gain' },
+                    resources: { 
+                        type: 'array', 
+                        items: { 
+                            type: 'object',
+                            properties: {
+                                title: { type: 'string' },
+                                url: { type: 'string' },
+                                type: { type: 'string', description: 'Resource type (video, article, course, etc.)' }
+                            }
+                        }, 
+                        description: 'Helpful resources' 
+                    },
+                    insertAfter: { type: 'string', description: 'ID of milestone to insert after (optional)' }
+                },
+                required: ['title', 'description', 'category']
+            }
+        }
     }
 ];
 
@@ -322,7 +442,12 @@ const toolHandlers = {
     getSkillGaps: suggestionTools.getSkillGaps,
     getProjectRecommendations: suggestionTools.getProjectRecommendations,
     removeGoal: goalTools.removeGoal,
-    clearGoals: goalTools.clearGoals
+    clearGoals: goalTools.clearGoals,
+    createRoadmap: roadmapTools.createRoadmap,
+    getRoadmap: roadmapTools.getRoadmap,
+    updateMilestoneStatus: roadmapTools.updateMilestoneStatus,
+    addMilestone: roadmapTools.addMilestone,
+    deleteRoadmap: roadmapTools.deleteRoadmap
 };
 
 // Execute a tool by name
@@ -337,7 +462,7 @@ async function executeTool(toolName, args, studentId) {
 
 // Check if a tool requires confirmation (write operations)
 function requiresConfirmation(toolName) {
-    const writeTools = ['addGoal', 'updateGoalProgress', 'addProject', 'updateProfile', 'syncCodingPlatforms', 'removeGoal', 'clearGoals'];
+    const writeTools = ['addGoal', 'updateGoalProgress', 'addProject', 'updateProfile', 'syncCodingPlatforms', 'removeGoal', 'clearGoals', 'createRoadmap', 'updateMilestoneStatus', 'addMilestone', 'deleteRoadmap'];
     return writeTools.includes(toolName);
 }
 

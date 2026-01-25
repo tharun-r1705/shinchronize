@@ -199,6 +199,15 @@ class ApiClient {
     });
   }
 
+  async patch<T>(endpoint: string, data?: unknown, token?: string): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: isFormData ? data : data ? JSON.stringify(data) : undefined,
+      token,
+    });
+  }
+
   async delete<T>(endpoint: string, token?: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE', token });
   }
@@ -506,6 +515,64 @@ export const marketApi = {
   getROI: (token: string) => api.get<SkillROIRecommendation[]>('/market/roi', token),
   getCompanies: (q?: string, type?: string) =>
     api.get<CompanySkillProfile[]>(`/market/companies${q || type ? `?q=${q || ''}&type=${type || ''}` : ''}`),
+};
+
+// Roadmap API for career roadmap visualization
+export interface RoadmapMilestone {
+  id: string;
+  title: string;
+  description: string;
+  category: 'skill' | 'project' | 'certification' | 'interview' | 'networking' | 'other';
+  status: 'not-started' | 'in-progress' | 'completed';
+  order: number;
+  duration?: string;
+  resources?: Array<{ title: string; url: string; type: string }>;
+  skills?: string[];
+  completedAt?: string;
+}
+
+export interface Roadmap {
+  _id: string;
+  studentId: string;
+  title: string;
+  targetRole: string;
+  milestones: RoadmapMilestone[];
+  progress: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoadmapResponse {
+  success: boolean;
+  roadmap: Roadmap | null;
+  message?: string;
+}
+
+export const roadmapApi = {
+  // Get active roadmap
+  getActive: (token: string) =>
+    api.get<RoadmapResponse>('/roadmap', token),
+
+  // Get all roadmaps (including inactive)
+  getAll: (token: string) =>
+    api.get<{ success: boolean; roadmaps: Roadmap[] }>('/roadmap/all', token),
+
+  // Get specific roadmap
+  getById: (id: string, token: string) =>
+    api.get<RoadmapResponse>(`/roadmap/${id}`, token),
+
+  // Update milestone status
+  updateMilestone: (milestoneId: string, status: RoadmapMilestone['status'], token: string) =>
+    api.patch<RoadmapResponse>(`/roadmap/milestone/${milestoneId}`, { status }, token),
+
+  // Delete roadmap
+  delete: (id: string, token: string) =>
+    api.delete<{ success: boolean; message: string }>(`/roadmap/${id}`, token),
+
+  // Activate a roadmap
+  activate: (id: string, token: string) =>
+    api.patch<RoadmapResponse>(`/roadmap/${id}/activate`, {}, token),
 };
 
 export default api;

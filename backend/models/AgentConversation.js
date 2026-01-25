@@ -33,7 +33,18 @@ const agentConversationSchema = new mongoose.Schema({
         startedAt: { type: Date, default: Date.now },
         lastActiveAt: { type: Date, default: Date.now },
         messageCount: { type: Number, default: 0 },
-        toolsUsed: [String]
+        toolsUsed: [String],
+        roadmapIntake: {
+            status: { type: String, enum: ['none', 'pending'], default: 'none' },
+            step: { type: Number, default: 0 },
+            initialRequest: { type: String, default: '' },
+            answers: {
+                q1: { type: String, default: '' },
+                q2: { type: String, default: '' },
+                q3: { type: String, default: '' }
+            },
+            startedAt: { type: Date, default: null }
+        }
     }
 }, {
     timestamps: true

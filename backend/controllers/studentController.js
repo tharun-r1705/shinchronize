@@ -90,6 +90,14 @@ const getProfile = asyncHandler(async (req, res) => {
   studentObj.baseReadinessScore = total;
   studentObj.readinessBreakdown = breakdown;
 
+  // Convert skillRadar Map to plain object for frontend
+  if (studentObj.skillRadar instanceof Map) {
+    studentObj.skillRadar = Object.fromEntries(studentObj.skillRadar);
+  } else if (studentObj.skillRadar && typeof studentObj.skillRadar === 'object' && !Array.isArray(studentObj.skillRadar)) {
+    // Already an object, keep it
+    studentObj.skillRadar = studentObj.skillRadar;
+  }
+
   res.json(studentObj);
 });
 

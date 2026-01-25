@@ -13,16 +13,25 @@ async function generateCompanyProfile(companyName) {
         return null;
     }
 
-    const prompt = `You are a tech recruitment expert. Generate a detailed, realistic technical profile for the company "${companyName}". 
-Include their typical tech stack, industry, company type, salary range in INR (be realistic for 2024-2025), and primary location.
+    const prompt = `You are a tech recruitment expert with knowledge of real companies worldwide.
 
-Return JSON ONLY:
+CRITICAL: First, determine if "${companyName}" is a REAL, EXISTING company. If it's gibberish, random text, or a fake/non-existent company, respond with exactly: {"exists": false}
+
+If it IS a real company, generate a detailed, realistic technical profile including their typical tech stack, industry, company type, salary range in INR (be realistic for 2024-2026), and primary location.
+
+Return JSON ONLY (no markdown, no extra text):
+
+For FAKE/NON-EXISTENT companies:
+{"exists": false}
+
+For REAL companies:
 {
+  "exists": true,
   "companyName": "${companyName}",
-  "industry": "e.g. Fintech, E-commerce, SaaS",
+  "industry": "e.g. Fintech, E-commerce, SaaS, Cloud Services, etc.",
   "type": "faang" | "startup" | "enterprise" | "other",
-  "logoUrl": "A public logo URL if you know it, otherwise leave empty",
-  "location": "Primary city/cities",
+  "logoUrl": "",
+  "location": "Primary city/cities in India or globally",
   "avgSalaryRange": {
     "min": 000000,
     "max": 000000
@@ -34,11 +43,12 @@ Return JSON ONLY:
 }
 
 Rules:
-1. Be highly accurate to the company's actual stack if known.
-2. Proficiency level is 1 (novice) to 5 (expert).
-3. Salary should be annual (PA) in INR.
-4. If it is a major company, use realistic high-tier salaries.
-5. No markdown, no extra text.`;
+1. Only generate profiles for REAL, existing companies you're confident about.
+2. Be highly accurate to the company's actual tech stack.
+3. Proficiency level: 1 (novice) to 5 (expert).
+4. Salary should be annual (PA) in INR, realistic for Indian market 2024-2026.
+5. Include 5-10 relevant skills for the company.
+6. If uncertain whether company exists, return {"exists": false}.`;
 
     try {
         const completion = await groqClient.chat.completions.create({
@@ -70,6 +80,11 @@ Rules:
             } else {
                 return null;
             }
+        }
+
+        // Check if company exists
+        if (!parsed.exists) {
+            return null;
         }
 
         return parsed;
