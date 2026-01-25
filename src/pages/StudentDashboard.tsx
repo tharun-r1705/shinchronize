@@ -834,7 +834,7 @@ const StudentDashboard = () => {
                   </div>
                   <h3 className="text-2xl font-bold tracking-tight">Dynamic Skill Market Tracker</h3>
                   <p className="text-muted-foreground max-w-lg">
-                    Real-time analysis of job markets at FAANG & startups. See which skills are trending for 2025 and your personal investment ROI.
+                    Real-time analysis of job markets at FAANG & startups. See which skills are trending for 2026 and your personal investment ROI.
                   </p>
                   <Button variant="link" className="px-0 text-primary font-bold group-hover:translate-x-2 transition-transform">
                     Explore full market data <ArrowRight className="w-4 h-4 ml-2" />
