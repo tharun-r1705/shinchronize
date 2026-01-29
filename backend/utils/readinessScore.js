@@ -19,6 +19,7 @@ const calculateReadinessScore = (studentDoc) => {
   const skills = studentDoc.skills || [];
   const githubStats = studentDoc.githubStats || {};
   const leetcodeStats = studentDoc.leetcodeStats || {};
+  const interviewStats = studentDoc.interviewStats || {};
 
   // Count ALL projects, not just verified ones
   // Since we removed verification status, all projects should count
@@ -40,9 +41,9 @@ const calculateReadinessScore = (studentDoc) => {
   if (leetcodeRecent30 > 0) uniquePlatforms.add('leetcode');
   if (githubRecent30 > 0) uniquePlatforms.add('github');
 
-  // Updated scoring with GitHub activity
-  // Projects: max 25 (reduced from 30)
-  const projectScore = Math.min(allProjects.length * 10, 25);
+  // Updated scoring with GitHub activity and Interview Performance
+  // Projects: max 20 (reduced from 25 to make room for interview prep)
+  const projectScore = Math.min(allProjects.length * 10, 20);
   
   // Coding consistency (LeetCode logs): max 15 (reduced from 20)
   // We treat codingLogs as sessions, but also give credit for synced LeetCode submissions
@@ -89,6 +90,23 @@ const calculateReadinessScore = (studentDoc) => {
   // Add score for skills listed in profile (up to 10 points)
   const skillsScore = Math.min(skills.length * 2, 10);
 
+  // Interview Performance: max 10 points (NEW)
+  let interviewScore = 0;
+  if (interviewStats.completedSessions > 0) {
+    // Base score from average performance (0-5 points)
+    // avgScore is 0-100, normalize to 0-5
+    const performanceScore = Math.min((interviewStats.avgScore || 0) / 20, 5);
+    
+    // Consistency bonus for completing multiple sessions (0-3 points)
+    const sessionsBonus = Math.min(interviewStats.completedSessions * 0.5, 3);
+    
+    // Improvement trend bonus (0-2 points)
+    const trendBonus = interviewStats.recentTrend === 'improving' ? 2 : 
+                       interviewStats.recentTrend === 'stable' ? 1 : 0;
+    
+    interviewScore = Math.min(performanceScore + sessionsBonus + trendBonus, 10);
+  }
+
   const streakBonus = Math.min((studentDoc.streakDays || 0) * 0.2, 5);
 
   const breakdown = {
@@ -100,6 +118,7 @@ const calculateReadinessScore = (studentDoc) => {
     skillDiversity: skillDiversityScore,
     skillRadar: skillRadarScore,
     skills: skillsScore,
+    interviewPrep: interviewScore,
     streakBonus,
   };
 
@@ -114,6 +133,7 @@ const calculateReadinessScore = (studentDoc) => {
         skillDiversityScore +
         skillRadarScore +
         skillsScore +
+        interviewScore +
         streakBonus
     )
   );

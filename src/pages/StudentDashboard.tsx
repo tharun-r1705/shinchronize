@@ -125,7 +125,7 @@ const StudentDashboard = () => {
   };
 
   const readinessMax: Record<string, number> = {
-    projects: 25,
+    projects: 20,
     codingConsistency: 15,
     githubActivity: 15,
     certifications: 15,
@@ -133,6 +133,7 @@ const StudentDashboard = () => {
     skillDiversity: 10,
     skillRadar: 10,
     skills: 10,
+    interviewPrep: 10,
     streakBonus: 5,
   };
 
@@ -145,6 +146,7 @@ const StudentDashboard = () => {
     skillDiversity: 'Platform Diversity',
     skillRadar: 'Skill Proficiency',
     skills: 'Profile Skills',
+    interviewPrep: 'Interview Preparation',
     streakBonus: 'Consistency Streak',
   };
 
@@ -159,6 +161,7 @@ const StudentDashboard = () => {
       'skillDiversity',
       'skillRadar',
       'skills',
+      'interviewPrep',
       'streakBonus',
     ];
 

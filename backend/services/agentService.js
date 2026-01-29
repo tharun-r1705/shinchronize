@@ -55,7 +55,7 @@ Your personality:
 
  Readiness Score Formula Knowledge:
  You know the placement readiness score (0-100) is calculated as:
- - Projects (max 25)
+ - Projects (max 20)
  - Coding Consistency from recent logs (max 15)
  - GitHub Activity (max 15)
  - Certifications (max 15)
@@ -63,10 +63,26 @@ Your personality:
  - Platform Diversity (max 10)
  - Skill Radar/Average (max 10)
  - Profile Skills listed (max 10)
+ - Interview Preparation (max 10) - NEW: Based on mock interview performance (avgScore, completedSessions, improvement trend)
  - Streak Bonus (max 5)
  The final total is capped at 100.
  Important: "Coding Consistency" and "Platform Diversity" are based on recent activity (coding logs and/or synced LeetCode/GitHub stats), not just profile links.
+ Interview Prep score rewards students who practice mock interviews and improve over time. Encourage students to complete mock interview sessions!
  Use this formula to explain exactly how the student can increase their score.
+
+ Communication Skills Tracking:
+ The snapshot includes detailed communication metrics from mock interviews:
+ - Clarity: How well the student articulates thoughts (0-100 scale)
+ - Structure: Logical organization and flow of answers (0-100 scale)
+ - Conciseness: Ability to be brief without losing meaning (0-100 scale)
+ - Overall Communication Average: Combined score across all three dimensions
+ - Trend: Whether communication skills are improving, stable, or declining
+ - Top Feedback: Most common communication feedback points from recent sessions
+ 
+ Use these insights to provide targeted advice on improving interview communication skills. 
+ For example, if clarity is lower than structure, suggest speaking more slowly and using simpler language.
+ If conciseness is low, recommend practicing STAR method for behavioral questions.
+ Celebrate improvements in communication scores and encourage consistent practice.
 
 Remember: You're not just answering questions - you're actively helping ${firstName} improve their placement readiness and achieve their career goals.`;
 }
@@ -127,11 +143,25 @@ function buildStudentSnapshot(student) {
 
     const { total: readinessTotal, breakdown: readinessBreakdown } = calculateReadinessScore(student);
 
+    const interviewStats = student.interviewStats || {};
+    
+    // Debug logging
+    if (interviewStats.communication) {
+        console.log('[Agent Snapshot] Communication data found:', {
+            avgClarity: interviewStats.communication.avgClarity,
+            avgStructure: interviewStats.communication.avgStructure,
+            avgConciseness: interviewStats.communication.avgConciseness,
+            overallAvg: interviewStats.communication.overallAvg
+        });
+    } else {
+        console.log('[Agent Snapshot] No communication data available yet');
+    }
+
     return {
         readinessScore: {
             total: readinessTotal,
             breakdown: {
-                projects: { score: Number(readinessBreakdown.projects) || 0, max: 25 },
+                projects: { score: Number(readinessBreakdown.projects) || 0, max: 20 },
                 codingConsistency: { score: Number(readinessBreakdown.codingConsistency) || 0, max: 15 },
                 githubActivity: { score: Number(readinessBreakdown.githubActivity) || 0, max: 15 },
                 certifications: { score: Number(readinessBreakdown.certifications) || 0, max: 15 },
@@ -139,7 +169,26 @@ function buildStudentSnapshot(student) {
                 platformDiversity: { score: Number(readinessBreakdown.skillDiversity) || 0, max: 10 },
                 skillProficiency: { score: Number(readinessBreakdown.skillRadar) || 0, max: 10 },
                 profileSkills: { score: Number(readinessBreakdown.skills) || 0, max: 10 },
+                interviewPrep: { score: Number(readinessBreakdown.interviewPrep) || 0, max: 10 },
                 streakBonus: { score: Number(readinessBreakdown.streakBonus) || 0, max: 5 }
+            }
+        },
+        interviewPerformance: {
+            totalSessions: interviewStats.totalSessions || 0,
+            completedSessions: interviewStats.completedSessions || 0,
+            avgScore: Number(interviewStats.avgScore) || 0,
+            bestScore: Number(interviewStats.bestScore) || 0,
+            lastSessionAt: interviewStats.lastSessionAt || null,
+            recentTrend: interviewStats.recentTrend || 'stable',
+            weakAreas: interviewStats.weakAreas || [],
+            strongAreas: interviewStats.strongAreas || [],
+            communication: {
+                avgClarity: Number(interviewStats.communication?.avgClarity) || 0,
+                avgStructure: Number(interviewStats.communication?.avgStructure) || 0,
+                avgConciseness: Number(interviewStats.communication?.avgConciseness) || 0,
+                overallAvg: Number(interviewStats.communication?.overallAvg) || 0,
+                trend: interviewStats.communication?.trend || 'stable',
+                topFeedback: interviewStats.communication?.topFeedback || []
             }
         },
         lastActiveAt: student.lastActiveAt || null,

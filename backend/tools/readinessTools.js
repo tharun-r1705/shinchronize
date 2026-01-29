@@ -25,7 +25,7 @@ async function getReadinessScore(studentId, args = {}) {
     const insights = [];
 
     const categories = [
-        { key: 'projects', label: 'Projects', max: 25, unit: 10, item: 'project' },
+        { key: 'projects', label: 'Projects', max: 20, unit: 10, item: 'project' },
         { key: 'codingConsistency', label: 'Coding Consistency', max: 15, unit: 1.5, item: 'recent log' },
         { key: 'githubActivity', label: 'GitHub Activity', max: 15 },
         { key: 'certifications', label: 'Certifications', max: 15, unit: 4, item: 'certification' },
@@ -33,6 +33,7 @@ async function getReadinessScore(studentId, args = {}) {
         { key: 'skillDiversity', label: 'Platform Diversity', max: 10, unit: 5, item: 'platform' },
         { key: 'skillRadar', label: 'Skill Proficiency', max: 10 },
         { key: 'skills', label: 'Profile Skills', max: 10, unit: 2, item: 'skill' },
+        { key: 'interviewPrep', label: 'Interview Preparation', max: 10 },
         { key: 'streakBonus', label: 'Consistency Streak', max: 5 }
     ];
 
@@ -45,6 +46,8 @@ async function getReadinessScore(studentId, args = {}) {
                 suggestion = `Add ${needed} more ${cat.item}(s) to maximize this category.`;
             } else if (cat.key === 'skillRadar') {
                 suggestion = `Improve your proficiency levels in the skill radar to earn more points.`;
+            } else if (cat.key === 'interviewPrep') {
+                suggestion = `Complete mock interview sessions to improve this score. Your performance, consistency, and improvement trend all contribute to this category.`;
             } else if (cat.key === 'streakBonus') {
                 suggestion = `Maintain your daily activity streak to increase this bonus.`;
             }

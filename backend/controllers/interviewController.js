@@ -260,7 +260,101 @@ const completeInterviewSession = asyncHandler(async (req, res) => {
     const newAvg = prevCompleted > 0 ? ((prevAvg * prevCompleted) + overall) / (prevCompleted + 1) : overall;
     student.interviewStats.avgScore = Math.round(newAvg);
 
+    // Calculate detailed communication scores
+    const clarityScores = answered.map(q => Number(q.feedback?.communication?.clarity) || 0).filter(s => s > 0);
+    const structureScores = answered.map(q => Number(q.feedback?.communication?.structure) || 0).filter(s => s > 0);
+    const concisenessScores = answered.map(q => Number(q.feedback?.communication?.conciseness) || 0).filter(s => s > 0);
+    
+    const newClarity = clarityScores.length ? Math.round(clarityScores.reduce((a, b) => a + b, 0) / clarityScores.length) : 0;
+    const newStructure = structureScores.length ? Math.round(structureScores.reduce((a, b) => a + b, 0) / structureScores.length) : 0;
+    const newConciseness = concisenessScores.length ? Math.round(concisenessScores.reduce((a, b) => a + b, 0) / concisenessScores.length) : 0;
+    
+    // Update communication averages incrementally
+    student.interviewStats.communication = student.interviewStats.communication || {};
+    const prevClarityAvg = Number(student.interviewStats.communication.avgClarity) || 0;
+    const prevStructureAvg = Number(student.interviewStats.communication.avgStructure) || 0;
+    const prevConcisenessAvg = Number(student.interviewStats.communication.avgConciseness) || 0;
+    
+    student.interviewStats.communication.avgClarity = prevCompleted > 0 
+      ? Math.round(((prevClarityAvg * prevCompleted) + newClarity) / (prevCompleted + 1))
+      : newClarity;
+    
+    student.interviewStats.communication.avgStructure = prevCompleted > 0 
+      ? Math.round(((prevStructureAvg * prevCompleted) + newStructure) / (prevCompleted + 1))
+      : newStructure;
+    
+    student.interviewStats.communication.avgConciseness = prevCompleted > 0 
+      ? Math.round(((prevConcisenessAvg * prevCompleted) + newConciseness) / (prevCompleted + 1))
+      : newConciseness;
+    
+    // Calculate overall communication average
+    student.interviewStats.communication.overallAvg = Math.round(
+      (student.interviewStats.communication.avgClarity + 
+       student.interviewStats.communication.avgStructure + 
+       student.interviewStats.communication.avgConciseness) / 3
+    );
+    
+    // Collect top communication feedback (most common)
+    const allCommFeedback = answered
+      .flatMap(q => q.feedback?.communication?.feedback || [])
+      .filter(f => f && f.trim());
+    
+    const feedbackCounts = {};
+    allCommFeedback.forEach(fb => {
+      feedbackCounts[fb] = (feedbackCounts[fb] || 0) + 1;
+    });
+    
+    const topFeedback = Object.entries(feedbackCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([fb]) => fb);
+    
+    student.interviewStats.communication.topFeedback = topFeedback;
+    
+    // Determine communication trend (compare last 3 sessions)
+    const recentSessions = await InterviewSession.find({ 
+      studentId, 
+      status: 'completed' 
+    })
+      .sort({ completedAt: -1 })
+      .limit(3)
+      .select('summary.categoryScores.communication');
+    
+    if (recentSessions.length >= 2) {
+      const recentCommScores = recentSessions.map(s => s.summary?.categoryScores?.communication || 0);
+      const latestAvg = (recentCommScores[0] + recentCommScores[1]) / 2;
+      const olderAvg = recentSessions.length === 3 
+        ? (recentCommScores[1] + recentCommScores[2]) / 2 
+        : recentCommScores[1];
+      
+      if (latestAvg > olderAvg + 5) {
+        student.interviewStats.communication.trend = 'improving';
+      } else if (latestAvg < olderAvg - 5) {
+        student.interviewStats.communication.trend = 'declining';
+      } else {
+        student.interviewStats.communication.trend = 'stable';
+      }
+    }
+
+    // Mark nested objects as modified for Mongoose
+    student.markModified('interviewStats');
+
+    // Recalculate readiness score with interview performance
+    const { calculateReadinessScore } = require('../utils/readinessScore');
+    const { total, breakdown } = calculateReadinessScore(student);
+    student.readinessScore = total;
+    student.readinessHistory.push({ score: total, calculatedAt: new Date() });
+
     await student.save();
+    
+    // Log for debugging
+    console.log('[Interview Complete] Communication Scores:', {
+      avgClarity: student.interviewStats.communication.avgClarity,
+      avgStructure: student.interviewStats.communication.avgStructure,
+      avgConciseness: student.interviewStats.communication.avgConciseness,
+      overallAvg: student.interviewStats.communication.overallAvg,
+      trend: student.interviewStats.communication.trend
+    });
   }
 
   res.json({

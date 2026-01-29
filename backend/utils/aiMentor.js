@@ -157,6 +157,24 @@ const buildStudentContext = (student, readiness = {}) => {
         .slice(0, 7)
         .map(mapCodingLog),
     },
+    interviewPerformance: {
+      totalSessions: student.interviewStats?.totalSessions || 0,
+      completedSessions: student.interviewStats?.completedSessions || 0,
+      avgScore: Number(student.interviewStats?.avgScore) || 0,
+      bestScore: Number(student.interviewStats?.bestScore) || 0,
+      lastSessionAt: formatDate(student.interviewStats?.lastSessionAt),
+      recentTrend: student.interviewStats?.recentTrend || 'stable',
+      weakAreas: ensureArray(student.interviewStats?.weakAreas || []),
+      strongAreas: ensureArray(student.interviewStats?.strongAreas || []),
+      communication: {
+        avgClarity: Number(student.interviewStats?.communication?.avgClarity) || 0,
+        avgStructure: Number(student.interviewStats?.communication?.avgStructure) || 0,
+        avgConciseness: Number(student.interviewStats?.communication?.avgConciseness) || 0,
+        overallAvg: Number(student.interviewStats?.communication?.overallAvg) || 0,
+        trend: student.interviewStats?.communication?.trend || 'stable',
+        topFeedback: ensureArray(student.interviewStats?.communication?.topFeedback || [])
+      }
+    },
     meta: {
       savedByRecruiters: ensureArray(student.savedForLater).length,
       generatedAt: new Date().toISOString(),
