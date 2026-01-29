@@ -483,7 +483,7 @@ export default function ResumeAnalyzer() {
                   <Card className="h-full flex flex-col items-center justify-center p-16 text-center bg-card border-none rounded-[3rem] min-h-[600px] shadow-2xl relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.02] to-transparent" />
                     <div className="relative mb-14">
-                      <div className="w-40 h-40 border-4 border-primary/5 border-t-primary rounded-full animate-spin duration-[2s]" />
+                      <div className="w-40 h-40 border-4 border-primary/5 border-t-primary rounded-full animate-spin animate-duration-[2s]" />
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-24 h-24 bg-primary/5 rounded-full flex items-center justify-center animate-pulse">
                           <Brain className="w-12 h-12 text-primary" />
@@ -697,7 +697,7 @@ export default function ResumeAnalyzer() {
                           </div>
 
                           <div className="p-10 bg-rose-500/[0.03] rounded-[2rem] border border-rose-500/10 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-[2s]">
+                            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none group-hover:scale-110 transition-transform transition-duration-[2s]">
                               <AlertCircle className="w-32 h-32 text-rose-500" />
                             </div>
                             <div className="flex items-center justify-between mb-8 relative z-10">

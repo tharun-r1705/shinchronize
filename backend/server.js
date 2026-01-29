@@ -10,6 +10,10 @@ const recruiterRoutes = require('./routes/recruiterRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const agentRoutes = require('./routes/agentRoutes');
 const marketRoutes = require('./routes/marketRoutes');
+const interviewRoutes = require('./routes/interviewRoutes');
+const ttsRoutes = require('./routes/ttsRoutes');
+const roadmapRoutes = require('./routes/roadmapRoutes');
+
 const seedDemoData = require('./utils/seedData');
 const seedMarketData = require('./utils/seedMarketData');
 
@@ -70,11 +74,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'EvolvEd API', timestamp: new Date().toISOString() });
 });
 
+
 app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/interview', interviewRoutes);
+app.use('/api/tts', ttsRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/api/roadmap', roadmapRoutes);
 
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);

@@ -22,6 +22,7 @@ import {
 } from "recharts";
 
 const PIE_COLORS = ["#34d399", "#22c55e", "#0ea5e9"];
+const GITHUB_COLORS = ["#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef"];
 
 const extractLeetCodeUsername = (rawValue?: string | null) => {
   if (!rawValue) return "";
@@ -85,18 +86,55 @@ const extractHackerRankUsername = (rawValue?: string | null) => {
   }
 };
 
+const extractGitHubUsername = (rawValue?: string | null) => {
+
+  if (!rawValue) return "";
+  const trimmed = String(rawValue).trim();
+  if (!trimmed) return "";
+
+  if (!trimmed.toLowerCase().includes("github.com")) {
+
+    return trimmed.replace(/[^a-zA-Z0-9_-]/g, "");
+  }
+
+  const candidate = trimmed.match(/^https?:\/\//)
+    ? trimmed
+    : `https://${trimmed.replace(/^\/+/, "")}`;
+
+  try {
+    const url = new URL(candidate);
+    const segments = url.pathname
+      .split("/")
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    if (segments.length === 0) return "";
+    if (segments[0].toLowerCase() === "profile" && !url.hostname.includes("github.com")) {
+      return segments[1]?.replace(/[^a-zA-Z0-9_-]/g, "") || "";
+    }
+
+    return segments[0]?.replace(/[^a-zA-Z0-9_-]/g, "") || "";
+  } catch (error) {
+    return trimmed.replace(/[^a-zA-Z0-9_-]/g, "");
+  }
+};
+
 const Progress = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [verifying, setVerifying] = useState(false);
+  const [verifyingLeetCode, setVerifyingLeetCode] = useState(false);
+  const [verifyingGitHub, setVerifyingGitHub] = useState(false);
   const [verifyingHR, setVerifyingHR] = useState(false);
+
   const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
 
 
   const leetStats = student?.leetcodeStats;
   const hackerStats = student?.hackerrankStats;
+  const githubStats = student?.githubStats;
+
   const derivedLeetUsername = useMemo(
     () => extractLeetCodeUsername(student?.codingProfiles?.leetcode || student?.leetcodeUrl),
     [student?.codingProfiles?.leetcode, student?.leetcodeUrl]
@@ -105,8 +143,15 @@ const Progress = () => {
     () => extractHackerRankUsername(student?.codingProfiles?.hackerrank || student?.hackerrankUrl),
     [student?.codingProfiles?.hackerrank, student?.hackerrankUrl]
   );
+  const derivedGitHubUsername = useMemo(
+    () => extractGitHubUsername(student?.codingProfiles?.github || student?.githubUrl),
+    [student?.codingProfiles?.github, student?.githubUrl]
+  );
+
   const isLeetConnected = Boolean(leetStats);
   const isHRConnected = Boolean(hackerStats);
+  const isGitHubConnected = Boolean(githubStats?.username);
+
 
   const difficultyPieData = useMemo(() => {
     if (!leetStats) return [];
@@ -279,20 +324,166 @@ const Progress = () => {
     return hackerStats.skills.slice(0, 5);
   }, [hackerStats?.skills]);
 
-  const getHeatmapClass = useCallback(
-    (count: number) => {
-      if (!count) return "bg-muted";
-      if (!maxCalendarCount || maxCalendarCount <= 1) {
-        return "bg-emerald-400/70";
+  // GitHub data processing
+  const topLanguages = useMemo(() => {
+    if (!Array.isArray(githubStats?.topLanguages)) return [];
+    return githubStats.topLanguages
+      .filter((item: any) => item && typeof item.name === "string")
+      .slice(0, 5);
+  }, [githubStats?.topLanguages]);
+
+  const githubCalendarSeries = useMemo(() => {
+    if (!githubStats?.calendar) return [];
+    return Object.entries(githubStats.calendar)
+      .map(([epoch, count]) => {
+        const date = new Date(Number(epoch) * 1000);
+        if (Number.isNaN(date.getTime())) return null;
+        return {
+          date: date.toISOString().slice(0, 10),
+          count: Number(count) || 0,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => (a.date as string).localeCompare(b.date as string));
+  }, [githubStats?.calendar]);
+
+  const { githubCalendarWeeks, maxGithubCalendarCount } = useMemo(() => {
+    if (!githubStats?.calendar) {
+      return { githubCalendarWeeks: [] as any[], maxGithubCalendarCount: 0 };
+    }
+
+    const dayMs = 24 * 60 * 60 * 1000;
+    const calendarMap = new Map(
+      Object.entries(githubStats.calendar)
+        .map(([epoch, val]) => {
+          const date = new Date(Number(epoch) * 1000);
+          if (Number.isNaN(date.getTime())) return null;
+          return [date.toISOString().slice(0, 10), Number(val) || 0];
+        })
+        .filter(Boolean) as [string, number][]
+    );
+
+    if (calendarMap.size === 0) {
+      return { githubCalendarWeeks: [], maxGithubCalendarCount: 0 };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    start.setDate(today.getDate() - 364);
+    start.setHours(0, 0, 0, 0);
+    const startDay = start.getDay();
+    start.setDate(start.getDate() - startDay);
+
+    const totalDays = Math.ceil((today.getTime() - start.getTime()) / dayMs) + 1;
+    const weeks: Array<Array<{ date: string | null; count: number }>> = [];
+    let currentWeek: Array<{ date: string | null; count: number }> = [];
+    let maxCountLocal = 0;
+
+    for (let i = 0; i < totalDays; i += 1) {
+      const current = new Date(start.getTime() + i * dayMs);
+      const iso = current.toISOString().slice(0, 10);
+      const count = calendarMap.get(iso) || 0;
+      maxCountLocal = Math.max(maxCountLocal, count);
+      currentWeek.push({ date: iso, count });
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
       }
-      const ratio = count / maxCalendarCount;
-      if (ratio >= 0.75) return "bg-emerald-600";
-      if (ratio >= 0.5) return "bg-emerald-500";
-      if (ratio >= 0.25) return "bg-emerald-400";
-      return "bg-emerald-300";
+    }
+
+    if (currentWeek.length) {
+      while (currentWeek.length < 7) {
+        currentWeek.push({ date: null, count: 0 });
+      }
+      weeks.push(currentWeek);
+    }
+
+    return { githubCalendarWeeks: weeks, maxGithubCalendarCount: maxCountLocal };
+  }, [githubStats?.calendar]);
+
+  const githubWeeklyAreaSeries = useMemo(() => {
+    if (githubCalendarSeries.length === 0) return [];
+    const weeklyMap = new Map<string, number>();
+
+    githubCalendarSeries.forEach((entry: any) => {
+      const entryDate = new Date(entry.date as string);
+      if (Number.isNaN(entryDate.getTime())) return;
+      const weekStart = new Date(entryDate);
+      const weekDay = weekStart.getDay();
+      weekStart.setDate(weekStart.getDate() - weekDay);
+      const key = weekStart.toISOString().slice(0, 10);
+      weeklyMap.set(key, (weeklyMap.get(key) || 0) + (entry.count as number));
+    });
+
+    return Array.from(weeklyMap.entries())
+      .map(([week, total]) => ({ week, total }))
+      .sort((a, b) => a.week.localeCompare(b.week));
+  }, [githubCalendarSeries]);
+
+  const githubSummaryMetrics = useMemo(() => {
+    if (!githubStats) return [];
+
+    const formatBestDay = () => {
+      if (!githubStats.bestDay?.date) return "—";
+      const parsed = new Date(githubStats.bestDay.date);
+      if (Number.isNaN(parsed.getTime())) {
+        return `${githubStats.bestDay.count} contributions`;
+      }
+      return `${githubStats.bestDay.count} on ${parsed.toLocaleDateString()}`;
+    };
+
+    return [
+      { label: "Total Repos", value: githubStats.totalRepos ?? 0 },
+      { label: "Total Stars", value: githubStats.totalStars ?? 0 },
+      { label: "Total Commits", value: githubStats.totalCommits ?? 0 },
+      { label: "Active Days", value: githubStats.activeDays ?? 0 },
+      { label: "Current Streak", value: githubStats.streak ?? 0 },
+      { label: "Best Day", value: formatBestDay() },
+    ];
+  }, [githubStats]);
+
+  const githubLastUpdated = useMemo(() => {
+    if (!githubStats?.fetchedAt) return null;
+    const parsed = new Date(githubStats.fetchedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleString();
+  }, [githubStats?.fetchedAt]);
+
+  const getHeatmapClass = useCallback(
+    (count: number, type: 'leetcode' | 'github' = 'leetcode') => {
+      if (!count) return "bg-muted";
+      const maxCount = type === 'leetcode' ? maxCalendarCount : maxGithubCalendarCount;
+      if (!maxCount || maxCount <= 1) {
+        return type === 'leetcode' ? "bg-emerald-400/70" : "bg-blue-400/70";
+      }
+      const ratio = count / maxCount;
+      if (type === 'leetcode') {
+        if (ratio >= 0.75) return "bg-emerald-600";
+        if (ratio >= 0.5) return "bg-emerald-500";
+        if (ratio >= 0.25) return "bg-emerald-400";
+        return "bg-emerald-300";
+      } else {
+        if (ratio >= 0.75) return "bg-blue-600";
+        if (ratio >= 0.5) return "bg-blue-500";
+        if (ratio >= 0.25) return "bg-blue-400";
+        return "bg-blue-300";
+      }
     },
-    [maxCalendarCount]
+    [maxCalendarCount, maxGithubCalendarCount]
   );
+
+
+  const githubHeatmapLegend = useMemo(() => {
+    const highest = maxGithubCalendarCount || 10;
+    return [
+      { label: "0", className: "bg-muted" },
+      { label: "1+", className: "bg-blue-300" },
+      { label: "25%", className: "bg-blue-400" },
+      { label: "50%", className: "bg-blue-500" },
+      { label: `${highest}+`, className: "bg-blue-600" },
+    ];
+  }, [maxGithubCalendarCount]);
 
   const heatmapLegend = useMemo(() => {
     const highest = maxCalendarCount || 10;
@@ -443,7 +634,7 @@ const Progress = () => {
       }
 
       if (!options?.silent) {
-        setVerifying(true);
+        setVerifyingLeetCode(true);
       }
 
       try {
@@ -466,7 +657,7 @@ const Progress = () => {
         }
       } finally {
         if (!options?.silent) {
-          setVerifying(false);
+          setVerifyingLeetCode(false);
         }
       }
     },
@@ -524,6 +715,60 @@ const Progress = () => {
     [derivedHRUsername, navigate, toast]
   );
 
+  const refreshGitHubStats = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const username = derivedGitHubUsername;
+      if (!username) {
+        if (!options?.silent) {
+          toast({
+            title: "GitHub link missing",
+            description: "Add your GitHub profile link from the Profile page to enable analytics.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/student/login");
+        return;
+      }
+
+      if (!options?.silent) {
+        setVerifyingGitHub(true);
+      }
+
+      try {
+        await studentApi.verifyGitHub(username, token);
+        const refreshed = await studentApi.getProfile(token);
+        setStudent(refreshed);
+        if (!options?.silent) {
+          toast({
+            title: "GitHub stats updated",
+            description: `Fetched the latest activity for ${username}.`,
+          });
+        }
+      } catch (error: any) {
+        if (!options?.silent) {
+          toast({
+            title: "Refresh failed",
+            description: error?.message || "Could not refresh GitHub stats",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!options?.silent) {
+          setVerifyingGitHub(false);
+        }
+      }
+    },
+    [derivedGitHubUsername, navigate, toast]
+  );
+
+  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
+
+
   useEffect(() => {
     if (!student || autoSyncAttempted) return;
     if (derivedLeetUsername && !student.leetcodeStats) {
@@ -532,15 +777,12 @@ const Progress = () => {
     if (derivedHRUsername && !student.hackerrankStats) {
       refreshHackerRankStats({ silent: true });
     }
+    if (derivedGitHubUsername && !student.githubStats) {
+      refreshGitHubStats({ silent: true });
+    }
     setAutoSyncAttempted(true);
-  }, [
-    student,
-    derivedLeetUsername,
-    derivedHRUsername,
-    autoSyncAttempted,
-    refreshLeetCodeStats,
-    refreshHackerRankStats,
-  ]);
+  }, [student, derivedLeetUsername, derivedHRUsername, derivedGitHubUsername, autoSyncAttempted, refreshLeetCodeStats, refreshHackerRankStats, refreshGitHubStats]);
+
 
   if (loading) {
     return (
@@ -559,7 +801,7 @@ const Progress = () => {
           <div>
             <h2 className="text-xl font-semibold">Progress Analytics</h2>
             <p className="text-sm text-muted-foreground">
-              Track your LeetCode progress and discover areas to improve.
+              Track your LeetCode and GitHub progress and discover areas to improve.
             </p>
           </div>
         </div>
@@ -602,11 +844,11 @@ const Progress = () => {
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   onClick={() => refreshLeetCodeStats()}
-                  disabled={verifying || !derivedLeetUsername}
+                  disabled={verifyingLeetCode || !derivedLeetUsername}
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className={`w-4 h-4 ${verifying ? "animate-spin" : ""}`} />
-                  {verifying ? "Refreshing..." : "Refresh stats"}
+                  <RefreshCw className={`w-4 h-4 ${verifyingLeetCode ? "animate-spin" : ""}`} />
+                  {verifyingLeetCode ? "Refreshing..." : "Refresh stats"}
                 </Button>
                 {lastUpdated && (
                   <span className="text-xs text-muted-foreground">Last refreshed {lastUpdated}</span>
@@ -620,6 +862,7 @@ const Progress = () => {
               )}
             </div>
 
+            {/* HackerRank Section */}
             <div className="rounded-lg border border-border/60 bg-muted/60 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <Link2 className="w-4 h-4 text-primary" />
@@ -670,8 +913,61 @@ const Progress = () => {
                 </p>
               )}
             </div>
-          </CardContent>
-        </Card>
+
+            {/* GitHub Section */}
+            <div className="rounded-lg border border-border/60 bg-muted/60 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-blue-500" />
+                <span className="font-semibold">GitHub Profile</span>
+                {isGitHubConnected ? (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                ) : derivedGitHubUsername ? (
+                  <XCircle className="w-4 h-4 text-amber-500" />
+                ) : null}
+              </div>
+
+              {derivedGitHubUsername ? (
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="font-mono">@{derivedGitHubUsername}</span>
+                  <Button variant="link" size="sm" className="px-0" asChild>
+                    <a
+                      href={`https://github.com/${derivedGitHubUsername}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open profile
+                    </a>
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Add your GitHub profile link under Profile to unlock automatic stats.
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={() => refreshGitHubStats()}
+                  disabled={verifyingGitHub || !derivedGitHubUsername}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${verifyingGitHub ? "animate-spin" : ""}`} />
+                  {verifyingGitHub ? "Refreshing..." : "Refresh stats"}
+                </Button>
+                {githubLastUpdated && (
+                  <span className="text-xs text-muted-foreground">Last refreshed {githubLastUpdated}</span>
+                )}
+              </div>
+
+              {isGitHubConnected && (
+                <p className="text-xs text-muted-foreground">
+                  We reuse your saved profile link, so you never have to re-enter your GitHub username here.
+                </p>
+              )}
+            </div>
+
+          </CardContent >
+        </Card >
 
         <div className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -919,17 +1215,16 @@ const Progress = () => {
                                 <div
                                   key={`hr-${day.date}-${dayIndex}`}
                                   title={label}
-                                  className={`w-3 h-3 rounded-sm transition-colors duration-200 ${
-                                    day.count
-                                      ? day.count / (hackerMaxCount || 1) >= 0.75
-                                        ? "bg-emerald-600"
-                                        : day.count / (hackerMaxCount || 1) >= 0.5
+                                  className={`w-3 h-3 rounded-sm transition-colors duration-200 ${day.count
+                                    ? day.count / (hackerMaxCount || 1) >= 0.75
+                                      ? "bg-emerald-600"
+                                      : day.count / (hackerMaxCount || 1) >= 0.5
                                         ? "bg-emerald-500"
                                         : day.count / (hackerMaxCount || 1) >= 0.25
-                                        ? "bg-emerald-400"
-                                        : "bg-emerald-300"
-                                      : "bg-muted"
-                                  }`}
+                                          ? "bg-emerald-400"
+                                          : "bg-emerald-300"
+                                    : "bg-muted"
+                                    }`}
                                 />
                               );
                             })}
@@ -1154,9 +1449,269 @@ const Progress = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* GitHub Analytics */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-blue-500">GitHub Analytics</h3>
+
+            <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+              <Card className="border shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">GitHub Snapshot</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isGitHubConnected ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {githubSummaryMetrics.map((metric) => (
+                          <div
+                            key={metric.label}
+                            className="rounded-lg border bg-card px-4 py-3 shadow-sm"
+                          >
+                            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                              {metric.label}
+                            </div>
+                            <div className="mt-1 text-lg font-semibold">
+                              {typeof metric.value === "number"
+                                ? metric.value.toLocaleString()
+                                : metric.value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {githubStats?.calendarWarning && (
+                        <div className="mt-4 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2">
+                          <p className="text-xs text-amber-800 dark:text-amber-300">
+                            ℹ️ <strong>Contribution data unavailable.</strong> To see commits, streaks, and calendar data,
+                            add your GitHub Personal Access Token in{" "}
+                            <a href="/student/profile" className="underline font-medium">Profile Settings</a>.
+                            {" "}<a
+                              href="https://github.com/settings/tokens/new?scopes=public_repo,read:user&description=EvolvEd%20Stats"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline font-medium"
+                            >
+                              Get a token here
+                            </a>.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Refresh your GitHub stats to see recent activity.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Top Languages</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center">
+                  {topLanguages.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={topLanguages}
+                          dataKey="percentage"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={80}
+                          paddingAngle={4}
+                          isAnimationActive
+                          animationDuration={900}
+                        >
+                          {topLanguages.map((entry, index) => (
+                            <Cell
+                              key={entry.name}
+                              fill={GITHUB_COLORS[index % GITHUB_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, name) => [
+                            `${Number(value).toFixed(1)}%`,
+                            name,
+                          ]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center w-full">
+                      Push some code to see your language breakdown.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="border shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base">Language Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {topLanguages.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Your language stats will appear here once GitHub stats are synced.
+                  </p>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-[3fr_2fr]">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={topLanguages}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 11 }}
+                          interval={0}
+                          angle={-15}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis allowDecimals={false} width={32} />
+                        <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, "Usage"]} />
+                        <Bar dataKey="percentage" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <ul className="space-y-2 text-sm">
+                      {topLanguages.map((lang: any, idx: number) => (
+                        <li
+                          key={lang.name}
+                          className="flex items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2"
+                        >
+                          <span className="font-medium">
+                            {idx + 1}. {lang.name}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {lang.percentage?.toFixed(1)}%
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base">Contribution Calendar</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Last 52 weeks of GitHub activity
+                </p>
+              </CardHeader>
+              <CardContent>
+                {githubCalendarWeeks.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    No contribution history available yet.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <div className="flex flex-col justify-between py-1 text-[10px] leading-none text-muted-foreground">
+                        <span>Mon</span>
+                        <span>Wed</span>
+                        <span>Fri</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <div className="flex gap-[3px] pr-4">
+                          {githubCalendarWeeks.map((week, weekIndex) => (
+                            <div key={`week-${weekIndex}`} className="flex flex-col gap-[3px]">
+                              {week.map((day, dayIndex) => {
+                                if (!day?.date) {
+                                  return (
+                                    <div
+                                      key={`empty-${weekIndex}-${dayIndex}`}
+                                      className="w-3 h-3 rounded-sm bg-transparent"
+                                    />
+                                  );
+                                }
+                                const label = `${day.date}: ${day.count} contribution${day.count === 1 ? "" : "s"
+                                  }`;
+                                return (
+                                  <div
+                                    key={`${day.date}-${dayIndex}`}
+                                    title={label}
+                                    className={`w-3 h-3 rounded-sm transition-colors duration-200 ${getHeatmapClass(
+                                      day.count,
+                                      'github'
+                                    )}`}
+                                  />
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <span>Less</span>
+                      <div className="flex gap-1">
+                        {githubHeatmapLegend.map((item) => (
+                          <div key={item.label} className={`w-3 h-3 rounded-sm ${item.className}`} />
+                        ))}
+                      </div>
+                      <span>More</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base">Weekly Contribution Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {githubWeeklyAreaSeries.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Not enough data yet to plot a weekly trend.
+                  </div>
+                ) : (
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={githubWeeklyAreaSeries}>
+                        <defs>
+                          <linearGradient id="githubWeeklyGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                        <XAxis
+                          dataKey="week"
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            if (Number.isNaN(date.getTime())) return value;
+                            return date.toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            });
+                          }}
+                          minTickGap={16}
+                        />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip formatter={(value: number) => [`${value} contributions`, "Contributions"]} />
+                        <Area
+                          type="monotone"
+                          dataKey="total"
+                          stroke="#2563eb"
+                          fill="url(#githubWeeklyGradient)"
+                          strokeWidth={2}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 

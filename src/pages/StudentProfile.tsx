@@ -21,6 +21,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   studentApi,
   CodingProfilesPayload,
@@ -42,6 +46,28 @@ import {
   FileDown,
 } from "lucide-react";
 
+// Predefined list of common tech skills
+const COMMON_SKILLS = [
+  "JavaScript", "TypeScript", "Python", "Java", "C++", "C", "C#", "Go", "Rust", "PHP",
+  "React", "Angular", "Vue.js", "Next.js", "Svelte", "Node.js", "Express.js", "Django", "Flask", "Spring Boot",
+  "HTML", "CSS", "Tailwind CSS", "Bootstrap", "Sass", "Material-UI", "Ant Design",
+  "MongoDB", "PostgreSQL", "MySQL", "Redis", "Firebase", "Supabase", "SQL", "NoSQL",
+  "AWS", "Azure", "Google Cloud", "Docker", "Kubernetes", "CI/CD", "Jenkins", "GitHub Actions",
+  "Git", "GitHub", "GitLab", "Bitbucket", "Linux", "Bash", "Shell Scripting",
+  "REST API", "GraphQL", "WebSockets", "Microservices", "Serverless",
+  "Machine Learning", "Deep Learning", "Artificial Intelligence", "Neural Networks", "Computer Vision", "NLP", "Natural Language Processing",
+  "TensorFlow", "PyTorch", "Keras", "Scikit-learn", "OpenCV", "Hugging Face", "LangChain",
+  "Pandas", "NumPy", "Matplotlib", "Seaborn", "Jupyter", "Data Science", "Data Analysis",
+  "Large Language Models", "LLM", "GPT", "Transformers", "BERT", "Prompt Engineering",
+  "Reinforcement Learning", "GANs", "CNN", "RNN", "LSTM", "Transfer Learning",
+  "Data Structures", "Algorithms", "System Design", "OOP", "Design Patterns",
+  "Agile", "Scrum", "JIRA", "Figma", "Adobe XD", "UI/UX Design",
+  "Testing", "Jest", "Mocha", "Pytest", "Selenium", "Cypress",
+  "Android", "iOS", "React Native", "Flutter", "Swift", "Kotlin",
+  "Blockchain", "Solidity", "Web3", "Ethereum", "Smart Contracts",
+  "DevOps", "Terraform", "Ansible", "Nginx", "Apache"
+].sort();
+
 const DEFAULT_FORM_STATE = {
   firstName: "",
   lastName: "",
@@ -57,6 +83,7 @@ const DEFAULT_FORM_STATE = {
   portfolioUrl: "",
   linkedinUrl: "",
   githubUrl: "",
+  githubToken: "",
   resumeUrl: "",
   leetcodeUrl: "",
   hackerrankUrl: "",
@@ -147,6 +174,9 @@ const StudentProfile = () => {
   const [importingLinkedIn, setImportingLinkedIn] = useState(false);
   const [importSummary, setImportSummary] = useState<string | null>(null);
   const linkedinInputRef = useRef<HTMLInputElement | null>(null);
+  const [skillInput, setSkillInput] = useState("");
+  const [skillDropdownOpen, setSkillDropdownOpen] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   const formatSkills = (skills?: string[] | null) => {
     if (!skills || skills.length === 0) return "";
@@ -171,6 +201,7 @@ const StudentProfile = () => {
       portfolioUrl: data?.portfolioUrl || "",
       linkedinUrl: data?.linkedinUrl || "",
       githubUrl: data?.githubUrl || "",
+      githubToken: "", // Never populate from server for security
       resumeUrl: data?.resumeUrl || "",
       leetcodeUrl:
         data?.leetcodeUrl || (data?.codingProfiles?.leetcode ? `https://leetcode.com/${data.codingProfiles.leetcode}` : ""),
@@ -183,6 +214,10 @@ const StudentProfile = () => {
       avatarUrl: data?.avatarUrl || "",
     });
     setAvatarPreview(data?.avatarUrl || "");
+    // Initialize selected skills
+    if (data?.skills && data.skills.length > 0) {
+      setSelectedSkills(data.skills);
+    }
   }, []);
 
   useEffect(() => {
@@ -317,6 +352,25 @@ const StudentProfile = () => {
     }
   };
 
+  // Sync selected skills with form state
+  useEffect(() => {
+    if (formState.skills) {
+      const skills = formState.skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      setSelectedSkills(skills);
+    }
+  }, []);
+
+  // Update form state when selected skills change
+  useEffect(() => {
+    setFormState(prev => ({
+      ...prev,
+      skills: selectedSkills.join(", ")
+    }));
+  }, [selectedSkills]);
+
   const skillsArray = useMemo(() => {
     if (!formState.skills) return [] as string[];
     return formState.skills
@@ -359,6 +413,7 @@ const StudentProfile = () => {
         portfolioUrl: formState.portfolioUrl,
         linkedinUrl: formState.linkedinUrl,
         githubUrl: formState.githubUrl,
+        githubToken: formState.githubToken.trim() || undefined,
         resumeUrl: formState.resumeUrl,
         leetcodeUrl: formState.leetcodeUrl,
         hackerrankUrl: formState.hackerrankUrl,
@@ -695,6 +750,34 @@ const StudentProfile = () => {
                 />
               </div>
               <div className="space-y-1">
+                <Label htmlFor="githubToken" className="flex items-center gap-2">
+                  GitHub Personal Access Token (Optional)
+                  <span className="text-xs text-muted-foreground font-normal">
+                    For contribution stats
+                  </span>
+                </Label>
+                <Input
+                  id="githubToken"
+                  name="githubToken"
+                  type="password"
+                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                  value={formState.githubToken}
+                  onChange={handleInputChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Get your token at{" "}
+                  <a
+                    href="https://github.com/settings/tokens/new?scopes=public_repo,read:user&description=EvolvEd%20Stats"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    github.com/settings/tokens/new
+                  </a>
+                  {" "}with <code className="text-xs">public_repo</code> and <code className="text-xs">read:user</code> scopes.
+                </p>
+              </div>
+              <div className="space-y-1">
                 <Label htmlFor="resumeUrl">Resume link</Label>
                 <Input
                   id="resumeUrl"
@@ -736,22 +819,85 @@ const StudentProfile = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label htmlFor="skills">Skills</Label>
-              <Textarea
-                id="skills"
-                name="skills"
-                placeholder="JavaScript, React, Node.js, Data Structures"
-                value={formState.skills}
-                onChange={handleInputChange}
-                rows={3}
-              />
+              <Popover open={skillDropdownOpen} onOpenChange={setSkillDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={skillDropdownOpen}
+                    className="w-full justify-between h-auto min-h-[40px] py-2"
+                  >
+                    <span className="text-muted-foreground text-sm">
+                      {selectedSkills.length > 0 ? `${selectedSkills.length} skills selected` : "Select or type skills..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search or type a skill..." 
+                      value={skillInput}
+                      onValueChange={setSkillInput}
+                    />
+                    <CommandEmpty>
+                      <div className="p-2">
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            if (skillInput.trim()) {
+                              setSelectedSkills(prev => [...prev, skillInput.trim()]);
+                              setSkillInput("");
+                              setSkillDropdownOpen(false);
+                            }
+                          }}
+                        >
+                          <Check className="mr-2 h-4 w-4" />
+                          Add "{skillInput}"
+                        </Button>
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-auto">
+                      {COMMON_SKILLS
+                        .filter(skill => !selectedSkills.includes(skill))
+                        .map((skill) => (
+                          <CommandItem
+                            key={skill}
+                            value={skill}
+                            onSelect={() => {
+                              setSelectedSkills(prev => [...prev, skill]);
+                              setSkillInput("");
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedSkills.includes(skill) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {skill}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-            {skillsArray.length > 0 && (
+            {selectedSkills.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {skillsArray.map((skill) => (
-                  <Badge key={skill} variant="secondary">
+                {selectedSkills.map((skill) => (
+                  <Badge key={skill} variant="secondary" className="pl-3 pr-1 py-1 gap-1">
                     {skill}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSkills(prev => prev.filter(s => s !== skill))}
+                      className="ml-1 rounded-full hover:bg-muted p-0.5 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </Badge>
                 ))}
               </div>

@@ -74,10 +74,18 @@ const goalSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     targetDate: { type: Date },
+    targetValue: { type: Number, min: 0 },
+    currentValue: { type: Number, min: 0, default: 0 },
+    unit: { type: String, trim: true },
     category: {
       type: String,
       enum: ['skill', 'project', 'certification', 'placement', 'coding', 'other'],
       default: 'other'
+    },
+    autoTrack: {
+      type: String,
+      enum: ['none', 'projects', 'certifications', 'coding_problems', 'coding_logs', 'skills'],
+      default: 'none'
     },
     status: {
       type: String,
@@ -149,6 +157,7 @@ const studentSchema = new mongoose.Schema(
         {
           leetcode: { type: String, trim: true, default: '' },
           hackerrank: { type: String, trim: true, default: '' },
+          github: { type: String, trim: true, default: '' },
           lastSyncedAt: { type: Date },
         },
         { _id: false }
@@ -226,6 +235,66 @@ const studentSchema = new mongoose.Schema(
       ),
       default: {},
     },
+    githubStats: {
+      type: new mongoose.Schema(
+        {
+          username: { type: String },
+          totalRepos: { type: Number, default: 0 },
+          totalStars: { type: Number, default: 0 },
+          totalForks: { type: Number, default: 0 },
+          followers: { type: Number, default: 0 },
+          following: { type: Number, default: 0 },
+          totalCommits: { type: Number, default: 0 },
+          calendar: { type: Map, of: Number, default: new Map() },
+          topLanguages: [
+            {
+              name: String,
+              count: Number,
+              percentage: Number,
+            },
+          ],
+          activeDays: { type: Number, default: 0 },
+          streak: { type: Number, default: 0 },
+          longestStreak: { type: Number, default: 0 },
+          recentActivity: {
+            last7Days: { type: Number, default: 0 },
+            last30Days: { type: Number, default: 0 },
+          },
+          bestDay: {
+            date: String,
+            count: Number,
+          },
+          calendarRange: {
+            start: String,
+            end: String,
+          },
+          calendarWarning: { type: String },
+          fetchedAt: { type: Date },
+        },
+        { _id: false }
+      ),
+      default: {},
+    },
+    interviewStats: {
+      totalSessions: { type: Number, default: 0 },
+      completedSessions: { type: Number, default: 0 },
+      avgScore: { type: Number, default: 0 },
+      bestScore: { type: Number, default: 0 },
+      lastSessionAt: { type: Date, default: null },
+      recentTrend: { type: String, enum: ['improving', 'stable', 'declining'], default: 'stable' },
+      weakAreas: { type: [String], default: [] },
+      strongAreas: { type: [String], default: [] },
+      totalQuestionsAnswered: { type: Number, default: 0 },
+      communication: {
+        avgClarity: { type: Number, default: 0 },
+        avgStructure: { type: Number, default: 0 },
+        avgConciseness: { type: Number, default: 0 },
+        overallAvg: { type: Number, default: 0 },
+        trend: { type: String, enum: ['improving', 'stable', 'declining'], default: 'stable' },
+        topFeedback: { type: [String], default: [] },
+      },
+    },
+    githubToken: { type: String, trim: true, select: false },
     role: { type: String, default: 'student' },
     isProfileComplete: { type: Boolean, default: false },
   },
@@ -236,17 +305,18 @@ const studentSchema = new mongoose.Schema(
       transform: (_, ret) => {
         delete ret.password;
         delete ret.__v;
-        // Convert Map to plain object for skillRadar
+        // Convert Maps to plain objects
         if (ret.skillRadar instanceof Map) {
           ret.skillRadar = Object.fromEntries(ret.skillRadar);
         }
-        // Convert Map to plain object for leetcodeStats.calendar
         if (ret.leetcodeStats?.calendar instanceof Map) {
           ret.leetcodeStats.calendar = Object.fromEntries(ret.leetcodeStats.calendar);
         }
-        // Convert Map to plain object for hackerrankStats.calendar
         if (ret.hackerrankStats?.calendar instanceof Map) {
           ret.hackerrankStats.calendar = Object.fromEntries(ret.hackerrankStats.calendar);
+        }
+        if (ret.githubStats?.calendar instanceof Map) {
+          ret.githubStats.calendar = Object.fromEntries(ret.githubStats.calendar);
         }
         return ret;
       },
@@ -254,17 +324,18 @@ const studentSchema = new mongoose.Schema(
     toObject: {
       virtuals: true,
       transform: (_, ret) => {
-        // Convert Map to plain object for skillRadar
+        // Convert Maps to plain objects
         if (ret.skillRadar instanceof Map) {
           ret.skillRadar = Object.fromEntries(ret.skillRadar);
         }
-        // Convert Map to plain object for leetcodeStats.calendar
         if (ret.leetcodeStats?.calendar instanceof Map) {
           ret.leetcodeStats.calendar = Object.fromEntries(ret.leetcodeStats.calendar);
         }
-        // Convert Map to plain object for hackerrankStats.calendar
         if (ret.hackerrankStats?.calendar instanceof Map) {
           ret.hackerrankStats.calendar = Object.fromEntries(ret.hackerrankStats.calendar);
+        }
+        if (ret.githubStats?.calendar instanceof Map) {
+          ret.githubStats.calendar = Object.fromEntries(ret.githubStats.calendar);
         }
         return ret;
       },

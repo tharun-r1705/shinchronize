@@ -17,44 +17,59 @@ async function getReadinessScore(studentId, args = {}) {
 
     const { total, breakdown } = calculateReadinessScore(student);
 
-    // Generate insights for each category
+    if (process.env.AGENT_DEBUG === 'true') {
+        console.log('[readiness] score breakdown:', JSON.stringify({ total, breakdown }));
+    }
+
+    // Generate insights for all categories
     const insights = [];
 
-    if (breakdown.projects < 30) {
-        insights.push({
-            category: 'projects',
-            current: breakdown.projects,
-            max: 30,
-            suggestion: `Add ${Math.ceil((30 - breakdown.projects) / 12)} more project(s) to maximize this category`
-        });
-    }
+    const categories = [
+        { key: 'projects', label: 'Projects', max: 20, unit: 10, item: 'project' },
+        { key: 'codingConsistency', label: 'Coding Consistency', max: 15, unit: 1.5, item: 'recent log' },
+        { key: 'githubActivity', label: 'GitHub Activity', max: 15 },
+        { key: 'certifications', label: 'Certifications', max: 15, unit: 4, item: 'certification' },
+        { key: 'events', label: 'Event Participation', max: 10, unit: 3, item: 'event' },
+        { key: 'skillDiversity', label: 'Platform Diversity', max: 10, unit: 5, item: 'platform' },
+        { key: 'skillRadar', label: 'Skill Proficiency', max: 10 },
+        { key: 'skills', label: 'Profile Skills', max: 10, unit: 2, item: 'skill' },
+        { key: 'interviewPrep', label: 'Interview Preparation', max: 10 },
+        { key: 'streakBonus', label: 'Consistency Streak', max: 5 }
+    ];
 
-    if (breakdown.codingConsistency < 20) {
-        insights.push({
-            category: 'codingConsistency',
-            current: breakdown.codingConsistency,
-            max: 20,
-            suggestion: 'Log more coding sessions in the last 30 days to improve consistency score'
-        });
-    }
+    categories.forEach(cat => {
+        const current = breakdown[cat.key] || 0;
+        if (current < cat.max) {
+            let suggestion = '';
+            if (cat.unit) {
+                const needed = Math.ceil((cat.max - current) / cat.unit);
+                suggestion = `Add ${needed} more ${cat.item}(s) to maximize this category.`;
+            } else if (cat.key === 'skillRadar') {
+                suggestion = `Improve your proficiency levels in the skill radar to earn more points.`;
+            } else if (cat.key === 'interviewPrep') {
+                suggestion = `Complete mock interview sessions to improve this score. Your performance, consistency, and improvement trend all contribute to this category.`;
+            } else if (cat.key === 'streakBonus') {
+                suggestion = `Maintain your daily activity streak to increase this bonus.`;
+            }
 
-    if (breakdown.certifications < 20) {
-        insights.push({
-            category: 'certifications',
-            current: breakdown.certifications,
-            max: 20,
-            suggestion: `Add ${Math.ceil((20 - breakdown.certifications) / 5)} more certification(s) to boost this score`
-        });
-    }
+            insights.push({
+                category: cat.key,
+                label: cat.label,
+                current,
+                max: cat.max,
+                suggestion
+            });
+        }
+    });
 
-    if (breakdown.skills < 10) {
-        insights.push({
-            category: 'skills',
-            current: breakdown.skills,
-            max: 10,
-            suggestion: 'Add more skills to your profile to improve this score'
-        });
-    }
+    // Provide the full breakdown with metadata to the AI
+    const enrichedBreakdown = {};
+    categories.forEach(cat => {
+        enrichedBreakdown[cat.key] = {
+            current: breakdown[cat.key] || 0,
+            max: cat.max
+        };
+    });
 
     // Get historical trend
     const history = (student.readinessHistory || []).slice(-5).map(h => ({
@@ -64,7 +79,7 @@ async function getReadinessScore(studentId, args = {}) {
 
     return {
         score: total,
-        breakdown,
+        breakdown: enrichedBreakdown,
         insights,
         history,
         streakDays: student.streakDays || 0,

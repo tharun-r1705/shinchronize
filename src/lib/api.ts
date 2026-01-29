@@ -11,6 +11,7 @@ const API_BASE_URL = (() => {
 export interface CodingProfilesPayload {
   leetcode?: string;
   hackerrank?: string;
+  github?: string;
   lastSyncedAt?: string;
 }
 
@@ -30,6 +31,7 @@ export interface UpdateStudentProfilePayload {
   portfolioUrl?: string;
   linkedinUrl?: string;
   githubUrl?: string;
+  githubToken?: string;
   resumeUrl?: string;
   leetcodeUrl?: string;
   hackerrankUrl?: string;
@@ -78,6 +80,49 @@ export interface StudentProfileDTO {
     medium?: number;
     hard?: number;
     streak?: number;
+    calendar?: Record<string, number>;
+    topDomains?: Array<{ tag: string; count: number }>;
+    activeDays?: number;
+    recentActivity?: {
+      last7Days?: number;
+      last30Days?: number;
+    };
+    bestDay?: {
+      date?: string;
+      count?: number;
+    };
+    calendarRange?: {
+      start?: string;
+      end?: string;
+    };
+    fetchedAt?: string;
+  };
+  githubStats?: {
+    username?: string;
+    totalRepos?: number;
+    totalStars?: number;
+    totalForks?: number;
+    followers?: number;
+    following?: number;
+    totalCommits?: number;
+    calendar?: Record<string, number>;
+    topLanguages?: Array<{ name: string; count: number; percentage: number }>;
+    activeDays?: number;
+    streak?: number;
+    longestStreak?: number;
+    recentActivity?: {
+      last7Days?: number;
+      last30Days?: number;
+    };
+    bestDay?: {
+      date?: string;
+      count?: number;
+    };
+    calendarRange?: {
+      start?: string;
+      end?: string;
+    };
+    fetchedAt?: string;
   };
   hackerrankStats?: {
     totalSolved?: number;
@@ -140,6 +185,121 @@ export interface SyncCodingActivityResponse {
   codingProfiles: CodingProfilesPayload;
 }
 
+export interface InterviewQuestionDTO {
+  id: string;
+  type: 'technical' | 'behavioral' | 'project' | 'tricky';
+  category?: string;
+  question: string;
+  context?: string;
+  answer?: string;
+  answerMethod?: 'text' | 'voice';
+  answeredAt?: string;
+  feedback?: {
+    score?: number;
+    strengths?: string[];
+    improvements?: string[];
+    sampleAnswer?: string;
+    communication?: {
+      clarity?: number;
+      structure?: number;
+      conciseness?: number;
+      feedback?: string[];
+    };
+  };
+  voiceMetrics?: {
+    durationSeconds?: number;
+    wordCount?: number;
+    fillerWords?: { count?: number; examples?: string[] };
+  };
+}
+
+export interface InterviewSessionDTO {
+  _id: string;
+  sessionType: 'quick' | 'full';
+  interviewTypes: string[];
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  interviewerPersona: 'friendly' | 'neutral' | 'tough';
+  targetRole: string;
+  status: 'in-progress' | 'completed' | 'abandoned';
+  questionsTarget: number;
+  currentQuestionIndex: number;
+  questions: InterviewQuestionDTO[];
+  summary?: {
+    overallScore?: number;
+    categoryScores?: {
+      technical?: number;
+      behavioral?: number;
+      communication?: number;
+      confidence?: number;
+    };
+    topStrengths?: string[];
+    areasToImprove?: string[];
+    recommendations?: string[];
+    comparedToPrevious?: 'better' | 'same' | 'worse' | 'unknown';
+  };
+  createdAt?: string;
+  completedAt?: string;
+}
+
+export interface InterviewStartResponse {
+  sessionId: string;
+  question: InterviewQuestionDTO;
+  progress: { current: number; total: number };
+  sessionConfig: {
+    sessionType: 'quick' | 'full';
+    difficulty: 'beginner' | 'intermediate' | 'advanced';
+    interviewerPersona: 'friendly' | 'neutral' | 'tough';
+    interviewTypes: string[];
+    targetRole: string;
+  };
+}
+
+export interface InterviewAnswerResponse {
+  transcription?: string;
+  voiceMetrics?: InterviewQuestionDTO['voiceMetrics'];
+  feedback: NonNullable<InterviewQuestionDTO['feedback']>;
+  nextQuestion: InterviewQuestionDTO | null;
+  progress: { current: number; total: number };
+  done: boolean;
+}
+
+export interface InterviewHistoryResponse {
+  page: number;
+  limit: number;
+  total: number;
+  items: Array<{
+    _id: string;
+    sessionType: 'quick' | 'full';
+    difficulty: 'beginner' | 'intermediate' | 'advanced';
+    interviewerPersona: 'friendly' | 'neutral' | 'tough';
+    targetRole: string;
+    status: 'in-progress' | 'completed' | 'abandoned';
+    questionsTarget: number;
+    summary?: { overallScore?: number };
+    createdAt?: string;
+    completedAt?: string;
+  }>;
+}
+
+export interface InterviewStatsResponse {
+  interviewStats: {
+    totalSessions?: number;
+    completedSessions?: number;
+    avgScore?: number;
+    bestScore?: number;
+    lastSessionAt?: string;
+    totalQuestionsAnswered?: number;
+    trend?: string;
+  };
+}
+
+export interface InterviewCompleteResponse {
+  success: boolean;
+  sessionId: string;
+  overallScore: number;
+  summary: InterviewSessionDTO['summary'];
+}
+
 interface RequestOptions extends RequestInit {
   token?: string;
 }
@@ -183,7 +343,12 @@ class ApiClient {
       throw new Error(error.message || 'An error occurred');
     }
 
-    return response.json();
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return response.json();
+    }
+    // For audio/binary endpoints
+    return (await response.arrayBuffer()) as T;
   }
 
   async get<T>(endpoint: string, token?: string): Promise<T> {
@@ -208,10 +373,6 @@ class ApiClient {
     });
   }
 
-  async delete<T>(endpoint: string, token?: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE', token });
-  }
-
   async patch<T>(endpoint: string, data?: unknown, token?: string): Promise<T> {
     const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
     return this.request<T>(endpoint, {
@@ -220,7 +381,12 @@ class ApiClient {
       token,
     });
   }
+
+  async delete<T>(endpoint: string, token?: string): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE', token });
+  }
 }
+
 
 const api = new ApiClient(API_BASE_URL);
 
@@ -307,6 +473,14 @@ export const studentApi = {
     return api.post(`/students/${studentId}/update-hackerrank`, { username }, token);
   },
 
+  // GitHub verification
+  verifyGitHub: (username: string, token: string) => {
+    const studentData = localStorage.getItem('studentData');
+    const studentId = studentData ? JSON.parse(studentData)._id : 'me';
+    return api.post(`/students/${studentId}/update-github`, { username }, token);
+  },
+
+
   // Update/Delete Projects
   updateProject: (projectId: string, data: Partial<{
     title: string;
@@ -345,6 +519,20 @@ export const studentApi = {
 
   deleteEvent: (eventId: string, token: string) =>
     api.delete(`/students/events/${eventId}`, token),
+
+  // Domain insights (AI-powered)
+  getDomainInsights: (token: string) =>
+    api.get<{
+      domain: string | null;
+      type: 'fact' | 'interview' | 'prompt';
+      content: {
+        title: string;
+        text?: string;
+        question?: string;
+        hint?: string;
+        answer?: string;
+      };
+    }>('/students/domain-insights', token),
 };
 
 export const recruiterApi = {
@@ -472,7 +660,67 @@ export const agentApi = {
 
   // Get proactive nudges
   getNudges: (token: string) =>
-    api.get<{ success: boolean; nudges: any[] }>('/agent/nudges', token),
+    api.get<{ success: boolean; nudges: unknown[] }>('/agent/nudges', token),
+};
+
+export const interviewApi = {
+  startSession: (
+    data: {
+      sessionType?: 'quick' | 'full';
+      interviewTypes?: string[];
+      difficulty?: 'beginner' | 'intermediate' | 'advanced';
+      interviewerPersona?: 'friendly' | 'neutral' | 'tough';
+      targetRole?: string;
+      resumeText?: string;
+    } | FormData,
+    token: string
+  ) => api.post<InterviewStartResponse>('/interview/start', data, token),
+
+  submitAnswerText: (
+    sessionId: string,
+    data: { questionId: string; answer: string; language?: string },
+    token: string
+  ) =>
+    api.post<InterviewAnswerResponse>(
+      `/interview/${sessionId}/answer`,
+      { ...data, answerMethod: 'text' },
+      token
+    ),
+
+  submitAnswerVoice: (sessionId: string, formData: FormData, token: string) =>
+    api.post<InterviewAnswerResponse>(`/interview/${sessionId}/answer`, formData, token),
+
+  completeSession: (sessionId: string, data: { durationMinutes?: number } | undefined, token: string) =>
+    api.post<InterviewCompleteResponse>(
+      `/interview/${sessionId}/complete`,
+      data || {},
+      token
+    ),
+
+  getHistory: (params: { page?: number; limit?: number } | undefined, token: string) => {
+    const search = new URLSearchParams();
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    return api.get<InterviewHistoryResponse>(`/interview/history${qs ? `?${qs}` : ''}`, token);
+  },
+
+  getSession: (sessionId: string, token: string) =>
+    api.get<{ session: InterviewSessionDTO }>(`/interview/${sessionId}`, token),
+
+  getStats: (token: string) => api.get<InterviewStatsResponse>('/interview/stats', token),
+};
+
+export const ttsApi = {
+  synthesize: (
+    data: {
+      text: string;
+      voice?: string;
+      model?: string;
+      responseFormat?: 'wav' | 'mp3' | 'flac' | 'opus';
+    },
+    token: string
+  ) => api.post<ArrayBuffer>('/tts', data, token),
 };
 
 
@@ -530,5 +778,72 @@ export const marketApi = {
   getCompanies: (q?: string, type?: string) =>
     api.get<CompanySkillProfile[]>(`/market/companies${q || type ? `?q=${q || ''}&type=${type || ''}` : ''}`),
 };
+
+// Roadmap API for career roadmap visualization
+export interface RoadmapMilestone {
+  id: string;
+  title: string;
+  description: string;
+  category: 'skill' | 'project' | 'certification' | 'interview' | 'networking' | 'other';
+  status: 'not-started' | 'in-progress' | 'completed';
+  order: number;
+  duration?: string;
+  resources?: Array<{ title: string; url: string; type: string }>;
+  skills?: string[];
+  completedAt?: string;
+  requiresQuiz?: boolean;
+  quizStatus?: 'none' | 'pending' | 'passed' | 'failed';
+  lastQuizScore?: number;
+}
+
+
+export interface Roadmap {
+  _id: string;
+  studentId: string;
+  title: string;
+  targetRole: string;
+  milestones: RoadmapMilestone[];
+  progress: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoadmapResponse {
+  success: boolean;
+  roadmap: Roadmap | null;
+  message?: string;
+}
+
+export const roadmapApi = {
+  // Get active roadmap
+  getActive: (token: string) =>
+    api.get<RoadmapResponse>('/roadmap', token),
+
+  // Get all roadmaps (including inactive)
+  getAll: (token: string) =>
+    api.get<{ success: boolean; roadmaps: Roadmap[] }>('/roadmap/all', token),
+
+  // Get specific roadmap
+  getById: (id: string, token: string) =>
+    api.get<RoadmapResponse>(`/roadmap/${id}`, token),
+
+  // Update milestone status
+  updateMilestone: (milestoneId: string, status: RoadmapMilestone['status'], token: string) =>
+    api.patch<RoadmapResponse>(`/roadmap/milestone/${milestoneId}`, { status }, token),
+
+  // Delete roadmap
+  delete: (id: string, token: string) =>
+    api.delete<{ success: boolean; message: string }>(`/roadmap/${id}`, token),
+
+  // Activate a roadmap
+  activate: (id: string, token: string) =>
+    api.patch<RoadmapResponse>(`/roadmap/${id}/activate`, {}, token),
+
+  // Submit quiz results
+  submitQuiz: (milestoneId: string, score: number, token: string) =>
+    api.post<RoadmapResponse & { passed: boolean; score: number }>(`/roadmap/milestone/${milestoneId}/quiz`, { score }, token),
+};
+
 
 export default api;

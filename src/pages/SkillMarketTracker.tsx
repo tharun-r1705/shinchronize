@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import {
     TrendingUp,
     BarChart3,
-    Target,
     Search,
     ArrowUpRight,
     ArrowDownRight,
@@ -18,9 +17,21 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { 
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, 
+    ResponsiveContainer, Area, AreaChart, Cell, RadialBarChart, RadialBar, Legend,
+    PieChart, Pie
+} from "recharts";
 import { StudentNavbar } from "@/components/StudentNavbar";
-import { marketApi, SkillMarketData, TrendPredictions, SkillROIRecommendation, CompanySkillProfile } from "@/lib/api";
+import { marketApi, studentApi, SkillMarketData, TrendPredictions, SkillROIRecommendation, CompanySkillProfile } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+
+// Gradient colors for charts
+const GRADIENT_COLORS = [
+    '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', 
+    '#f43f5e', '#f97316', '#facc15', '#22c55e', '#14b8a6'
+];
 
 const SkillMarketTracker = () => {
     const { toast } = useToast();
@@ -31,22 +42,37 @@ const SkillMarketTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [companyType, setCompanyType] = useState("all");
+    const [studentProfile, setStudentProfile] = useState<any>(null);
+
+    // State for real-time search
+    const [isSearching, setIsSearching] = useState(false);
+    const [visibleCompaniesCount, setVisibleCompaniesCount] = useState(5);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const [skillsData, trendsData, roiData, companiesData] = await Promise.all([
+                const [skillsData, trendsData, roiData, companiesData, profileData] = await Promise.all([
                     marketApi.getSkills(),
                     marketApi.getTrends(),
                     token ? marketApi.getROI(token) : Promise.resolve([]),
-                    marketApi.getCompanies()
+                    marketApi.getCompanies(),
+                    token ? studentApi.getProfile(token) : Promise.resolve(null)
                 ]);
 
                 setSkills(skillsData);
                 setTrends(trendsData);
                 setRoiReport(roiData);
                 setCompanies(companiesData);
+                setStudentProfile(profileData);
+                
+                // Debug: Check skillRadar structure
+                if (profileData) {
+                    console.log('Student Profile:', profileData);
+                    console.log('SkillRadar:', profileData.skillRadar);
+                    console.log('SkillRadar type:', typeof profileData.skillRadar);
+                    console.log('SkillRadar keys:', profileData.skillRadar ? Object.keys(profileData.skillRadar) : 'none');
+                }
             } catch (error: any) {
                 toast({
                     title: "Error loading market data",
@@ -61,16 +87,51 @@ const SkillMarketTracker = () => {
         fetchData();
     }, [toast]);
 
+    // Load all companies when companyType changes (without search query)
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            const fetchCompanies = async () => {
+                try {
+                    const data = await marketApi.getCompanies('', companyType);
+                    setCompanies(data);
+                    setVisibleCompaniesCount(5); // Reset to show 5 companies
+                } catch (error) {
+                    console.error("Fetch error:", error);
+                }
+            };
+            fetchCompanies();
+        }
+    }, [companyType]);
+
     const handleSearch = async () => {
+        if (!searchQuery.trim() || isSearching) return;
+
+        setIsSearching(true);
         try {
             const data = await marketApi.getCompanies(searchQuery, companyType);
             setCompanies(data);
+            setVisibleCompaniesCount(5); // Reset to show 5 companies after search
+            
+            if (data.length > 0) {
+                toast({
+                    title: "Company found! 🎉",
+                    description: `Found ${data.length} matching ${data.length === 1 ? 'company' : 'companies'}`,
+                });
+            } else {
+                toast({
+                    title: "Company not found",
+                    description: `"${searchQuery}" doesn't appear to be a real company or isn't in our database yet.`,
+                    variant: "destructive",
+                });
+            }
         } catch (error: any) {
             toast({
                 title: "Search failed",
                 description: error.message,
                 variant: "destructive",
             });
+        } finally {
+            setIsSearching(false);
         }
     };
 
@@ -146,27 +207,100 @@ const SkillMarketTracker = () => {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                        {skills.map((skill, idx) => (
-                                            <motion.div
-                                                key={skill._id}
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ delay: 0.05 * idx }}
-                                                className={`p-4 rounded-xl border transition-all cursor-pointer hover:shadow-md active:scale-95 ${getIntensityColor(skill.demandScore)}`}
-                                            >
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="text-xs font-semibold uppercase tracking-wider opacity-70">{skill.category}</span>
-                                                    {skill.trend === 'rising' && <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
-                                                </div>
-                                                <h3 className="font-bold text-lg mb-1">{skill.skillName}</h3>
-                                                <div className="flex items-end justify-between">
-                                                    <span className="text-sm font-medium">{skill.demandScore}% Demand</span>
-                                                    <span className="text-[10px] opacity-60">{(skill.jobCount / 1000).toFixed(0)}k Jobs</span>
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </div>
+                                    <Tabs defaultValue="cards" className="w-full">
+                                        <TabsList className="mb-4">
+                                            <TabsTrigger value="cards">Card View</TabsTrigger>
+                                            <TabsTrigger value="chart">Chart View</TabsTrigger>
+                                        </TabsList>
+                                        
+                                        <TabsContent value="cards" className="mt-0">
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                                {skills.map((skill, idx) => (
+                                                    <motion.div
+                                                        key={skill._id}
+                                                        initial={{ opacity: 0, y: 10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        transition={{ delay: 0.05 * idx }}
+                                                        className={`p-4 rounded-xl border transition-all cursor-pointer hover:shadow-md active:scale-95 ${getIntensityColor(skill.demandScore)}`}
+                                                    >
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <span className="text-xs font-semibold uppercase tracking-wider opacity-70">{skill.category}</span>
+                                                            {skill.trend === 'rising' && <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
+                                                        </div>
+                                                        <h3 className="font-bold text-lg mb-1">{skill.skillName}</h3>
+                                                        <div className="flex items-end justify-between">
+                                                            <span className="text-sm font-medium">{skill.demandScore}% Demand</span>
+                                                            <span className="text-[10px] opacity-60">{(skill.jobCount / 1000).toFixed(0)}k Jobs</span>
+                                                        </div>
+                                                    </motion.div>
+                                                ))}
+                                            </div>
+                                        </TabsContent>
+                                        
+                                        <TabsContent value="chart" className="mt-0">
+                                            <div className="h-[400px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={skills.slice(0, 10)} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                                                        <defs>
+                                                            <linearGradient id="skillGradient" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1}/>
+                                                                <stop offset="100%" stopColor="#6366f1" stopOpacity={0.8}/>
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                                        <XAxis 
+                                                            dataKey="skillName" 
+                                                            angle={-45}
+                                                            textAnchor="end"
+                                                            height={80}
+                                                            fontSize={11}
+                                                            tick={{ fill: '#64748b' }}
+                                                            axisLine={{ stroke: '#e2e8f0' }}
+                                                        />
+                                                        <YAxis 
+                                                            tick={{ fill: '#64748b' }}
+                                                            axisLine={{ stroke: '#e2e8f0' }}
+                                                            fontSize={11}
+                                                        />
+                                                        <ChartTooltip 
+                                                            cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
+                                                            content={({ active, payload }) => {
+                                                                if (active && payload && payload.length) {
+                                                                    const data = payload[0].payload;
+                                                                    return (
+                                                                        <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-xl">
+                                                                            <p className="font-bold text-lg text-slate-900">{data.skillName}</p>
+                                                                            <p className="text-sm text-slate-600">{data.category}</p>
+                                                                            <div className="mt-2 space-y-1">
+                                                                                <p className="text-sm"><span className="font-semibold text-indigo-600">{data.demandScore}%</span> Demand Score</p>
+                                                                                <p className="text-sm"><span className="font-semibold text-emerald-600">{(data.jobCount / 1000).toFixed(0)}k</span> Job Openings</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            }}
+                                                        />
+                                                        <Bar 
+                                                            dataKey="demandScore" 
+                                                            fill="url(#skillGradient)" 
+                                                            radius={[8, 8, 0, 0]}
+                                                            stroke="#8b5cf6"
+                                                            strokeWidth={1}
+                                                        >
+                                                            {skills.slice(0, 10).map((entry, index) => (
+                                                                <Cell 
+                                                                    key={`cell-${index}`} 
+                                                                    fill={GRADIENT_COLORS[index % GRADIENT_COLORS.length]}
+                                                                    fillOpacity={0.85}
+                                                                />
+                                                            ))}
+                                                        </Bar>
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </TabsContent>
+                                    </Tabs>
                                 </CardContent>
                             </Card>
                         </motion.div>
@@ -177,18 +311,73 @@ const SkillMarketTracker = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
                         >
-                            <Card className="border-primary/20 bg-primary/5 shadow-premium">
+                            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-violet-500/5 shadow-premium overflow-hidden">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <Target className="w-5 h-5 text-primary" />
+                                        <DollarSign className="w-5 h-5 text-primary" />
                                         Personalized Skill ROI Calculator
                                     </CardTitle>
                                     <CardDescription>Top skills recommended for you based on market value and effort</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {roiReport.length > 0 ? (
-                                        roiReport.map((item, idx) => (
-                                            <div key={idx} className="bg-card p-4 rounded-lg border border-border flex flex-col md:flex-row md:items-center gap-4 group hover:border-primary/40 transition-colors">
+                                        <>
+                                            {/* ROI Visualization Chart */}
+                                            <div className="bg-white/80 rounded-xl p-4 mb-4 border border-slate-100">
+                                                <div className="h-[180px] w-full">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart 
+                                                            data={roiReport} 
+                                                            layout="vertical"
+                                                            margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                                                        >
+                                                            <defs>
+                                                                <linearGradient id="roiGradient" x1="0" y1="0" x2="1" y2="0">
+                                                                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8}/>
+                                                                    <stop offset="100%" stopColor="#a855f7" stopOpacity={0.9}/>
+                                                                </linearGradient>
+                                                            </defs>
+                                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                                                            <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} />
+                                                            <YAxis 
+                                                                dataKey="skillName" 
+                                                                type="category" 
+                                                                tick={{ fill: '#334155', fontSize: 12, fontWeight: 500 }}
+                                                                axisLine={false}
+                                                                width={55}
+                                                            />
+                                                            <ChartTooltip 
+                                                                cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                                                                content={({ active, payload }) => {
+                                                                    if (active && payload && payload.length) {
+                                                                        const data = payload[0].payload;
+                                                                        return (
+                                                                            <div className="bg-white/95 backdrop-blur-sm border border-indigo-200 rounded-xl p-3 shadow-xl">
+                                                                                <p className="font-bold text-slate-900">{data.skillName}</p>
+                                                                                <p className="text-xs text-slate-500">{data.category}</p>
+                                                                                <div className="mt-2 space-y-1">
+                                                                                    <p className="text-sm"><span className="font-bold text-indigo-600">{data.roiScore}</span> ROI Score</p>
+                                                                                    <p className="text-sm">~₹{(data.avgSalary / 100000).toFixed(1)}L Avg Salary</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                }}
+                                                            />
+                                                            <Bar 
+                                                                dataKey="roiScore" 
+                                                                fill="url(#roiGradient)"
+                                                                radius={[0, 8, 8, 0]}
+                                                            />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* ROI Detail Cards */}
+                                            {roiReport.map((item, idx) => (
+                                            <div key={idx} className="bg-card p-4 rounded-lg border border-border flex flex-col md:flex-row md:items-center gap-4 group hover:border-primary/40 transition-colors hover:shadow-md">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <h4 className="font-bold text-lg">{item.skillName}</h4>
@@ -204,11 +393,9 @@ const SkillMarketTracker = () => {
                                                     <span className="text-xs text-muted-foreground uppercase font-semibold">Skill ROI Score</span>
                                                     <div className="text-2xl font-black text-primary">{item.roiScore}</div>
                                                 </div>
-                                                <Button className="md:w-32 group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                                                    Boost Skill
-                                                </Button>
                                             </div>
-                                        ))
+                                            ))}
+                                        </>
                                     ) : (
                                         <div className="text-center py-8">
                                             <p className="text-muted-foreground">Complete your profile to see personalized ROI recommendations.</p>
@@ -225,74 +412,146 @@ const SkillMarketTracker = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                         >
-                            <Card>
-                                <CardHeader>
+                            <Card className="border-none shadow-premium overflow-hidden">
+                                <CardHeader className="bg-gradient-to-r from-indigo-600 to-violet-700 text-white">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         <div>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <Building2 className="w-5 h-5 text-primary" />
+                                            <CardTitle className="flex items-center gap-2 text-white">
+                                                <Building2 className="w-6 h-6" />
                                                 Company-Specific Skill Database
                                             </CardTitle>
-                                            <CardDescription>Know exactly what target companies are looking for</CardDescription>
+                                            <CardDescription className="text-indigo-100">Browse company tech stacks and salary information</CardDescription>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <div className="relative">
-                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                            <div className="relative group">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
                                                 <Input
-                                                    placeholder="Search company..."
-                                                    className="pl-9 w-[200px]"
+                                                    placeholder="Search companies..."
+                                                    className="pl-9 w-[260px] bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white focus:text-black transition-all"
                                                     value={searchQuery}
                                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            handleSearch();
+                                                        }
+                                                    }}
                                                 />
                                             </div>
-                                            <Button size="sm" onClick={handleSearch}>Search</Button>
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                className="font-bold shrink-0"
+                                                onClick={handleSearch}
+                                                disabled={isSearching}
+                                            >
+                                                {isSearching ? 'Searching...' : 'Search'}
+                                            </Button>
                                         </div>
                                     </div>
+
+                                    <div className="mt-6 flex flex-wrap gap-2">
+                                        {['all', 'faang', 'startup', 'enterprise'].map((type) => (
+                                            <Badge
+                                                key={type}
+                                                className={`cursor-pointer capitalize text-xs px-3 py-1 border-none transition-all ${companyType === type
+                                                    ? "bg-white text-indigo-700 shadow-lg scale-105"
+                                                    : "bg-white/10 text-white hover:bg-white/20"
+                                                    }`}
+                                                onClick={() => setCompanyType(type)}
+                                            >
+                                                {type}
+                                            </Badge>
+                                        ))}
+                                    </div>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {companies.map((company) => (
-                                            <div key={company._id} className="border rounded-xl p-5 hover:bg-muted/30 transition-all">
-                                                <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-lg bg-white border p-2 flex items-center justify-center">
-                                                            {company.logoUrl ? (
-                                                                <img src={company.logoUrl} alt={company.companyName} className="max-w-full max-h-full object-contain" />
-                                                            ) : (
-                                                                <Building2 className="w-6 h-6 text-muted-foreground" />
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="font-bold text-lg">{company.companyName}</h4>
-                                                            <div className="flex gap-2">
-                                                                <Badge variant="outline" className="text-[10px] capitalize">{company.type}</Badge>
-                                                                <span className="text-xs text-muted-foreground">{company.industry} • {company.location}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-semibold">Est. Salary Package</div>
-                                                        <div className="text-lg font-bold text-emerald-600">₹{(company.avgSalaryRange.min / 100000).toFixed(1)}L - ₹{(company.avgSalaryRange.max / 100000).toFixed(1)}L PA</div>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Core Tech Stack</p>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {company.requiredSkills.map((s, i) => (
-                                                            <div key={i} className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-full border border-border">
-                                                                <span className="text-sm font-medium">{s.skillName}</span>
-                                                                <div className="flex gap-0.5">
-                                                                    {[...Array(5)].map((_, idx) => (
-                                                                        <div key={idx} className={`w-1 h-3 rounded-full ${idx < s.proficiencyLevel ? 'bg-primary' : 'bg-muted-foreground/30'}`}></div>
-                                                                    ))}
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-border">
+                                        {isSearching ? (
+                                            <div className="p-20 text-center">
+                                                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                                <p className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent animate-pulse">Zenith is researching this company...</p>
+                                                <p className="text-sm text-muted-foreground mt-2">Connecting to real-time market data to extract tech-stack requirements.</p>
+                                            </div>
+                                        ) : companies.length > 0 ? (
+                                            companies.slice(0, visibleCompaniesCount).map((company, idx) => {
+                                                return (
+                                                    <motion.div
+                                                        key={company._id}
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        transition={{ delay: idx * 0.05 }}
+                                                        className="p-6 transition-all hover:bg-muted/30"
+                                                    >
+                                                        <div className="flex flex-col md:flex-row justify-between gap-6">
+                                                            <div className="flex items-start gap-4">
+                                                                <div className="w-14 h-14 rounded-2xl bg-white border-2 border-muted shadow-sm p-3 flex items-center justify-center">
+                                                                    {company.logoUrl ? (
+                                                                        <img src={company.logoUrl} alt={company.companyName} className="max-w-full max-h-full object-contain" />
+                                                                    ) : (
+                                                                        <Building2 className="w-8 h-8 text-indigo-500" />
+                                                                    )}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <h4 className="font-bold text-xl">{company.companyName}</h4>
+                                                                        <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 uppercase text-[90%] scale-90">{company.type}</Badge>
+                                                                    </div>
+                                                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 font-medium">
+                                                                        {company.industry} • <span className="opacity-70">{company.location}</span>
+                                                                    </p>
                                                                 </div>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
+                                                            <div className="md:text-right bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10 min-w-[200px]">
+                                                                <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Est. Salary Package</div>
+                                                                <div className="text-xl font-black text-emerald-700">
+                                                                    ₹{(company.avgSalaryRange.min / 100000).toFixed(1)}L - ₹{(company.avgSalaryRange.max / 100000).toFixed(1)}L <span className="text-xs font-bold text-emerald-600/70">PA</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Tech Stack */}
+                                                        <div className="mt-5 space-y-3">
+                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Core Tech Stack</p>
+                                                            <div className="flex flex-wrap gap-2.5">
+                                                                {company.requiredSkills.map((s, i) => (
+                                                                    <div key={i} className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-border shadow-sm">
+                                                                        <span className="text-sm font-bold text-foreground">{s.skillName}</span>
+                                                                        <div className="flex gap-1">
+                                                                            {[...Array(5)].map((_, starIdx) => (
+                                                                                <div key={starIdx} className={`w-1.5 h-3 rounded-full ${starIdx < s.proficiencyLevel ? 'bg-indigo-500' : 'bg-slate-200'}`}></div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="p-20 text-center">
+                                                <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                                                <h3 className="font-bold text-lg">No companies found</h3>
+                                                <p className="text-muted-foreground">Try a different search term or filter.</p>
+                                                <Button variant="link" onClick={() => { setSearchQuery(""); setCompanyType("all"); }} className="mt-2 text-indigo-600">Clear all filters</Button>
                                             </div>
-                                        ))}
+                                        )}
+                                        {companies.length > visibleCompaniesCount && (
+                                            <div className="p-6 text-center bg-gradient-to-b from-transparent to-muted/50">
+                                                <Button
+                                                    variant="outline"
+                                                    size="lg"
+                                                    className="font-bold gap-2 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300"
+                                                    onClick={() => setVisibleCompaniesCount(prev => prev + 5)}
+                                                >
+                                                    Load More Companies
+                                                    <ArrowDownRight className="w-4 h-4" />
+                                                </Button>
+                                                <p className="text-xs text-muted-foreground mt-2">
+                                                    Showing {visibleCompaniesCount} of {companies.length} companies
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -313,6 +572,60 @@ const SkillMarketTracker = () => {
                                     <CardDescription>AI-powered 6-month developer trend forecast</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
+                                    {/* Trend Chart - Beautiful Area Chart */}
+                                    <div className="mb-6 bg-gradient-to-br from-slate-50 to-indigo-50/50 rounded-xl p-4 border border-slate-100">
+                                        <div className="h-[220px] w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart data={trends?.rising || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                    <defs>
+                                                        <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.4}/>
+                                                            <stop offset="50%" stopColor="#22c55e" stopOpacity={0.15}/>
+                                                            <stop offset="100%" stopColor="#22c55e" stopOpacity={0}/>
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                                    <XAxis 
+                                                        dataKey="skillName" 
+                                                        fontSize={10}
+                                                        tick={{ fill: '#64748b' }}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                    />
+                                                    <YAxis 
+                                                        fontSize={10} 
+                                                        tick={{ fill: '#64748b' }}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                    />
+                                                    <ChartTooltip 
+                                                        content={({ active, payload }) => {
+                                                            if (active && payload && payload.length) {
+                                                                const data = payload[0].payload;
+                                                                return (
+                                                                    <div className="bg-white/95 backdrop-blur-sm border border-emerald-200 rounded-lg p-3 shadow-lg">
+                                                                        <p className="font-bold text-slate-900">{data.skillName}</p>
+                                                                        <p className="text-emerald-600 font-semibold">+{data.predictedGrowth6m}% Growth</p>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        }}
+                                                    />
+                                                    <Area 
+                                                        type="monotone" 
+                                                        dataKey="predictedGrowth6m" 
+                                                        stroke="#22c55e"
+                                                        strokeWidth={3}
+                                                        fill="url(#trendGradient)"
+                                                        dot={{ fill: "#fff", stroke: "#22c55e", strokeWidth: 2, r: 5 }}
+                                                        activeDot={{ fill: "#22c55e", stroke: "#fff", strokeWidth: 2, r: 7 }}
+                                                    />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+
                                     <div>
                                         <h5 className="text-sm font-bold flex items-center gap-2 mb-3 text-emerald-600 uppercase tracking-wider">
                                             <ArrowUpRight className="w-4 h-4" /> Burning Hot
@@ -353,17 +666,6 @@ const SkillMarketTracker = () => {
                                             We're seeing a massive shift towards **Rust** and **AI-powered Backend tools**. Go is becoming the standard for cloud-native infrastructure. Web developers are expected to move towards full-stack TypeScript proficiency.
                                         </p>
                                     </div>
-
-                                    <Card className="bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-none overflow-hidden">
-                                        <CardContent className="p-6 relative">
-                                            <h4 className="font-bold mb-2">Want a custom roadmap?</h4>
-                                            <p className="text-xs opacity-90 mb-4">Talk to Zenith, your AI Mentor, to build a strategy for these skills.</p>
-                                            <Button className="w-full bg-white text-indigo-600 hover:bg-slate-50 font-bold border-none shadow-sm" onClick={() => window.location.href = '/student/ai'}>
-                                                Talk to Zenith
-                                            </Button>
-                                            <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-                                        </CardContent>
-                                    </Card>
                                 </CardContent>
                             </Card>
                         </motion.div>

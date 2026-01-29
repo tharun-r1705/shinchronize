@@ -58,18 +58,50 @@ const calculatePersonalizedROI = async (studentId) => {
         .slice(0, 5); // Return top 5 recommendations
 };
 
+const { generateCompanyProfile } = require('../utils/companyGenerator');
+
 /**
  * Get company specific requirements
+ * If query is specific and no results found, try generating with AI
  */
 const getCompanyRequirements = async (query = '', type = '') => {
     const filter = {};
     if (query) {
-        filter.companyName = { $regex: query, $options: 'i' };
+        filter.$or = [
+            { companyName: { $regex: query, $options: 'i' } },
+            { location: { $regex: query, $options: 'i' } },
+            { 'requiredSkills.skillName': { $regex: query, $options: 'i' } },
+            { industry: { $regex: query, $options: 'i' } }
+        ];
     }
     if (type && type !== 'all') {
         filter.type = type;
     }
-    return await CompanySkillProfile.find(filter).sort({ companyName: 1 });
+
+    let results = await CompanySkillProfile.find(filter).sort({ companyName: 1 });
+
+    // If query is likely a company name and no results found, or only 1-2 results, 
+    // try to dynamically generate the requested company if it doesn't exist
+    if (query && query.length > 2 && results.length === 0 && (!type || type === 'all')) {
+        try {
+            // Check if we should try generating (only if it doesn't look like a generic skill search)
+            // If the query exactly matches nothing, let AI try to find the company
+            const aiProfile = await generateCompanyProfile(query);
+            if (aiProfile && aiProfile.companyName) {
+                // Save the newly discovered company to our database
+                const newCompany = await CompanySkillProfile.findOneAndUpdate(
+                    { companyName: aiProfile.companyName },
+                    aiProfile,
+                    { upsert: true, new: true }
+                );
+                results = [newCompany];
+            }
+        } catch (error) {
+            console.error('Dynamic company generation failed:', error.message);
+        }
+    }
+
+    return results;
 };
 
 module.exports = {

@@ -4,6 +4,14 @@
  */
 
 const Student = require('../models/Student');
+const {
+    inferTargetValueFromText,
+    inferAutoTrack,
+    inferUnit,
+    getAutoTrackValue,
+    computeProgress,
+    syncAutoGoals
+} = require('../utils/goalSync');
 
 /**
  * Get all goals for a student
@@ -14,6 +22,11 @@ async function getGoals(studentId, args = {}) {
         throw new Error('Student not found');
     }
 
+    const updated = syncAutoGoals(student);
+    if (updated) {
+        await student.save();
+    }
+
     const goals = (student.goals || []).map(g => ({
         id: g._id.toString(),
         title: g.title,
@@ -21,6 +34,10 @@ async function getGoals(studentId, args = {}) {
         category: g.category,
         status: g.status,
         progress: g.progress,
+        targetValue: g.targetValue,
+        currentValue: g.currentValue,
+        unit: g.unit,
+        autoTrack: g.autoTrack,
         targetDate: g.targetDate,
         createdAt: g.createdAt,
         completedAt: g.completedAt
@@ -49,7 +66,7 @@ async function getGoals(studentId, args = {}) {
  * This is a WRITE operation that modifies the database
  */
 async function addGoal(studentId, args = {}) {
-    const { title, description, category, targetDate } = args;
+    const { title, description, category, targetDate, targetValue, unit, autoTrack } = args;
 
     if (!title) {
         throw new Error('Goal title is required');
@@ -60,14 +77,38 @@ async function addGoal(studentId, args = {}) {
         throw new Error('Student not found');
     }
 
+    const resolvedCategory = category || 'other';
+    const resolvedAutoTrack = autoTrack || inferAutoTrack(resolvedCategory, title, description || '');
+    const resolvedUnit = unit || inferUnit(resolvedAutoTrack, resolvedCategory);
+
+    const currentValue = resolvedAutoTrack !== 'none'
+        ? getAutoTrackValue(student, resolvedAutoTrack)
+        : 0;
+
+    const parsedTarget = typeof targetValue === 'number'
+        ? targetValue
+        : inferTargetValueFromText(`${title} ${description || ''}`);
+
+    const resolvedTarget = Number.isFinite(parsedTarget) && parsedTarget > 0
+        ? parsedTarget
+        : (resolvedAutoTrack === 'projects' ? Math.max(1, currentValue + 1) : null);
+
+    const progress = resolvedTarget ? computeProgress(currentValue, resolvedTarget) : 0;
+    const status = progress >= 100 ? 'completed' : progress > 0 ? 'in_progress' : 'pending';
+
     const newGoal = {
         title,
         description: description || '',
-        category: category || 'other',
+        category: resolvedCategory,
         targetDate: targetDate ? new Date(targetDate) : null,
-        status: 'pending',
-        progress: 0,
-        createdAt: new Date()
+        targetValue: resolvedTarget,
+        currentValue,
+        unit: resolvedUnit,
+        autoTrack: resolvedAutoTrack,
+        status,
+        progress,
+        createdAt: new Date(),
+        completedAt: status === 'completed' ? new Date() : null
     };
 
     student.goals.push(newGoal);
@@ -85,6 +126,10 @@ async function addGoal(studentId, args = {}) {
             category: addedGoal.category,
             status: addedGoal.status,
             progress: addedGoal.progress,
+            targetValue: addedGoal.targetValue,
+            currentValue: addedGoal.currentValue,
+            unit: addedGoal.unit,
+            autoTrack: addedGoal.autoTrack,
             targetDate: addedGoal.targetDate,
             createdAt: addedGoal.createdAt
         }
@@ -112,8 +157,21 @@ async function updateGoalProgress(studentId, args = {}) {
         throw new Error('Goal not found');
     }
 
-    if (typeof progress === 'number') {
+    if (typeof progress === 'number' && (goal.autoTrack === 'none' || !goal.autoTrack)) {
         goal.progress = Math.min(100, Math.max(0, progress));
+
+        if (!status) {
+            if (goal.progress >= 100) {
+                goal.status = 'completed';
+                goal.completedAt = new Date();
+            } else if (goal.progress > 0) {
+                goal.status = 'in_progress';
+                goal.completedAt = null;
+            } else {
+                goal.status = 'pending';
+                goal.completedAt = null;
+            }
+        }
     }
 
     if (status) {
@@ -139,8 +197,59 @@ async function updateGoalProgress(studentId, args = {}) {
     };
 }
 
+/**
+ * Remove a specific goal
+ */
+async function removeGoal(studentId, args = {}) {
+    const { goalId } = args;
+
+    if (!goalId) {
+        throw new Error('Goal ID is required');
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+        throw new Error('Student not found');
+    }
+
+    const goal = student.goals.id(goalId);
+    if (!goal) {
+        throw new Error('Goal not found');
+    }
+
+    const goalTitle = goal.title;
+    student.goals.pull(goalId);
+    await student.save();
+
+    return {
+        success: true,
+        message: `Goal "${goalTitle}" has been removed`,
+    };
+}
+
+/**
+ * Clear all goals for a student
+ */
+async function clearGoals(studentId) {
+    const student = await Student.findById(studentId);
+    if (!student) {
+        throw new Error('Student not found');
+    }
+
+    const count = student.goals.length;
+    student.goals = [];
+    await student.save();
+
+    return {
+        success: true,
+        message: `All ${count} goals have been removed successfully`,
+    };
+}
+
 module.exports = {
     getGoals,
     addGoal,
-    updateGoalProgress
+    updateGoalProgress,
+    removeGoal,
+    clearGoals
 };

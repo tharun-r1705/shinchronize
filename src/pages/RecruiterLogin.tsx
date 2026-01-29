@@ -145,18 +145,6 @@ const RecruiterLogin = () => {
                   <Button type="submit" className="w-full bg-gradient-secondary" disabled={isLoading}>
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                    </div>
-                  </div>
-                  <Button type="button" variant="outline" className="w-full">
-                    <Mail className="w-4 h-4 mr-2" />
-                    Google
-                  </Button>
                 </form>
               </TabsContent>
               

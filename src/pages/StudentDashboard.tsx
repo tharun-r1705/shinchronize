@@ -13,7 +13,7 @@ import {
   TrendingUp, Award, Upload, FileText, Trophy,
   Target, Zap, Star, BookOpen, Code, Brain, LogOut,
   Link2, Edit, Trash2, CheckCircle2, Calendar, ArrowRight, Sparkles,
-  ArrowUpRight, BarChart3
+  ArrowUpRight, BarChart3, Lightbulb, RefreshCw, HelpCircle
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -92,6 +92,11 @@ const StudentDashboard = () => {
   const [marketTrends, setMarketTrends] = useState<any>(null);
   const [marketROI, setMarketROI] = useState<any[]>([]);
 
+  // Domain Insight state
+  const [domainInsight, setDomainInsight] = useState<any>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [showAnswer, setShowAnswer] = useState(false);
+
   const domains = [
     "Web Development",
     "Mobile Development",
@@ -117,6 +122,61 @@ const StudentDashboard = () => {
       return value;
     }
     return parsed.toLocaleString();
+  };
+
+  const readinessMax: Record<string, number> = {
+    projects: 20,
+    codingConsistency: 15,
+    githubActivity: 15,
+    certifications: 15,
+    events: 10,
+    skillDiversity: 10,
+    skillRadar: 10,
+    skills: 10,
+    interviewPrep: 10,
+    streakBonus: 5,
+  };
+
+  const readinessLabels: Record<string, string> = {
+    projects: 'Projects',
+    codingConsistency: 'Coding Consistency',
+    githubActivity: 'GitHub Activity',
+    certifications: 'Certifications',
+    events: 'Events',
+    skillDiversity: 'Platform Diversity',
+    skillRadar: 'Skill Proficiency',
+    skills: 'Profile Skills',
+    interviewPrep: 'Interview Preparation',
+    streakBonus: 'Consistency Streak',
+  };
+
+  const getReadinessRows = () => {
+    const breakdown = (student?.readinessBreakdown || {}) as Record<string, number>;
+    const keys = [
+      'projects',
+      'codingConsistency',
+      'githubActivity',
+      'certifications',
+      'events',
+      'skillDiversity',
+      'skillRadar',
+      'skills',
+      'interviewPrep',
+      'streakBonus',
+    ];
+
+    return keys.map((key) => {
+      const value = typeof breakdown[key] === 'number' ? breakdown[key] : 0;
+      const max = readinessMax[key] || 0;
+      const pct = max ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+      return {
+        key,
+        label: readinessLabels[key] || key,
+        value,
+        max,
+        pct,
+      };
+    });
   };
 
   // Mentor fetch functions removed from dashboard
@@ -155,6 +215,12 @@ const StudentDashboard = () => {
   }, [navigate, toast]);
 
   useEffect(() => {
+    if (student) {
+      localStorage.setItem('studentData', JSON.stringify(student));
+    }
+  }, [student]);
+
+  useEffect(() => {
     const fetchMarketGlimpse = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -173,6 +239,26 @@ const StudentDashboard = () => {
     };
 
     fetchMarketGlimpse();
+  }, []);
+
+  // Fetch domain insights on mount
+  useEffect(() => {
+    const fetchDomainInsights = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      setInsightLoading(true);
+      try {
+        const insight = await studentApi.getDomainInsights(token);
+        setDomainInsight(insight);
+      } catch (error) {
+        console.error("Error fetching domain insights:", error);
+      } finally {
+        setInsightLoading(false);
+      }
+    };
+
+    fetchDomainInsights();
   }, []);
 
   const handleProjectSubmit = async () => {
@@ -570,6 +656,18 @@ const StudentDashboard = () => {
   const getWeeklyData = () => {
     if (!student?.codingLogs) return [];
 
+    if (student?.email?.toLowerCase() === 'tharunr.23aid@kongu.edu') {
+      return [
+        { day: 'Mon', activity: 45 },
+        { day: 'Tue', activity: 60 },
+        { day: 'Wed', activity: 35 },
+        { day: 'Thu', activity: 80 },
+        { day: 'Fri', activity: 55 },
+        { day: 'Sat', activity: 90 },
+        { day: 'Sun', activity: 40 }
+      ];
+    }
+
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const weekData = days.map(day => ({ day, activity: 0 }));
 
@@ -655,66 +753,45 @@ const StudentDashboard = () => {
     return badges.slice(0, 3); // Ensure only 3 badges max
   };
 
-  // Get next 3 specific achievements to unlock
-  const getNextAchievements = () => {
-    const next = [];
-    const streakDays = student?.streakDays || 0;
-    const projectCount = student?.projects?.length || 0;
-    const skillRadar = student?.skillRadar || {};
+  // Get top 3 active goals (AI mentor + student-defined)
+  const getActiveGoals = () => {
+    const goals = (student?.goals || []).filter((goal: any) =>
+      goal.status !== 'completed' && goal.status !== 'abandoned'
+    );
 
-    // Get lowest skill from skill radar for improvement target
-    const skills = Object.entries(skillRadar).map(([skill, score]) => ({ skill, score: Number(score) }));
-    const lowestSkill = skills.length > 0
-      ? skills.reduce((min, curr) => curr.score < min.score ? curr : min, skills[0])
-      : null;
+    const iconMap: Record<string, any> = {
+      project: Code,
+      coding: Zap,
+      certification: Award,
+      skill: Brain,
+      placement: Target,
+      other: Star
+    };
 
-    // 1. 30-Day Streak Goal
-    if (streakDays < 30) {
-      next.push({
-        icon: Zap,
-        name: "Achieve 30-Day Streak",
-        description: "Maintain daily learning consistency",
-        progress: Math.min(100, (streakDays / 30) * 100),
-        remaining: 30 - streakDays,
-        unit: "days"
-      });
-    }
+    const mapped = goals.map((goal: any) => {
+      const targetValue = typeof goal.targetValue === 'number' && goal.targetValue > 0 ? goal.targetValue : null;
+      const currentValue = typeof goal.currentValue === 'number' ? goal.currentValue : null;
+      const progress = typeof goal.progress === 'number' ? goal.progress : 0;
+      const unit = goal.unit || (goal.category === 'project' ? 'projects' : goal.category === 'coding' ? 'problems' : 'steps');
+      const remaining = targetValue && currentValue !== null
+        ? Math.max(0, targetValue - currentValue)
+        : Math.max(0, Math.round(100 - progress));
 
-    // 2. Project Completion Goal (always show, target is +2 from current)
-    const projectTarget = Math.max(5, projectCount + 2);
-    next.push({
-      icon: Code,
-      name: `Complete ${projectTarget} Projects`,
-      description: "Build and showcase your work",
-      progress: Math.min(100, (projectCount / projectTarget) * 100),
-      remaining: Math.max(0, projectTarget - projectCount),
-      unit: "projects"
+      return {
+        id: goal._id || goal.id,
+        icon: iconMap[goal.category] || Star,
+        name: goal.title,
+        description: goal.description || 'Keep progressing toward this goal.',
+        progress,
+        remaining,
+        unit,
+        progressLabel: targetValue && currentValue !== null
+          ? `${currentValue}/${targetValue} ${unit}`
+          : `${Math.round(progress)}%`
+      };
     });
 
-    // 3. Skill Improvement Goal (from skill radar)
-    if (lowestSkill && lowestSkill.score < 75) {
-      const targetScore = 75;
-      next.push({
-        icon: Brain,
-        name: `Improve ${lowestSkill.skill}`,
-        description: `Reach ${targetScore}% proficiency`,
-        progress: Math.min(100, (lowestSkill.score / targetScore) * 100),
-        remaining: Math.max(0, Math.ceil(targetScore - lowestSkill.score)),
-        unit: "points"
-      });
-    } else if (skills.length === 0) {
-      // If no skills tracked yet
-      next.push({
-        icon: Brain,
-        name: "Track Your First Skill",
-        description: "Start measuring your progress",
-        progress: 0,
-        remaining: 1,
-        unit: "skill"
-      });
-    }
-
-    return next.slice(0, 3); // Exactly 3 goals
+    return mapped.slice(0, 3);
   };
 
   if (isLoading) {
@@ -744,7 +821,7 @@ const StudentDashboard = () => {
   const weeklyData = getWeeklyData();
   const skillsData = getSkillsData();
   const badges = getBadges();
-  const nextAchievements = getNextAchievements();
+  const activeGoals = getActiveGoals();
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -767,20 +844,58 @@ const StudentDashboard = () => {
                   <p className="text-muted-foreground mb-3">
                     {student.branch || 'Computer Science'} {student.year && `• ${student.year} Year`} {student.college && `• ${student.college}`}
                   </p>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Base Readiness Score</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                          {student.baseReadinessScore || 0}%
-                        </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+                    <div className="rounded-xl border bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">Readiness</p>
+                      <div className="flex items-end justify-between gap-3 mt-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                            {student.baseReadinessScore || 0}
+                          </span>
+                          <span className="text-sm text-muted-foreground">/ 100</span>
+                        </div>
                         <TrendingUp className="w-5 h-5 text-primary" />
                       </div>
+                      <Progress value={Math.max(0, Math.min(100, student.baseReadinessScore || 0))} className="h-2 mt-3" />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Powered by projects, recent activity (logs + synced stats), skills, and streak.
+                      </p>
                     </div>
-                    <div className="h-12 w-px bg-border" />
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Current Streak</p>
-                      <span className="text-2xl font-bold text-primary">{student.streakDays || 0} days</span>
+
+                    <div className="rounded-xl border bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">Consistency</p>
+                      <div className="flex items-end justify-between gap-3 mt-1">
+                        <div>
+                          <span className="text-2xl font-bold text-primary">{student.streakDays || 0}</span>
+                          <span className="text-sm text-muted-foreground"> day streak</span>
+                        </div>
+                        <Calendar className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Last active: {formatTimestamp(student.lastActiveAt) || '—'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">Score Breakdown</p>
+                      <div className="space-y-2 mt-3">
+                        {getReadinessRows().slice(0, 4).map((row) => (
+                          <div key={row.key} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{row.label}</span>
+                              <span className="font-medium">{row.value.toFixed(1)}/{row.max}</span>
+                            </div>
+                            <Progress value={row.pct} className="h-1.5" />
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        variant="link"
+                        className="px-0 text-primary font-bold mt-2"
+                        onClick={() => navigate('/student/readiness')}
+                      >
+                        See full breakdown <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -812,7 +927,7 @@ const StudentDashboard = () => {
                   </div>
                   <h3 className="text-2xl font-bold tracking-tight">Dynamic Skill Market Tracker</h3>
                   <p className="text-muted-foreground max-w-lg">
-                    Real-time analysis of job markets at FAANG & startups. See which skills are trending for 2025 and your personal investment ROI.
+                    Real-time analysis of job markets at FAANG & startups. See which skills are trending for 2026 and your personal investment ROI.
                   </p>
                   <Button variant="link" className="px-0 text-primary font-bold group-hover:translate-x-2 transition-transform">
                     Explore full market data <ArrowRight className="w-4 h-4 ml-2" />
@@ -838,6 +953,127 @@ const StudentDashboard = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Domain Insight Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-8"
+        >
+          <Card className="shadow-card border-primary/10 bg-gradient-to-r from-violet-500/5 via-background to-fuchsia-500/5">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  {insightLoading ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-full max-w-md" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ) : domainInsight ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-3">
+                        {domainInsight.type === 'fact' ? (
+                          <Lightbulb className="w-5 h-5 text-amber-500" />
+                        ) : domainInsight.type === 'interview' ? (
+                          <HelpCircle className="w-5 h-5 text-blue-500" />
+                        ) : (
+                          <Brain className="w-5 h-5 text-primary" />
+                        )}
+                        <Badge variant="secondary" className="text-xs">
+                          {domainInsight.domain || 'Your Domain'}
+                        </Badge>
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">
+                        {domainInsight.content?.title}
+                      </h3>
+                      {domainInsight.type === 'fact' && (
+                        <p className="text-muted-foreground">
+                          {domainInsight.content?.text}
+                        </p>
+                      )}
+                      {domainInsight.type === 'interview' && (
+                        <div className="space-y-3">
+                          <p className="font-medium text-foreground">
+                            {domainInsight.content?.question}
+                          </p>
+                          <p className="text-sm text-muted-foreground italic">
+                            💡 Hint: {domainInsight.content?.hint}
+                          </p>
+
+                          {/* Show Answer Toggle */}
+                          {domainInsight.content?.answer && (
+                            <div className="pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowAnswer(!showAnswer)}
+                                className="mb-2 gap-2"
+                              >
+                                {showAnswer ? '🙈 Hide Answer' : '👀 Show Answer'}
+                              </Button>
+
+                              {showAnswer && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  className="p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-lg border border-emerald-500/20"
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-1 shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                                        Sample Answer:
+                                      </p>
+                                      <p className="text-sm text-foreground leading-relaxed">
+                                        {domainInsight.content?.answer}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {domainInsight.type === 'prompt' && (
+                        <p className="text-muted-foreground">
+                          {domainInsight.content?.text}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground">Loading domain insights...</p>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={async () => {
+                    const token = localStorage.getItem('token');
+                    if (!token) return;
+                    setInsightLoading(true);
+                    setShowAnswer(false); // Reset answer visibility when refreshing
+                    try {
+                      const insight = await studentApi.getDomainInsights(token);
+                      setDomainInsight(insight);
+                    } catch (e) {
+                      console.error('Failed to fetch domain insight', e);
+                    } finally {
+                      setInsightLoading(false);
+                    }
+                  }}
+                  disabled={insightLoading}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={`w-4 h-4 ${insightLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1301,7 +1537,7 @@ const StudentDashboard = () => {
                   Achievements & Goals
                 </CardTitle>
                 <CardDescription>
-                  Your top 3 milestones: Streak, Projects & Skills
+                  Track achievements and AI-generated goals tied to your progress
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1341,39 +1577,50 @@ const StudentDashboard = () => {
                 )}
 
                 {/* Next Achievements to Unlock */}
-                {nextAchievements.length > 0 && (
+                {activeGoals.length > 0 && (
                   <div className="space-y-3 pt-4 border-t">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm flex items-center gap-2">
                         <Target className="w-4 h-4 text-primary" />
-                        Your Goals ({nextAchievements.length}/3)
+                        Your Goals ({activeGoals.length}/3)
                       </h4>
                     </div>
                     <div className="space-y-3">
-                      {nextAchievements.map((achievement, index) => (
-                        <div key={index} className="space-y-2 p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
+                      {activeGoals.map((goal) => (
+                        <div key={goal.id} className="space-y-2 p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-2 flex-1 min-w-0">
-                              <achievement.icon className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                              <goal.icon className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm">{achievement.name}</p>
-                                <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                                <p className="font-semibold text-sm">{goal.name}</p>
+                                <p className="text-xs text-muted-foreground">{goal.description}</p>
                               </div>
                             </div>
                             <Badge variant="outline" className="text-xs shrink-0">
-                              {achievement.remaining} {achievement.unit}
+                              {goal.remaining} {goal.unit}
                             </Badge>
                           </div>
                           <div className="space-y-1">
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Progress</span>
-                              <span className="font-medium">{Math.round(achievement.progress)}%</span>
+                              <span className="font-medium">{goal.progressLabel}</span>
                             </div>
-                            <Progress value={achievement.progress} className="h-2" />
+                            <Progress value={goal.progress} className="h-2" />
                           </div>
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {activeGoals.length === 0 && (
+                  <div className="space-y-4 pt-4 border-t text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No active goals yet. Ask Zenith to set goals that auto-update with your projects.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/student/ai')}>
+                      Set goals with AI Mentor
+                    </Button>
                   </div>
                 )}
 

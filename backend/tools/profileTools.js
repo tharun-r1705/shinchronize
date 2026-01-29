@@ -4,6 +4,7 @@
  */
 
 const Student = require('../models/Student');
+const { syncAutoGoals } = require('../utils/goalSync');
 
 /**
  * Get student profile information
@@ -33,7 +34,6 @@ async function getStudentProfile(studentId, args = {}) {
         githubUrl: student.githubUrl,
         portfolioUrl: student.portfolioUrl,
         leetcodeUrl: student.leetcodeUrl,
-        hackerrankUrl: student.hackerrankUrl,
         streakDays: student.streakDays || 0,
         badges: student.badges || [],
         projectCount: (student.projects || []).length,
@@ -56,7 +56,7 @@ async function updateProfile(studentId, args = {}) {
         'firstName', 'lastName', 'dateOfBirth', 'gender', 'college',
         'branch', 'year', 'graduationYear', 'cgpa', 'phone',
         'location', 'portfolioUrl', 'linkedinUrl', 'githubUrl',
-        'resumeUrl', 'headline', 'summary'
+        'resumeUrl', 'headline', 'summary', 'leetcodeUrl'
     ];
 
     Object.keys(args).forEach(key => {
@@ -64,6 +64,16 @@ async function updateProfile(studentId, args = {}) {
             student[key] = args[key];
         }
     });
+
+    // Handle special mappings for coding profiles
+    if (args.leetcodeUsername) {
+        if (!student.codingProfiles) student.codingProfiles = {};
+        student.codingProfiles.leetcode = args.leetcodeUsername;
+    }
+    if (args.githubUsername) {
+        if (!student.codingProfiles) student.codingProfiles = {};
+        student.codingProfiles.github = args.githubUsername;
+    }
 
     await student.save();
 
@@ -97,6 +107,7 @@ async function addProject(studentId, args = {}) {
     };
 
     student.projects.push(newProject);
+    syncAutoGoals(student);
     await student.save();
 
     const addedProject = student.projects[student.projects.length - 1];

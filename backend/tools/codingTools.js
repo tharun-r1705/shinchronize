@@ -5,6 +5,7 @@
 
 const Student = require('../models/Student');
 const dayjs = require('dayjs');
+const { fetchGitHubStats } = require('../utils/github');
 
 /**
  * Get coding activity and statistics
@@ -18,6 +19,7 @@ async function getCodingActivity(studentId, args = {}) {
     }
 
     const leetcodeStats = student.leetcodeStats || {};
+    const githubStats = student.githubStats || {};
     const codingProfiles = student.codingProfiles || {};
     const codingLogs = student.codingLogs || [];
 
@@ -49,15 +51,24 @@ async function getCodingActivity(studentId, args = {}) {
             bestDay: leetcodeStats.bestDay,
             lastFetched: leetcodeStats.fetchedAt
         },
-        hackerrank: {
-            username: codingProfiles.hackerrank
+        github: {
+            username: githubStats.username || codingProfiles.github,
+            totalRepos: githubStats.totalRepos || 0,
+            totalStars: githubStats.totalStars || 0,
+            streak: githubStats.streak || 0,
+            activeDays: githubStats.activeDays || 0,
+            recentActivity: githubStats.recentActivity || { last7Days: 0, last30Days: 0 },
+            calendarWarning: githubStats.calendarWarning,
+            lastFetched: githubStats.fetchedAt
         },
         summary: {
             timeframe,
             totalMinutesLogged: totalMinutes,
             totalProblemsLogged: totalProblems,
             sessionsCount: filteredLogs.length,
-            averageSessionMinutes: filteredLogs.length > 0 ? Math.round(totalMinutes / filteredLogs.length) : 0
+            averageSessionMinutes: filteredLogs.length > 0 ? Math.round(totalMinutes / filteredLogs.length) : 0,
+            leetcodeSubmissionsLast30Days: leetcodeStats.recentActivity?.last30Days || 0,
+            githubContributionsLast30Days: githubStats.recentActivity?.last30Days || 0
         },
         recentLogs: filteredLogs.slice(-5).map(log => ({
             date: log.date,
@@ -69,7 +80,38 @@ async function getCodingActivity(studentId, args = {}) {
     };
 }
 
-const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/codingIntegrations');
+/**
+ * Sync GitHub stats for the student
+ */
+async function syncGitHubStats(studentId, args = {}) {
+    const requestedUsername = typeof args.username === 'string' ? args.username.trim() : '';
+
+    const student = await Student.findById(studentId).select('+githubToken');
+    if (!student) throw new Error('Student not found');
+
+    const username = requestedUsername || student.codingProfiles?.github || '';
+    if (!username) {
+        throw new Error('GitHub username is required. Add it in your profile first.');
+    }
+
+    const userToken = student.githubToken || null;
+    const stats = await fetchGitHubStats(username, userToken);
+    student.githubStats = stats;
+    student.codingProfiles = { ...(student.codingProfiles || {}), github: username, lastSyncedAt: new Date() };
+
+    const { total } = calculateReadinessScore(student);
+    student.readinessScore = total;
+    student.readinessHistory.push({ score: total });
+    await student.save();
+
+    return {
+        success: true,
+        github: student.githubStats,
+        newReadinessScore: total
+    };
+}
+
+const { fetchLeetCodeActivity } = require('../utils/codingIntegrations');
 const { calculateReadinessScore } = require('../utils/readinessScore');
 
 /**
@@ -80,7 +122,15 @@ async function syncCodingPlatforms(studentId, args = {}) {
     if (!student) throw new Error('Student not found');
 
     const leet = await fetchLeetCodeActivity(student.codingProfiles?.leetcode);
-    const hr = await fetchHackerRankActivity(student.codingProfiles?.hackerrank);
+
+    // Update LeetCode Stats if successful
+    if (leet.success && leet.stats) {
+        student.leetcodeStats = {
+            ...leet.stats,
+            username: student.codingProfiles?.leetcode,
+            fetchedAt: new Date()
+        };
+    }
 
     const newLogs = [];
     const toCodingLog = (source) => (act) => ({
@@ -93,7 +143,6 @@ async function syncCodingPlatforms(studentId, args = {}) {
     });
 
     (leet.activities || []).map(toCodingLog('LeetCode')).forEach((l) => newLogs.push(l));
-    (hr.activities || []).map(toCodingLog('HackerRank')).forEach((l) => newLogs.push(l));
 
     // Simple duplicate guard
     const existingKey = new Set(
@@ -119,14 +168,15 @@ async function syncCodingPlatforms(studentId, args = {}) {
     await student.save();
 
     return {
+        success: true,
         addedLogs: uniqueLogs.length,
-        leetcodeSummary: leet.summary,
-        hackerRankSummary: hr.summary,
+        leetcode: student.leetcodeStats,
         newReadinessScore: total
     };
 }
 
 module.exports = {
     getCodingActivity,
-    syncCodingPlatforms
+    syncCodingPlatforms,
+    syncGitHubStats
 };
