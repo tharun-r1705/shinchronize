@@ -22,7 +22,18 @@ const milestoneSchema = new mongoose.Schema({
     }],
     skills: [{ type: String, trim: true }], // Skills to learn/improve
     order: { type: Number, default: 0 },
-    completedAt: { type: Date }
+    completedAt: { type: Date },
+    requiresQuiz: { type: Boolean, default: true },
+    quizStatus: {
+        type: String,
+        enum: ['none', 'pending', 'passed', 'failed'],
+        default: 'none'
+    },
+    lastQuizScore: { type: Number, default: 0 },
+    quizAttempts: [{
+        score: Number,
+        calculatedAt: { type: Date, default: Date.now }
+    }]
 }, { _id: false });
 
 const roadmapSchema = new mongoose.Schema({
@@ -48,14 +59,14 @@ const roadmapSchema = new mongoose.Schema({
 roadmapSchema.index({ student: 1, isActive: 1 });
 
 // Update progress when milestones change
-roadmapSchema.methods.calculateProgress = function() {
+roadmapSchema.methods.calculateProgress = function () {
     if (this.milestones.length === 0) return 0;
     const completed = this.milestones.filter(m => m.status === 'completed').length;
     return Math.round((completed / this.milestones.length) * 100);
 };
 
 // Pre-save hook to update progress
-roadmapSchema.pre('save', function(next) {
+roadmapSchema.pre('save', function (next) {
     this.progress = this.calculateProgress();
     this.updatedAt = new Date();
     next();

@@ -21,6 +21,10 @@ import StudentAIAssistant from "./pages/StudentAIAssistant";
 import SkillMarketTracker from "./pages/SkillMarketTracker";
 import InterviewHub from "./pages/InterviewHub";
 import InterviewSession from "./pages/InterviewSession";
+import LearningHub from "./pages/LearningHub";
+import SkillQuiz from "./pages/SkillQuiz";
+
+
 
 const queryClient = new QueryClient();
 
@@ -42,6 +46,8 @@ const App = () => (
           <Route path="/student/market" element={<SkillMarketTracker />} />
           <Route path="/student/interview" element={<InterviewHub />} />
           <Route path="/student/interview/:sessionId" element={<InterviewSession />} />
+          <Route path="/student/learning/:skillId" element={<LearningHub />} />
+          <Route path="/student/quiz/:skillId" element={<SkillQuiz />} />
           <Route path="/recruiter/login" element={<RecruiterLogin />} />
           <Route path="/recruiter/dashboard" element={<RecruiterDashboard />} />
           <Route path="/recruiter/student/:studentId" element={<StudentProfileView />} />

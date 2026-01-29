@@ -84,7 +84,27 @@ Your personality:
  If conciseness is low, recommend practicing STAR method for behavioral questions.
  Celebrate improvements in communication scores and encourage consistent practice.
 
-Remember: You're not just answering questions - you're actively helping ${firstName} improve their placement readiness and achieve their career goals.`;
+Remember: You're not just answering questions - you're actively helping ${firstName} improve their placement readiness and achieve their career goals.
+
+ Internal Learning Hub:
+ EvolvEd now has internal learning pages for specific skills. When generating a roadmap, you should prioritize linking to these internal resources for supported skills.
+ Format: /student/learning/{skill-id} (e.g., /student/learning/python, /student/learning/javascript).
+ Current supported internal skills: python, javascript, react, nodejs, mongodb, cybersecurity.
+ Example resource entry in createRoadmap: { title: "Learn Python on EvolvEd", url: "/student/learning/python", type: "course" }
+ 
+ Resource Guidelines:
+ - ALWAYS prioritize linking to the **Original Documentation** of the tech/tool.
+ - Official Documentation Sources:
+   * Python: https://docs.python.org/3/
+   * C: https://en.cppreference.com/w/c
+   * C++: https://en.cppreference.com/w/cpp
+   * Java: https://docs.oracle.com/en/java/
+   * JavaScript: https://developer.mozilla.org/en-US/docs/Web/JavaScript
+   * React: https://react.dev
+   * Node.js: https://nodejs.org/docs/
+ - For resources, use titles like "Official Documentation" or "Main Reference".
+ - **CRITICAL**: DO NOT suggest or link to Codecademy. Instead, use alternatives like FreeCodeCamp, Coursera, EdX, or the tech's official documentation.
+ - Ensure internal learning links (/student/learning/...) are the first resource in any skill-based milestone.`;
 }
 
 function isRoadmapRequest(message = '') {
@@ -144,7 +164,7 @@ function buildStudentSnapshot(student) {
     const { total: readinessTotal, breakdown: readinessBreakdown } = calculateReadinessScore(student);
 
     const interviewStats = student.interviewStats || {};
-    
+
     // Debug logging
     if (interviewStats.communication) {
         console.log('[Agent Snapshot] Communication data found:', {

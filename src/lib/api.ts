@@ -761,7 +761,11 @@ export interface RoadmapMilestone {
   resources?: Array<{ title: string; url: string; type: string }>;
   skills?: string[];
   completedAt?: string;
+  requiresQuiz?: boolean;
+  quizStatus?: 'none' | 'pending' | 'passed' | 'failed';
+  lastQuizScore?: number;
 }
+
 
 export interface Roadmap {
   _id: string;
@@ -805,6 +809,11 @@ export const roadmapApi = {
   // Activate a roadmap
   activate: (id: string, token: string) =>
     api.patch<RoadmapResponse>(`/roadmap/${id}/activate`, {}, token),
+
+  // Submit quiz results
+  submitQuiz: (milestoneId: string, score: number, token: string) =>
+    api.post<RoadmapResponse & { passed: boolean; score: number }>(`/roadmap/milestone/${milestoneId}/quiz`, { score }, token),
 };
+
 
 export default api;

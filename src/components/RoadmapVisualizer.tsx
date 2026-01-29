@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link, useNavigate } from "react-router-dom";
+
 import {
     Map,
     CheckCircle2,
@@ -16,8 +18,10 @@ import {
     ExternalLink,
     Sparkles,
     RefreshCw,
-    Trash2
+    Trash2,
+    Lock
 } from "lucide-react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,11 +69,15 @@ interface MilestoneCardProps {
     milestone: RoadmapMilestone;
     index: number;
     total: number;
-    onStatusChange: (milestoneId: string, status: RoadmapMilestone['status']) => void;
+    onStatusChange: (id: string, status: RoadmapMilestone['status']) => void;
+    isLocked?: boolean;
 }
 
-const MilestoneCard = ({ milestone, index, total, onStatusChange }: MilestoneCardProps) => {
+const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: MilestoneCardProps) => {
+    const navigate = useNavigate();
+
     const [expanded, setExpanded] = useState(false);
+
     const IconComponent = categoryIcons[milestone.category] || Target;
     const StatusIcon = statusIcons[milestone.status];
     const gradientClass = categoryColors[milestone.category] || 'from-gray-500 to-slate-500';
@@ -81,44 +89,44 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange }: MilestoneCar
     };
 
     return (
-        <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="relative"
-        >
-            {/* Connector line */}
+        <div className={`relative flex gap-6 ${isLocked ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+            {/* Timeline Line */}
             {index < total - 1 && (
-                <div className={`absolute left-6 top-16 w-0.5 h-full -translate-x-1/2 ${
-                    milestone.status === 'completed' ? 'bg-green-500' : 'bg-border'
-                }`} />
+                <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-muted -ml-[1px]" />
             )}
 
-            <Card className={`relative border-l-4 ${
-                milestone.status === 'completed' ? 'border-l-green-500 bg-green-500/5' :
-                milestone.status === 'in-progress' ? 'border-l-amber-500 bg-amber-500/5' :
-                'border-l-border'
-            }`}>
-                <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                        {/* Status indicator */}
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg shrink-0`}>
-                            <IconComponent className="w-6 h-6 text-white" />
-                        </div>
+            {/* Icon Circle */}
+            <div className={`z-10 w-12 h-12 rounded-full bg-gradient-to-br ${isLocked ? 'from-gray-400 to-gray-500' : gradientClass} flex items-center justify-center text-white shadow-lg shrink-0`}>
+                {isLocked ? <Lock className="w-6 h-6" /> : <IconComponent className="w-6 h-6" />}
+            </div>
 
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs text-muted-foreground">Step {index + 1}</span>
-                                <Badge variant="outline" className="text-xs capitalize">
-                                    {milestone.category.replace('-', ' ')}
+            <Card className={`flex-1 mb-12 hover:shadow-md transition-shadow relative overflow-hidden ${isLocked ? 'bg-muted/30 cursor-not-allowed' : ''}`}>
+                {/* Status Indicator Bar */}
+                <div className={`absolute top-0 left-0 bottom-0 w-1 ${milestone.status === 'completed' ? 'bg-green-500' :
+                    milestone.status === 'in-progress' ? 'bg-primary' : 'bg-muted'
+                    }`} />
+
+                <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                        <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <Badge variant="outline" className="capitalize text-[10px] h-5">
+                                    {milestone.category}
                                 </Badge>
                                 {milestone.duration && (
-                                    <Badge variant="secondary" className="text-xs">
-                                        <Clock className="w-3 h-3 mr-1" />
-                                        {milestone.duration}
+                                    <Badge variant="secondary" className="text-[10px] h-5 flex items-center gap-1">
+                                        <Clock className="w-2.5 h-2.5" /> {milestone.duration}
+                                    </Badge>
+                                )}
+                                {milestone.requiresQuiz && (
+                                    <Badge variant={milestone.quizStatus === 'passed' ? 'default' : 'secondary'} className={`text-[10px] h-5 flex items-center gap-1 ${milestone.quizStatus === 'passed' ? 'bg-green-500/20 text-green-600 border-green-500/30' : ''
+                                        }`}>
+                                        <Award className="w-2.5 h-2.5" />
+                                        {milestone.quizStatus === 'passed' ? 'Quiz Passed' : 'Quiz Required'}
                                     </Badge>
                                 )}
                             </div>
+
 
                             <h4 className="font-semibold text-base mb-1">{milestone.title}</h4>
                             <p className="text-sm text-muted-foreground line-clamp-2">{milestone.description}</p>
@@ -145,19 +153,40 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange }: MilestoneCar
                                     >
                                         <p className="text-xs font-medium text-muted-foreground mb-2">Resources:</p>
                                         <div className="space-y-1">
-                                            {milestone.resources.map((resource, i) => (
-                                                <a
-                                                    key={i}
-                                                    href={resource.url?.startsWith('http') ? resource.url : `https://${resource.url}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                                                >
-                                                    <ExternalLink className="w-3 h-3" />
-                                                    {resource.title || (resource.url?.length > 50 ? resource.url.slice(0, 50) + '...' : resource.url)}
-                                                </a>
-                                            ))}
+                                            {milestone.resources.map((resource, i) => {
+                                                const isInternal = resource.url?.startsWith('/student/learning/') || resource.url?.startsWith('learning/');
+                                                const url = isInternal
+                                                    ? (resource.url.startsWith('/') ? resource.url : `/${resource.url}`)
+                                                    : (resource.url?.startsWith('http') ? resource.url : `https://${resource.url}`);
+
+                                                if (isInternal) {
+                                                    return (
+                                                        <Link
+                                                            key={i}
+                                                            to={url}
+                                                            className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                                        >
+                                                            <BookOpen className="w-3 h-3" />
+                                                            {resource.title || "Learn on EvolvEd"}
+                                                        </Link>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <a
+                                                        key={i}
+                                                        href={url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                                    >
+                                                        <ExternalLink className="w-3 h-3" />
+                                                        {resource.title || (resource.url?.length > 50 ? resource.url.slice(0, 50) + '...' : resource.url)}
+                                                    </a>
+                                                );
+                                            })}
                                         </div>
+
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -237,9 +266,10 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange }: MilestoneCar
                     </div>
                 </CardContent>
             </Card>
-        </motion.div>
+        </div>
     );
 };
+
 
 const RoadmapVisualizer = () => {
     const { toast } = useToast();
@@ -280,10 +310,10 @@ const RoadmapVisualizer = () => {
                     description: `Marked as ${status.replace('-', ' ')}`
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             toast({
                 title: "Update failed",
-                description: "Could not update milestone status",
+                description: error.message || "Could not update milestone status",
                 variant: "destructive"
             });
         } finally {
@@ -334,7 +364,7 @@ const RoadmapVisualizer = () => {
                 </motion.div>
                 <h3 className="text-xl font-semibold mb-2">No Roadmap Yet</h3>
                 <p className="text-muted-foreground text-sm mb-6 max-w-md">
-                    Ask Zenith AI to create a personalized career roadmap for you. 
+                    Ask Zenith AI to create a personalized career roadmap for you.
                     Just say something like "Create a roadmap for becoming a Full Stack Developer"
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">
@@ -440,17 +470,19 @@ const RoadmapVisualizer = () => {
                     Milestones
                 </h3>
                 <div className="space-y-4">
-                    {roadmap.milestones
-                        .sort((a, b) => a.order - b.order)
-                        .map((milestone, index) => (
+                    {roadmap.milestones.sort((a, b) => a.order - b.order).map((milestone, index) => {
+                        const isLocked = index > 0 && roadmap.milestones[index - 1].status !== 'completed';
+                        return (
                             <MilestoneCard
                                 key={milestone.id}
                                 milestone={milestone}
                                 index={index}
                                 total={roadmap.milestones.length}
                                 onStatusChange={handleStatusChange}
+                                isLocked={isLocked}
                             />
-                        ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>

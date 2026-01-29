@@ -45,7 +45,9 @@ async function createRoadmap(studentId, args) {
             type: allowedResourceTypes.includes(r.type) ? r.type : 'other'
         })),
         skills: m.skills || [],
-        order: index
+        order: index,
+        requiresQuiz: m.requiresQuiz !== undefined ? m.requiresQuiz : (m.category === 'skill' || m.category === 'project'),
+        quizStatus: 'none'
     }));
 
     const roadmap = new Roadmap({
