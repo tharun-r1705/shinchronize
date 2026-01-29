@@ -9,6 +9,7 @@ const studentRoutes = require('./routes/studentRoutes');
 const recruiterRoutes = require('./routes/recruiterRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const agentRoutes = require('./routes/agentRoutes');
+const marketRoutes = require('./routes/marketRoutes');
 const seedDemoData = require('./utils/seedData');
 const seedMarketData = require('./utils/seedMarketData');
 
@@ -68,8 +69,6 @@ app.use(morgan(isProd ? 'combined' : 'dev'));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'EvolvEd API', timestamp: new Date().toISOString() });
 });
-
-const marketRoutes = require('./routes/marketRoutes');
 
 app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);

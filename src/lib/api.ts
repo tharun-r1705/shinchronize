@@ -211,11 +211,20 @@ class ApiClient {
   async delete<T>(endpoint: string, token?: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE', token });
   }
+
+  async patch<T>(endpoint: string, data?: unknown, token?: string): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: isFormData ? data : data ? JSON.stringify(data) : undefined,
+      token,
+    });
+  }
 }
 
 const api = new ApiClient(API_BASE_URL);
 
-// Authentication APIs
+export { api };
 export const studentApi = {
   signup: (data: {
     name: string;

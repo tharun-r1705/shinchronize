@@ -855,9 +855,9 @@ const StudentDashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5 text-primary" />
-                  Learning Journal
+                  Learning Journal & Opportunities
                 </CardTitle>
-                <CardDescription>Upload your progress and achievements</CardDescription>
+                <CardDescription>Upload your progress and explore job opportunities</CardDescription>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="projects" className="w-full">
@@ -1281,6 +1281,8 @@ const StudentDashboard = () => {
                       )}
                     </div>
                   </TabsContent>
+
+
                 </Tabs>
               </CardContent>
             </Card>

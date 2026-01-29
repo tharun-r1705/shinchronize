@@ -190,7 +190,7 @@ const RecruiterDashboard = () => {
     setContactStudent(student);
     const recruiterData = JSON.parse(localStorage.getItem('recruiterData') || '{}');
     const company = recruiterData.company || 'our company';
-    
+
     // Pre-fill with template
     setContactSubject(`Opportunity at ${company}`);
     setContactMessage(`Dear ${student.name},\n\nI came across your profile on EvolvEd and was impressed by your skills and projects, particularly your work in ${student.skills?.[0] || 'technology'}.\n\nWe have an exciting opportunity at ${company} that aligns with your profile. I'd love to discuss this further with you.\n\nWould you be available for a brief call this week?\n\nBest regards`);
@@ -210,11 +210,11 @@ const RecruiterDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const userType = localStorage.getItem('userType');
-      
+
       if (!token) {
         throw new Error('No authentication token found. Please log in again.');
       }
-      
+
       if (userType !== 'recruiter') {
         throw new Error(`Invalid user type: ${userType}. Only recruiters can contact candidates.`);
       }
@@ -1125,6 +1125,8 @@ const RecruiterDashboard = () => {
                     </div>
                   )}
                 </TabsContent>
+
+
               </Tabs>
             </CardContent>
           </Card>
@@ -1154,7 +1156,7 @@ const RecruiterDashboard = () => {
               Send a message to this candidate through the EvolvEd portal. They will receive this via email.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Student Info Preview */}
             <div className="p-3 bg-muted/50 rounded-lg border">
