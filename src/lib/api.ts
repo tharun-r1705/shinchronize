@@ -176,6 +176,121 @@ export interface SyncCodingActivityResponse {
   codingProfiles: CodingProfilesPayload;
 }
 
+export interface InterviewQuestionDTO {
+  id: string;
+  type: 'technical' | 'behavioral' | 'project' | 'tricky';
+  category?: string;
+  question: string;
+  context?: string;
+  answer?: string;
+  answerMethod?: 'text' | 'voice';
+  answeredAt?: string;
+  feedback?: {
+    score?: number;
+    strengths?: string[];
+    improvements?: string[];
+    sampleAnswer?: string;
+    communication?: {
+      clarity?: number;
+      structure?: number;
+      conciseness?: number;
+      feedback?: string[];
+    };
+  };
+  voiceMetrics?: {
+    durationSeconds?: number;
+    wordCount?: number;
+    fillerWords?: { count?: number; examples?: string[] };
+  };
+}
+
+export interface InterviewSessionDTO {
+  _id: string;
+  sessionType: 'quick' | 'full';
+  interviewTypes: string[];
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  interviewerPersona: 'friendly' | 'neutral' | 'tough';
+  targetRole: string;
+  status: 'in-progress' | 'completed' | 'abandoned';
+  questionsTarget: number;
+  currentQuestionIndex: number;
+  questions: InterviewQuestionDTO[];
+  summary?: {
+    overallScore?: number;
+    categoryScores?: {
+      technical?: number;
+      behavioral?: number;
+      communication?: number;
+      confidence?: number;
+    };
+    topStrengths?: string[];
+    areasToImprove?: string[];
+    recommendations?: string[];
+    comparedToPrevious?: 'better' | 'same' | 'worse' | 'unknown';
+  };
+  createdAt?: string;
+  completedAt?: string;
+}
+
+export interface InterviewStartResponse {
+  sessionId: string;
+  question: InterviewQuestionDTO;
+  progress: { current: number; total: number };
+  sessionConfig: {
+    sessionType: 'quick' | 'full';
+    difficulty: 'beginner' | 'intermediate' | 'advanced';
+    interviewerPersona: 'friendly' | 'neutral' | 'tough';
+    interviewTypes: string[];
+    targetRole: string;
+  };
+}
+
+export interface InterviewAnswerResponse {
+  transcription?: string;
+  voiceMetrics?: InterviewQuestionDTO['voiceMetrics'];
+  feedback: NonNullable<InterviewQuestionDTO['feedback']>;
+  nextQuestion: InterviewQuestionDTO | null;
+  progress: { current: number; total: number };
+  done: boolean;
+}
+
+export interface InterviewHistoryResponse {
+  page: number;
+  limit: number;
+  total: number;
+  items: Array<{
+    _id: string;
+    sessionType: 'quick' | 'full';
+    difficulty: 'beginner' | 'intermediate' | 'advanced';
+    interviewerPersona: 'friendly' | 'neutral' | 'tough';
+    targetRole: string;
+    status: 'in-progress' | 'completed' | 'abandoned';
+    questionsTarget: number;
+    summary?: { overallScore?: number };
+    createdAt?: string;
+    completedAt?: string;
+  }>;
+}
+
+export interface InterviewStatsResponse {
+  interviewStats: {
+    totalSessions?: number;
+    completedSessions?: number;
+    avgScore?: number;
+    bestScore?: number;
+    lastSessionAt?: string;
+    totalQuestionsAnswered?: number;
+    trend?: string;
+  };
+}
+
+export interface InterviewCompleteResponse {
+  success: boolean;
+  sessionId: string;
+  overallScore: number;
+  summary: InterviewSessionDTO['summary'];
+}
+
 interface RequestOptions extends RequestInit {
   token?: string;
 }
@@ -219,7 +334,12 @@ class ApiClient {
       throw new Error(error.message || 'An error occurred');
     }
 
-    return response.json();
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return response.json();
+    }
+    // For audio/binary endpoints
+    return (await response.arrayBuffer()) as T;
   }
 
   async get<T>(endpoint: string, token?: string): Promise<T> {
@@ -510,7 +630,67 @@ export const agentApi = {
 
   // Get proactive nudges
   getNudges: (token: string) =>
-    api.get<{ success: boolean; nudges: any[] }>('/agent/nudges', token),
+    api.get<{ success: boolean; nudges: unknown[] }>('/agent/nudges', token),
+};
+
+export const interviewApi = {
+  startSession: (
+    data: {
+      sessionType?: 'quick' | 'full';
+      interviewTypes?: string[];
+      difficulty?: 'beginner' | 'intermediate' | 'advanced';
+      interviewerPersona?: 'friendly' | 'neutral' | 'tough';
+      targetRole?: string;
+      resumeText?: string;
+    } | FormData,
+    token: string
+  ) => api.post<InterviewStartResponse>('/interview/start', data, token),
+
+  submitAnswerText: (
+    sessionId: string,
+    data: { questionId: string; answer: string; language?: string },
+    token: string
+  ) =>
+    api.post<InterviewAnswerResponse>(
+      `/interview/${sessionId}/answer`,
+      { ...data, answerMethod: 'text' },
+      token
+    ),
+
+  submitAnswerVoice: (sessionId: string, formData: FormData, token: string) =>
+    api.post<InterviewAnswerResponse>(`/interview/${sessionId}/answer`, formData, token),
+
+  completeSession: (sessionId: string, data: { durationMinutes?: number } | undefined, token: string) =>
+    api.post<InterviewCompleteResponse>(
+      `/interview/${sessionId}/complete`,
+      data || {},
+      token
+    ),
+
+  getHistory: (params: { page?: number; limit?: number } | undefined, token: string) => {
+    const search = new URLSearchParams();
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    return api.get<InterviewHistoryResponse>(`/interview/history${qs ? `?${qs}` : ''}`, token);
+  },
+
+  getSession: (sessionId: string, token: string) =>
+    api.get<{ session: InterviewSessionDTO }>(`/interview/${sessionId}`, token),
+
+  getStats: (token: string) => api.get<InterviewStatsResponse>('/interview/stats', token),
+};
+
+export const ttsApi = {
+  synthesize: (
+    data: {
+      text: string;
+      voice?: string;
+      model?: string;
+      responseFormat?: 'wav' | 'mp3' | 'flac' | 'opus';
+    },
+    token: string
+  ) => api.post<ArrayBuffer>('/tts', data, token),
 };
 
 

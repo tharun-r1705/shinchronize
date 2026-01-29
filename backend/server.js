@@ -9,6 +9,8 @@ const studentRoutes = require('./routes/studentRoutes');
 const recruiterRoutes = require('./routes/recruiterRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const agentRoutes = require('./routes/agentRoutes');
+const interviewRoutes = require('./routes/interviewRoutes');
+const ttsRoutes = require('./routes/ttsRoutes');
 const seedDemoData = require('./utils/seedData');
 const seedMarketData = require('./utils/seedMarketData');
 
@@ -76,6 +78,8 @@ app.use('/api/students', studentRoutes);
 app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/interview', interviewRoutes);
+app.use('/api/tts', ttsRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/roadmap', roadmapRoutes);
 

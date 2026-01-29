@@ -19,6 +19,8 @@ import StudentProfileView from "./pages/StudentProfileView";
 import ResumeAnalyzer from "./pages/ResumeAnalyzer";
 import StudentAIAssistant from "./pages/StudentAIAssistant";
 import SkillMarketTracker from "./pages/SkillMarketTracker";
+import InterviewHub from "./pages/InterviewHub";
+import InterviewSession from "./pages/InterviewSession";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,8 @@ const App = () => (
           <Route path="/student/resume" element={<ResumeAnalyzer />} />
           <Route path="/student/ai" element={<StudentAIAssistant />} />
           <Route path="/student/market" element={<SkillMarketTracker />} />
+          <Route path="/student/interview" element={<InterviewHub />} />
+          <Route path="/student/interview/:sessionId" element={<InterviewSession />} />
           <Route path="/recruiter/login" element={<RecruiterLogin />} />
           <Route path="/recruiter/dashboard" element={<RecruiterDashboard />} />
           <Route path="/recruiter/student/:studentId" element={<StudentProfileView />} />

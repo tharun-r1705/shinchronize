@@ -33,7 +33,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "node-fetch": "^2.7.0",
-    "pdf-parse": "^2.1.6",
+    "pdf-parse": "^2.4.5",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

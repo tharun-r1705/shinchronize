@@ -239,6 +239,18 @@ const studentSchema = new mongoose.Schema(
       ),
       default: {},
     },
+
+    interviewStats: {
+      totalSessions: { type: Number, default: 0 },
+      completedSessions: { type: Number, default: 0 },
+      avgScore: { type: Number, default: 0 },
+      bestScore: { type: Number, default: 0 },
+      lastSessionAt: { type: Date, default: null },
+      recentTrend: { type: String, enum: ['improving', 'stable', 'declining'], default: 'stable' },
+      weakAreas: { type: [String], default: [] },
+      strongAreas: { type: [String], default: [] },
+      totalQuestionsAnswered: { type: Number, default: 0 },
+    },
     githubToken: { type: String, trim: true, select: false },
     role: { type: String, default: 'student' },
     isProfileComplete: { type: Boolean, default: false },

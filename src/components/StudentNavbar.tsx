@@ -30,9 +30,10 @@ export const StudentNavbar = () => {
         navigate('/');
     };
 
-    const navItems = [
+    const navItems: Array<{ label: string; path: string; private: boolean; special?: boolean }> = [
         { label: "Dashboard", path: "/student/dashboard", private: true },
         { label: "Profile", path: "/student/profile", private: true },
+        { label: "Interview", path: "/student/interview", private: true },
         { label: "AI Mentor", path: "/student/ai", private: true, special: true },
         { label: "Progress", path: "/student/progress", private: true },
         { label: "Market", path: "/student/market", private: true },
@@ -52,7 +53,7 @@ export const StudentNavbar = () => {
                     EvolvEd
                 </h1>
                 <nav className="flex gap-2 items-center">
-                    {navItems.map((item: any) => (
+                    {navItems.map((item) => (
                         <Button
                             key={item.path}
                             variant={isActive(item.path) ? "secondary" : (item.special ? "outline" : "ghost")}
