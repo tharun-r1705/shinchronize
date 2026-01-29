@@ -13,6 +13,8 @@ const {
   getSavedCandidates,
   getStudentProfile,
   aiAssistant,
+  contactStudent,
+  uploadProfilePicture,
 } = require('../controllers/recruiterController');
 const { authenticate } = require('../utils/authMiddleware');
 const {
@@ -58,5 +60,23 @@ router.delete(
 );
 
 router.post('/ai-assistant', authenticate(['recruiter']), aiAssistant);
+
+router.post(
+  '/contact/:studentId',
+  authenticate(['recruiter']),
+  studentIdParamValidation,
+  handleValidation,
+  contactStudent
+);
+
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+router.post(
+  '/profile-picture',
+  authenticate(['recruiter']),
+  upload.single('profilePicture'),
+  uploadProfilePicture
+);
 
 module.exports = router;

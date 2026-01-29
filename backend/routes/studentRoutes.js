@@ -58,6 +58,7 @@ const {
   updateCodingProfiles,
   syncCodingActivity,
   updateLeetCodeStats,
+  updateHackerRankStats,
   importLinkedInProfile,
 } = require('../controllers/studentController');
 const { authenticate } = require('../utils/authMiddleware');
@@ -201,6 +202,7 @@ router.post('/coding-sync', authenticate(['student']), syncCodingActivity);
 
 // Update LeetCode stats (admin or self with student auth)
 router.post('/:id/update-leetcode', authenticate(['student','admin']), updateLeetCodeStats);
+router.post('/:id/update-hackerrank', authenticate(['student','admin']), updateHackerRankStats);
 
 router.get('/', authenticate(['admin']), listStudents);
 router.get('/:id', authenticate(['admin']), idParamValidation, handleValidation, getStudentById);

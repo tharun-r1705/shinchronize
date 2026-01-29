@@ -79,6 +79,15 @@ export interface StudentProfileDTO {
     hard?: number;
     streak?: number;
   };
+  hackerrankStats?: {
+    totalSolved?: number;
+    stars?: number;
+    badges?: string[];
+    skills?: Array<{ name?: string; score?: number; level?: string }>;
+    recentActivity?: { last7Days?: number; last30Days?: number };
+    activeDays?: number;
+    fetchedAt?: string;
+  };
 }
 
 export interface LinkedInExperienceEntry {
@@ -282,6 +291,13 @@ export const studentApi = {
     return api.post(`/students/${studentId}/update-leetcode`, { username }, token);
   },
 
+  // HackerRank verification
+  verifyHackerRank: (username: string, token: string) => {
+    const studentData = localStorage.getItem('studentData');
+    const studentId = studentData ? JSON.parse(studentData)._id : 'me';
+    return api.post(`/students/${studentId}/update-hackerrank`, { username }, token);
+  },
+
   // Update/Delete Projects
   updateProject: (projectId: string, data: Partial<{
     title: string;
@@ -336,6 +352,9 @@ export const recruiterApi = {
 
   getProfile: (token: string) => api.get('/recruiters/profile', token),
 
+  updateProfile: (data: Record<string, unknown>, token: string) =>
+    api.put('/recruiters/profile', data, token),
+
   updatePreferences: (data: Record<string, unknown>, token: string) =>
     api.put('/recruiters/profile', data, token),
 
@@ -367,6 +386,15 @@ export const recruiterApi = {
 
   getStudentProfile: (studentId: string, token: string) =>
     api.get(`/recruiters/students/${studentId}`, token),
+
+  contactStudent: (studentId: string, data: { subject: string; message: string }, token: string) =>
+    api.post(`/recruiters/contact/${studentId}`, data, token),
+
+  uploadProfilePicture: (file: File, token: string) => {
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+    return api.post('/recruiters/profile-picture', formData, token);
+  },
 };
 
 export const adminApi = {

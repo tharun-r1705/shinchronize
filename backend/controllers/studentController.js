@@ -6,6 +6,7 @@ const { calculateReadinessScore } = require('../utils/readinessScore');
 const { generateMentorSuggestions } = require('../utils/aiMentor');
 const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/codingIntegrations');
 const { fetchLeetCodeStats } = require('../utils/leetcode');
+const { fetchHackerRankStats } = require('../utils/hackerrank');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
 
 let cachedPdfParse = null;
@@ -285,6 +286,32 @@ const updateLeetCodeStats = asyncHandler(async (req, res) => {
     res.json({ student: safeStudent, readiness: { score: total, breakdown } });
   } catch (e) {
     res.status(400).json({ message: e?.message || 'Failed to update LeetCode stats' });
+  }
+});
+
+// Update HackerRank stats by username and recompute readiness
+const updateHackerRankStats = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { username } = req.body || {};
+
+  const student = await Student.findById(id);
+  if (!student) return res.status(404).json({ message: 'Student not found' });
+
+  try {
+    const stats = await fetchHackerRankStats(username);
+    student.hackerrankStats = stats;
+    // Optionally persist username into codingProfiles
+    student.codingProfiles = { ...(student.codingProfiles || {}), hackerrank: username };
+
+    const { total, breakdown } = calculateReadinessScore(student);
+    student.readinessScore = total;
+    student.readinessHistory.push({ score: total });
+    await student.save();
+
+    const safeStudent = await Student.findById(student._id);
+    res.json({ student: safeStudent, readiness: { score: total, breakdown } });
+  } catch (e) {
+    res.status(400).json({ message: e?.message || 'Failed to update HackerRank stats' });
   }
 });
 
@@ -1095,13 +1122,18 @@ const extractResumeText = asyncHandler(async (req, res) => {
 
     // Provide more specific error message
     let errorMessage = 'Failed to parse PDF file';
-    if (error.message.includes('Invalid PDF')) {
+    let statusCode = 500;
+
+    const message = (error?.message || '').toLowerCase();
+    if (message.includes('invalid pdf') || message.includes('unexpected end of file')) {
       errorMessage = 'The uploaded file is not a valid PDF or is corrupted';
-    } else if (error.message.includes('password')) {
+      statusCode = 400;
+    } else if (message.includes('password')) {
       errorMessage = 'This PDF is password-protected and cannot be processed';
+      statusCode = 400;
     }
 
-    return res.status(500).json({
+    return res.status(statusCode).json({
       message: errorMessage,
       error: error.message,
       details: 'Please try a different PDF file or use the "Paste Text" option'
@@ -1188,5 +1220,6 @@ module.exports = {
   updateCodingProfiles,
   syncCodingActivity,
   updateLeetCodeStats,
+  updateHackerRankStats,
   importLinkedInProfile,
 };

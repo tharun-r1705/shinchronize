@@ -9,7 +9,15 @@ const recruiterSchema = new mongoose.Schema(
     company: { type: String, trim: true },
     role: { type: String, trim: true },
     phone: { type: String, trim: true },
+    profilePicture: { type: String, default: null }, // URL to profile picture
     savedCandidates: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
+    contactedCandidates: [
+      {
+        studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+        lastContactedAt: { type: Date },
+        contactCount: { type: Number, default: 1 },
+      }
+    ],
     preferences: {
       roles: { type: [String], default: [] },
       minScore: { type: Number, default: 0 },

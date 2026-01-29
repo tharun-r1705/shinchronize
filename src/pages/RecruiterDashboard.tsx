@@ -5,7 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, TrendingUp, Award, CheckCircle2, Brain, Filter, LogOut, GitCompare, Info, BookOpen, Clock, GraduationCap } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Search, TrendingUp, Award, CheckCircle2, Brain, Filter, LogOut, GitCompare, Info, BookOpen, Clock, GraduationCap, Settings, Mail, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -32,6 +34,10 @@ const RecruiterDashboard = () => {
   const [minProjects, setMinProjects] = useState("");
   const [minCGPA, setMinCGPA] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [contactStudent, setContactStudent] = useState<any>(null);
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [isSendingContact, setIsSendingContact] = useState(false);
 
   // Predefined trending skills
   const trendingSkills = [
@@ -180,6 +186,68 @@ const RecruiterDashboard = () => {
     setSearchQuery("");
   };
 
+  const openContactModal = (student: any) => {
+    setContactStudent(student);
+    const recruiterData = JSON.parse(localStorage.getItem('recruiterData') || '{}');
+    const company = recruiterData.company || 'our company';
+    
+    // Pre-fill with template
+    setContactSubject(`Opportunity at ${company}`);
+    setContactMessage(`Dear ${student.name},\n\nI came across your profile on EvolvEd and was impressed by your skills and projects, particularly your work in ${student.skills?.[0] || 'technology'}.\n\nWe have an exciting opportunity at ${company} that aligns with your profile. I'd love to discuss this further with you.\n\nWould you be available for a brief call this week?\n\nBest regards`);
+  };
+
+  const handleSendContact = async () => {
+    if (!contactStudent || !contactSubject.trim() || !contactMessage.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please provide both subject and message",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingContact(true);
+    try {
+      const token = localStorage.getItem('token');
+      const userType = localStorage.getItem('userType');
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      
+      if (userType !== 'recruiter') {
+        throw new Error(`Invalid user type: ${userType}. Only recruiters can contact candidates.`);
+      }
+
+      await recruiterApi.contactStudent(
+        contactStudent._id,
+        {
+          subject: contactSubject,
+          message: contactMessage,
+        },
+        token
+      );
+
+      toast({
+        title: "Message sent successfully",
+        description: `Your message has been sent to ${contactStudent.name}`,
+      });
+
+      // Close modal and reset
+      setContactStudent(null);
+      setContactSubject("");
+      setContactMessage("");
+    } catch (error: any) {
+      toast({
+        title: "Failed to send message",
+        description: error.message || "Unable to contact student",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingContact(false);
+    }
+  };
+
   // Filter students based on ALL selected criteria (applied simultaneously)
   const getFilteredStudents = () => {
     let filtered = students;
@@ -302,6 +370,14 @@ const RecruiterDashboard = () => {
           <nav className="flex gap-4 items-center">
             <Button variant="ghost" onClick={() => navigate("/recruiter/dashboard")}>
               Dashboard
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/recruiter/settings")}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
             </Button>
             <Button
               variant="outline"
@@ -678,13 +754,22 @@ const RecruiterDashboard = () => {
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          className="w-full md:w-auto"
-                          onClick={() => navigate(`/recruiter/student/${candidate._id}`)}
-                        >
-                          View Full Profile
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex-1 md:flex-none"
+                            onClick={() => navigate(`/recruiter/student/${candidate._id}`)}
+                          >
+                            View Full Profile
+                          </Button>
+                          <Button
+                            className="flex-1 md:flex-none bg-gradient-secondary"
+                            onClick={() => openContactModal(candidate)}
+                          >
+                            <Mail className="w-4 h-4 mr-2" />
+                            Contact
+                          </Button>
+                        </div>
 
                         {/* Score Breakdown Dialog */}
                         {(selectedSkills.length > 0 || minProjects || minCGPA || minScore) && candidate.dynamicScore !== undefined && (
@@ -1056,6 +1141,134 @@ const RecruiterDashboard = () => {
         onClose={() => setShowLogoutDialog(false)}
         onConfirm={handleLogout}
       />
+
+      {/* Contact Student Dialog */}
+      <Dialog open={!!contactStudent} onOpenChange={(open) => !open && setContactStudent(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-secondary" />
+              Contact {contactStudent?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Send a message to this candidate through the EvolvEd portal. They will receive this via email.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Student Info Preview */}
+            <div className="p-3 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-secondary rounded-full flex items-center justify-center text-lg font-bold text-secondary-foreground">
+                  {contactStudent?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold">{contactStudent?.name}</p>
+                  <p className="text-sm text-muted-foreground">{contactStudent?.email}</p>
+                  <p className="text-sm text-muted-foreground">{contactStudent?.college}</p>
+                </div>
+                <Badge variant="secondary">
+                  {contactStudent?.readinessScore || 0}% Ready
+                </Badge>
+              </div>
+            </div>
+
+            {/* Subject */}
+            <div className="space-y-2">
+              <Label htmlFor="contact-subject">Subject *</Label>
+              <Input
+                id="contact-subject"
+                value={contactSubject}
+                onChange={(e) => setContactSubject(e.target.value)}
+                placeholder="e.g., Opportunity at TechCorp"
+              />
+            </div>
+
+            {/* Message */}
+            <div className="space-y-2">
+              <Label htmlFor="contact-message">Message *</Label>
+              <Textarea
+                id="contact-message"
+                value={contactMessage}
+                onChange={(e) => setContactMessage(e.target.value)}
+                placeholder="Write your message here..."
+                rows={10}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tip: Be specific about the opportunity and mention relevant skills you noticed in their profile
+              </p>
+            </div>
+
+            {/* Template Suggestions */}
+            <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+              <p className="text-sm font-semibold mb-2">Quick Templates:</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const recruiterData = JSON.parse(localStorage.getItem('recruiterData') || '{}');
+                    const company = recruiterData.company || 'our company';
+                    setContactMessage(`Dear ${contactStudent?.name},\n\nI'd like to invite you for an interview at ${company}. We're impressed by your profile and believe you'd be a great fit for our team.\n\nPlease let me know your availability for the coming week.\n\nBest regards`);
+                  }}
+                >
+                  Interview Invite
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const recruiterData = JSON.parse(localStorage.getItem('recruiterData') || '{}');
+                    const company = recruiterData.company || 'our company';
+                    setContactMessage(`Dear ${contactStudent?.name},\n\nWe're hosting a campus recruitment drive and would love for you to participate. Based on your skills in ${contactStudent?.skills?.[0] || 'technology'}, we think you'd be an excellent candidate.\n\nDetails will be shared once you confirm your interest.\n\nLooking forward to hearing from you!`);
+                  }}
+                >
+                  Campus Drive
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const recruiterData = JSON.parse(localStorage.getItem('recruiterData') || '{}');
+                    const company = recruiterData.company || 'our company';
+                    setContactMessage(`Hi ${contactStudent?.name},\n\nI noticed your impressive work in ${contactStudent?.skills?.[0] || 'your field'}. We have an exciting internship opportunity at ${company} that aligns perfectly with your skills.\n\nWould you like to learn more?\n\nCheers`);
+                  }}
+                >
+                  Internship Offer
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setContactStudent(null)}
+              disabled={isSendingContact}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendContact}
+              disabled={isSendingContact || !contactSubject.trim() || !contactMessage.trim()}
+              className="bg-gradient-secondary"
+            >
+              {isSendingContact ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Message
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

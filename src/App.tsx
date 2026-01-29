@@ -9,6 +9,7 @@ import StudentLogin from "./pages/StudentLogin";
 import RecruiterLogin from "./pages/RecruiterLogin";
 import StudentDashboard from "./pages/StudentDashboard";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
+import RecruiterSettings from "./pages/RecruiterSettings";
 import ReadinessReport from "./pages/ReadinessReport";
 import Leaderboard from "./pages/Leaderboard";
 import AdminPanel from "./pages/AdminPanel";
@@ -40,6 +41,7 @@ const App = () => (
           <Route path="/student/market" element={<SkillMarketTracker />} />
           <Route path="/recruiter/login" element={<RecruiterLogin />} />
           <Route path="/recruiter/dashboard" element={<RecruiterDashboard />} />
+          <Route path="/recruiter/settings" element={<RecruiterSettings />} />
           <Route path="/recruiter/student/:studentId" element={<StudentProfileView />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/admin/login" element={<AdminLogin />} />

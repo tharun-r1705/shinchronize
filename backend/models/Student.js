@@ -190,6 +190,42 @@ const studentSchema = new mongoose.Schema(
       ),
       default: {},
     },
+    hackerrankStats: {
+      type: new mongoose.Schema(
+        {
+          username: { type: String },
+          totalSolved: { type: Number, default: 0 },
+          badges: [{ type: String }],
+          stars: { type: Number, default: 0 },
+          skills: [
+            {
+              name: String,
+              score: Number,
+              level: String,
+            },
+          ],
+          certifications: [
+            {
+              name: String,
+              issuedAt: String,
+            },
+          ],
+          calendar: { type: Map, of: Number, default: new Map() },
+          activeDays: { type: Number, default: 0 },
+          recentActivity: {
+            last7Days: { type: Number, default: 0 },
+            last30Days: { type: Number, default: 0 },
+          },
+          bestDay: {
+            date: String,
+            count: Number,
+          },
+          fetchedAt: { type: Date },
+        },
+        { _id: false }
+      ),
+      default: {},
+    },
     role: { type: String, default: 'student' },
     isProfileComplete: { type: Boolean, default: false },
   },
@@ -208,6 +244,10 @@ const studentSchema = new mongoose.Schema(
         if (ret.leetcodeStats?.calendar instanceof Map) {
           ret.leetcodeStats.calendar = Object.fromEntries(ret.leetcodeStats.calendar);
         }
+        // Convert Map to plain object for hackerrankStats.calendar
+        if (ret.hackerrankStats?.calendar instanceof Map) {
+          ret.hackerrankStats.calendar = Object.fromEntries(ret.hackerrankStats.calendar);
+        }
         return ret;
       },
     },
@@ -221,6 +261,10 @@ const studentSchema = new mongoose.Schema(
         // Convert Map to plain object for leetcodeStats.calendar
         if (ret.leetcodeStats?.calendar instanceof Map) {
           ret.leetcodeStats.calendar = Object.fromEntries(ret.leetcodeStats.calendar);
+        }
+        // Convert Map to plain object for hackerrankStats.calendar
+        if (ret.hackerrankStats?.calendar instanceof Map) {
+          ret.hackerrankStats.calendar = Object.fromEntries(ret.hackerrankStats.calendar);
         }
         return ret;
       },

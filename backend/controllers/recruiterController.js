@@ -432,6 +432,148 @@ Be helpful, professional, and data-driven in your responses. Focus on growth pat
   }
 });
 
+const contactStudent = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+  const { subject, message } = req.body;
+
+  if (!studentId) {
+    return res.status(400).json({ message: 'Student ID is required' });
+  }
+
+  if (!subject || !message) {
+    return res.status(400).json({ message: 'Subject and message are required' });
+  }
+
+  // Verify the recruiter is authenticated
+  if (!req.user || !req.user._id) {
+    return res.status(401).json({ message: 'Recruiter not authenticated. Please log in again.' });
+  }
+
+  // Find the student
+  const student = await Student.findById(studentId).select('name email college');
+  if (!student) {
+    return res.status(404).json({ message: 'Student not found' });
+  }
+
+  // Get recruiter info
+  const recruiter = await Recruiter.findById(req.user._id);
+  if (!recruiter) {
+    return res.status(404).json({ message: 'Recruiter not found' });
+  }
+
+  // Track this contact
+  if (!recruiter.contactedCandidates) {
+    recruiter.contactedCandidates = [];
+  }
+
+  const existingContact = recruiter.contactedCandidates.find(
+    contact => contact.studentId && contact.studentId.toString() === studentId
+  );
+
+  if (existingContact) {
+    existingContact.lastContactedAt = new Date();
+    existingContact.contactCount = (existingContact.contactCount || 1) + 1;
+  } else {
+    recruiter.contactedCandidates.push({
+      studentId: studentId,
+      lastContactedAt: new Date(),
+      contactCount: 1,
+    });
+  }
+
+  await recruiter.save();
+
+  // Attempt to send email via SMTP
+  try {
+    const nodemailer = require('nodemailer');
+
+    if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('⚠️  SMTP not configured. Contact queued without email.');
+      return res.status(202).json({
+        message: 'Contact queued (email service not configured)',
+        note: 'Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, FROM_EMAIL in environment to enable email sending.',
+        contactedStudent: { id: student._id, name: student.name, email: student.email },
+        queuedAt: new Date(),
+      });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const fromEmail = process.env.FROM_EMAIL || recruiter.email;
+    const signature = `\n\nBest regards,\n${recruiter.name}${recruiter.company ? `\n${recruiter.company}` : ''}`;
+    const text = `Dear ${student.name},\n\n${message}${signature}\n\n— Sent via EvolvEd`;
+    const html = `
+      <p>Dear ${student.name},</p>
+      <p>${message.replace(/\n/g, '<br>')}</p>
+      <p>Best regards,<br>${recruiter.name}<br>${recruiter.company || ''}</p>
+      <hr>
+      <p style="color:#666;font-size:12px;">This message was sent via EvolvEd recruitment platform.</p>
+    `;
+
+    await transporter.sendMail({
+      from: fromEmail,
+      to: student.email,
+      cc: recruiter.email,
+      subject,
+      text,
+      html,
+    });
+
+    console.log(`✅ Email sent to ${student.email} from ${recruiter.name}`);
+
+    return res.json({
+      message: 'Contact message sent successfully',
+      contactedStudent: { id: student._id, name: student.name, email: student.email },
+      sentAt: new Date(),
+    });
+  } catch (err) {
+    console.error('❌ Email send failed:', err.message);
+    return res.status(502).json({
+      message: 'Failed to send email to candidate',
+      error: err.message,
+      hint: 'Check SMTP configuration in backend environment variables',
+    });
+  }
+});
+
+const uploadProfilePicture = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  try {
+    // Convert buffer to base64 data URL
+    const base64 = req.file.buffer.toString('base64');
+    const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
+
+    // Update recruiter profile picture
+    const recruiter = await Recruiter.findByIdAndUpdate(
+      req.user._id,
+      { profilePicture: dataUrl },
+      { new: true }
+    );
+
+    res.json({
+      message: 'Profile picture uploaded successfully',
+      recruiter,
+    });
+  } catch (error) {
+    console.error('Profile picture upload error:', error);
+    res.status(500).json({
+      message: 'Failed to upload profile picture',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = {
   signup,
   login,
@@ -444,4 +586,6 @@ module.exports = {
   getSavedCandidates,
   getStudentProfile,
   aiAssistant,
+  contactStudent,
+  uploadProfilePicture,
 };
