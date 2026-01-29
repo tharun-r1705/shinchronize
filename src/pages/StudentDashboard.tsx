@@ -124,6 +124,58 @@ const StudentDashboard = () => {
     return parsed.toLocaleString();
   };
 
+  const readinessMax: Record<string, number> = {
+    projects: 25,
+    codingConsistency: 15,
+    githubActivity: 15,
+    certifications: 15,
+    events: 10,
+    skillDiversity: 10,
+    skillRadar: 10,
+    skills: 10,
+    streakBonus: 5,
+  };
+
+  const readinessLabels: Record<string, string> = {
+    projects: 'Projects',
+    codingConsistency: 'Coding Consistency',
+    githubActivity: 'GitHub Activity',
+    certifications: 'Certifications',
+    events: 'Events',
+    skillDiversity: 'Platform Diversity',
+    skillRadar: 'Skill Proficiency',
+    skills: 'Profile Skills',
+    streakBonus: 'Consistency Streak',
+  };
+
+  const getReadinessRows = () => {
+    const breakdown = (student?.readinessBreakdown || {}) as Record<string, number>;
+    const keys = [
+      'projects',
+      'codingConsistency',
+      'githubActivity',
+      'certifications',
+      'events',
+      'skillDiversity',
+      'skillRadar',
+      'skills',
+      'streakBonus',
+    ];
+
+    return keys.map((key) => {
+      const value = typeof breakdown[key] === 'number' ? breakdown[key] : 0;
+      const max = readinessMax[key] || 0;
+      const pct = max ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+      return {
+        key,
+        label: readinessLabels[key] || key,
+        value,
+        max,
+        pct,
+      };
+    });
+  };
+
   // Mentor fetch functions removed from dashboard
 
   useEffect(() => {
@@ -789,20 +841,58 @@ const StudentDashboard = () => {
                   <p className="text-muted-foreground mb-3">
                     {student.branch || 'Computer Science'} {student.year && `• ${student.year} Year`} {student.college && `• ${student.college}`}
                   </p>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Base Readiness Score</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                          {student.baseReadinessScore || 0}%
-                        </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+                    <div className="rounded-xl border bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">Readiness</p>
+                      <div className="flex items-end justify-between gap-3 mt-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                            {student.baseReadinessScore || 0}
+                          </span>
+                          <span className="text-sm text-muted-foreground">/ 100</span>
+                        </div>
                         <TrendingUp className="w-5 h-5 text-primary" />
                       </div>
+                      <Progress value={Math.max(0, Math.min(100, student.baseReadinessScore || 0))} className="h-2 mt-3" />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Powered by projects, recent activity (logs + synced stats), skills, and streak.
+                      </p>
                     </div>
-                    <div className="h-12 w-px bg-border" />
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Current Streak</p>
-                      <span className="text-2xl font-bold text-primary">{student.streakDays || 0} days</span>
+
+                    <div className="rounded-xl border bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">Consistency</p>
+                      <div className="flex items-end justify-between gap-3 mt-1">
+                        <div>
+                          <span className="text-2xl font-bold text-primary">{student.streakDays || 0}</span>
+                          <span className="text-sm text-muted-foreground"> day streak</span>
+                        </div>
+                        <Calendar className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Last active: {formatTimestamp(student.lastActiveAt) || '—'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">Score Breakdown</p>
+                      <div className="space-y-2 mt-3">
+                        {getReadinessRows().slice(0, 4).map((row) => (
+                          <div key={row.key} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{row.label}</span>
+                              <span className="font-medium">{row.value.toFixed(1)}/{row.max}</span>
+                            </div>
+                            <Progress value={row.pct} className="h-1.5" />
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        variant="link"
+                        className="px-0 text-primary font-bold mt-2"
+                        onClick={() => navigate('/student/readiness')}
+                      >
+                        See full breakdown <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
                     </div>
                   </div>
                 </div>

@@ -58,6 +58,7 @@ const {
   updateCodingProfiles,
   syncCodingActivity,
   updateLeetCodeStats,
+  updateGitHubStats,
   importLinkedInProfile,
   getDomainInsights,
 } = require('../controllers/studentController');
@@ -205,6 +206,9 @@ router.post('/coding-sync', authenticate(['student']), syncCodingActivity);
 
 // Update LeetCode stats (admin or self with student auth)
 router.post('/:id/update-leetcode', authenticate(['student', 'admin']), updateLeetCodeStats);
+
+// Update GitHub stats (admin or self with student auth)
+router.post('/:id/update-github', authenticate(['student', 'admin']), updateGitHubStats);
 
 router.get('/', authenticate(['admin']), listStudents);
 router.get('/:id', authenticate(['admin']), idParamValidation, handleValidation, getStudentById);

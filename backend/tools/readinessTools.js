@@ -17,17 +17,22 @@ async function getReadinessScore(studentId, args = {}) {
 
     const { total, breakdown } = calculateReadinessScore(student);
 
+    if (process.env.AGENT_DEBUG === 'true') {
+        console.log('[readiness] score breakdown:', JSON.stringify({ total, breakdown }));
+    }
+
     // Generate insights for all categories
     const insights = [];
 
     const categories = [
-        { key: 'projects', label: 'Projects', max: 30, unit: 12, item: 'project' },
-        { key: 'codingConsistency', label: 'Coding Consistency', max: 20, unit: 2, item: 'log' },
-        { key: 'certifications', label: 'Certifications', max: 20, unit: 5, item: 'certification' },
-        { key: 'skills', label: 'Profile Skills', max: 10, unit: 2, item: 'skill' },
-        { key: 'skillDiversity', label: 'Platform Diversity', max: 10, unit: 5, item: 'platform' },
+        { key: 'projects', label: 'Projects', max: 25, unit: 10, item: 'project' },
+        { key: 'codingConsistency', label: 'Coding Consistency', max: 15, unit: 1.5, item: 'recent log' },
+        { key: 'githubActivity', label: 'GitHub Activity', max: 15 },
+        { key: 'certifications', label: 'Certifications', max: 15, unit: 4, item: 'certification' },
         { key: 'events', label: 'Event Participation', max: 10, unit: 3, item: 'event' },
+        { key: 'skillDiversity', label: 'Platform Diversity', max: 10, unit: 5, item: 'platform' },
         { key: 'skillRadar', label: 'Skill Proficiency', max: 10 },
+        { key: 'skills', label: 'Profile Skills', max: 10, unit: 2, item: 'skill' },
         { key: 'streakBonus', label: 'Consistency Streak', max: 5 }
     ];
 

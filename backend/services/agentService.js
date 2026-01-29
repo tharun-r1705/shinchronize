@@ -5,9 +5,11 @@
  */
 
 const Groq = require('groq-sdk');
+const dayjs = require('dayjs');
 const Student = require('../models/Student');
 const AgentConversation = require('../models/AgentConversation');
 const { toolDefinitions, executeTool, requiresConfirmation } = require('../tools');
+const { calculateReadinessScore } = require('../utils/readinessScore');
 
 const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
@@ -38,25 +40,33 @@ Your personality:
 - Be concise but thorough when explaining concepts
 - Celebrate wins, no matter how small
 
-Guidance:
-1. Always check the student's current status using tools before giving specific advice.
-2. If the student has not provided their LeetCode/HackerRank username, ask for it so you can sync their data.
-3. You can perform multiple actions (like adding several goals) in a single turn.
+ Guidance:
+ 1. Use STUDENT_SNAPSHOT_JSON as the source of truth for the student's current stats (readiness breakdown, coding activity, profiles).
+ 2. Only call tools when you need to (a) sync/refresh data, (b) update data (profile/goals/roadmap), or (c) fetch details missing from the snapshot.
+ 3. If LeetCode/GitHub username is missing in the snapshot, ask for it so you can sync their data.
+ 4. You can perform multiple actions (like adding several goals) in a single turn.
 4. Provide summaries of data and clear next steps.
 5. When setting goals, include numeric targets and enable auto-tracking whenever possible (projects, certifications, coding problems, skills).
 6. IMPORTANT: If the student asks for a roadmap/learning path/career plan (or says they want to become a role), you MUST ask exactly three short questions first (target role, current level, timeline/weekly time). Do NOT create a roadmap or call tools until all three are answered.
 
-Readiness Score Formula Knowledge:
-You know the placement readiness score (0-100) is calculated as:
-- Projects (30 pts): 12 pts per project.
-- Coding Consistency (20 pts): 2 pts per log in last 30 days.
-- Certifications (20 pts): 5 pts each.
-- Skills (10 pts): 2 pts per skill listed.
-- Skill Radar/Average (10 pts): Based on skill proficiency.
-- Skill Diversity (10 pts): 5 pts per unique platform used.
-- Events (10 pts): 3 pts each.
-- Streak Bonus (5 pts): 0.2 pts per day of streak.
-Use this formula to explain to students exactly how they can increase their score!
+ Data labels:
+ - Platform Diversity is the readiness category for number of active platforms (LeetCode/GitHub/logs).
+ - GitHub repos are NOT the same as EvolvEd projects unless the student adds them as projects.
+
+ Readiness Score Formula Knowledge:
+ You know the placement readiness score (0-100) is calculated as:
+ - Projects (max 25)
+ - Coding Consistency from recent logs (max 15)
+ - GitHub Activity (max 15)
+ - Certifications (max 15)
+ - Events (max 10)
+ - Platform Diversity (max 10)
+ - Skill Radar/Average (max 10)
+ - Profile Skills listed (max 10)
+ - Streak Bonus (max 5)
+ The final total is capped at 100.
+ Important: "Coding Consistency" and "Platform Diversity" are based on recent activity (coding logs and/or synced LeetCode/GitHub stats), not just profile links.
+ Use this formula to explain exactly how the student can increase their score.
 
 Remember: You're not just answering questions - you're actively helping ${firstName} improve their placement readiness and achieve their career goals.`;
 }
@@ -105,6 +115,70 @@ function buildProfileSummary(student) {
 
     const parts = [skills, projects, experience, certifications].filter(Boolean);
     return parts.length > 0 ? parts.join(' | ') : '';
+}
+
+function buildStudentSnapshot(student) {
+    const codingProfiles = student.codingProfiles || {};
+    const leetcode = student.leetcodeStats || {};
+    const github = student.githubStats || {};
+    const logs = Array.isArray(student.codingLogs) ? student.codingLogs : [];
+    const last30Days = dayjs().subtract(30, 'day');
+    const recentLogsCount = logs.filter(l => dayjs(l.date || l.createdAt).isAfter(last30Days)).length;
+
+    const { total: readinessTotal, breakdown: readinessBreakdown } = calculateReadinessScore(student);
+
+    return {
+        readinessScore: {
+            total: readinessTotal,
+            breakdown: {
+                projects: { score: Number(readinessBreakdown.projects) || 0, max: 25 },
+                codingConsistency: { score: Number(readinessBreakdown.codingConsistency) || 0, max: 15 },
+                githubActivity: { score: Number(readinessBreakdown.githubActivity) || 0, max: 15 },
+                certifications: { score: Number(readinessBreakdown.certifications) || 0, max: 15 },
+                events: { score: Number(readinessBreakdown.events) || 0, max: 10 },
+                platformDiversity: { score: Number(readinessBreakdown.skillDiversity) || 0, max: 10 },
+                skillProficiency: { score: Number(readinessBreakdown.skillRadar) || 0, max: 10 },
+                profileSkills: { score: Number(readinessBreakdown.skills) || 0, max: 10 },
+                streakBonus: { score: Number(readinessBreakdown.streakBonus) || 0, max: 5 }
+            }
+        },
+        lastActiveAt: student.lastActiveAt || null,
+        codingProfiles: {
+            leetcode: codingProfiles.leetcode || '',
+            github: codingProfiles.github || '',
+            lastSyncedAt: codingProfiles.lastSyncedAt || null
+        },
+        leetcodeStats: {
+            username: leetcode.username || codingProfiles.leetcode || '',
+            totalSolved: leetcode.totalSolved || 0,
+            streak: leetcode.streak || 0,
+            recentActivity: leetcode.recentActivity || { last7Days: 0, last30Days: 0 },
+            fetchedAt: leetcode.fetchedAt || null
+        },
+        githubStats: {
+            username: github.username || codingProfiles.github || '',
+            totalRepos: github.totalRepos || 0,
+            totalStars: github.totalStars || 0,
+            streak: github.streak || 0,
+            recentActivity: github.recentActivity || { last7Days: 0, last30Days: 0 },
+            calendarWarning: github.calendarWarning || null,
+            fetchedAt: github.fetchedAt || null
+        },
+        codingLogs: {
+            recent30DaysCount: recentLogsCount,
+            latest: logs
+                .slice()
+                .sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0))
+                .slice(0, 5)
+                .map(l => ({
+                    date: l.date || l.createdAt || null,
+                    platform: l.platform || 'Unknown',
+                    activity: l.activity || 'Practice',
+                    problemsSolved: Number(l.problemsSolved) || 0,
+                    minutesSpent: Number(l.minutesSpent) || 0
+                }))
+        }
+    };
 }
 
 function isProfileReference(message = '') {
@@ -221,8 +295,18 @@ async function processMessage(studentId, userMessage, conversationId = null) {
     const systemPrompt = buildSystemPrompt(student);
     const recentContext = conversation.getRecentContext(10);
 
+    const snapshot = buildStudentSnapshot(student);
+
+    if (process.env.AGENT_DEBUG === 'true') {
+        console.log('[agent] snapshot:', JSON.stringify(snapshot));
+    }
+
     const messages = [
         { role: 'system', content: systemPrompt },
+        {
+            role: 'system',
+            content: `STUDENT_SNAPSHOT_JSON:\n${JSON.stringify(snapshot)}`
+        },
         ...recentContext
     ];
 

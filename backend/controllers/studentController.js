@@ -6,6 +6,7 @@ const { calculateReadinessScore } = require('../utils/readinessScore');
 const { generateMentorSuggestions } = require('../utils/aiMentor');
 const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/codingIntegrations');
 const { fetchLeetCodeStats } = require('../utils/leetcode');
+const { fetchGitHubStats } = require('../utils/github');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
 const { syncAutoGoals } = require('../utils/goalSync');
 const { generateDomainInsight } = require('../utils/domainInsights');
@@ -117,6 +118,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     'portfolioUrl',
     'linkedinUrl',
     'githubUrl',
+    'githubToken',
     'resumeUrl',
     'leetcodeUrl',
     'hackerrankUrl',
@@ -136,6 +138,11 @@ const updateProfile = asyncHandler(async (req, res) => {
       updates[field] = req.body[field];
     }
   });
+
+  // Log if githubToken is being updated
+  if (typeof updates.githubToken !== 'undefined') {
+    console.log(`[updateProfile] GitHub token ${updates.githubToken ? 'SET' : 'CLEARED'} for user ${req.user?.email}`);
+  }
 
   if (typeof updates.dateOfBirth !== 'undefined') {
     updates.dateOfBirth = updates.dateOfBirth ? new Date(updates.dateOfBirth) : null;
@@ -305,6 +312,43 @@ const updateLeetCodeStats = asyncHandler(async (req, res) => {
     res.json({ student: safeStudent, readiness: { score: total, breakdown } });
   } catch (e) {
     res.status(400).json({ message: e?.message || 'Failed to update LeetCode stats' });
+  }
+});
+
+// Update GitHub stats by username and recompute readiness
+const updateGitHubStats = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { username } = req.body || {};
+
+  // Fetch student with githubToken field (it's select: false by default)
+  const student = await Student.findById(id).select('+githubToken');
+  if (!student) return res.status(404).json({ message: 'Student not found' });
+
+  try {
+    // Pass user's token to GitHub API if available
+    const userToken = student.githubToken || null;
+    console.log(`[updateGitHubStats] User: ${student.email}, Token present: ${!!userToken}, Token length: ${userToken?.length || 0}`);
+    
+    const stats = await fetchGitHubStats(username, userToken);
+    student.githubStats = stats;
+    // Persist username into codingProfiles
+    student.codingProfiles = { ...(student.codingProfiles || {}), github: username };
+
+    const goalsUpdated = syncAutoGoals(student);
+    if (goalsUpdated) {
+      await student.save();
+    }
+
+    const { total, breakdown } = calculateReadinessScore(student);
+    student.readinessScore = total;
+    student.readinessHistory.push({ score: total });
+    await student.save();
+
+    const safeStudent = await Student.findById(student._id);
+    res.json({ student: safeStudent, readiness: { score: total, breakdown } });
+  } catch (e) {
+    console.error('[updateGitHubStats] Error:', e);
+    res.status(400).json({ message: e?.message || 'Failed to update GitHub stats' });
   }
 });
 
@@ -1235,6 +1279,7 @@ module.exports = {
   updateCodingProfiles,
   syncCodingActivity,
   updateLeetCodeStats,
+  updateGitHubStats,
   importLinkedInProfile,
   getDomainInsights,
 };

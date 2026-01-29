@@ -11,6 +11,7 @@ const API_BASE_URL = (() => {
 export interface CodingProfilesPayload {
   leetcode?: string;
   hackerrank?: string;
+  github?: string;
   lastSyncedAt?: string;
 }
 
@@ -30,6 +31,7 @@ export interface UpdateStudentProfilePayload {
   portfolioUrl?: string;
   linkedinUrl?: string;
   githubUrl?: string;
+  githubToken?: string;
   resumeUrl?: string;
   leetcodeUrl?: string;
   hackerrankUrl?: string;
@@ -78,6 +80,49 @@ export interface StudentProfileDTO {
     medium?: number;
     hard?: number;
     streak?: number;
+    calendar?: Record<string, number>;
+    topDomains?: Array<{ tag: string; count: number }>;
+    activeDays?: number;
+    recentActivity?: {
+      last7Days?: number;
+      last30Days?: number;
+    };
+    bestDay?: {
+      date?: string;
+      count?: number;
+    };
+    calendarRange?: {
+      start?: string;
+      end?: string;
+    };
+    fetchedAt?: string;
+  };
+  githubStats?: {
+    username?: string;
+    totalRepos?: number;
+    totalStars?: number;
+    totalForks?: number;
+    followers?: number;
+    following?: number;
+    totalCommits?: number;
+    calendar?: Record<string, number>;
+    topLanguages?: Array<{ name: string; count: number; percentage: number }>;
+    activeDays?: number;
+    streak?: number;
+    longestStreak?: number;
+    recentActivity?: {
+      last7Days?: number;
+      last30Days?: number;
+    };
+    bestDay?: {
+      date?: string;
+      count?: number;
+    };
+    calendarRange?: {
+      start?: string;
+      end?: string;
+    };
+    fetchedAt?: string;
   };
 }
 
@@ -289,6 +334,13 @@ export const studentApi = {
     const studentData = localStorage.getItem('studentData');
     const studentId = studentData ? JSON.parse(studentData)._id : 'me';
     return api.post(`/students/${studentId}/update-leetcode`, { username }, token);
+  },
+
+  // GitHub verification
+  verifyGitHub: (username: string, token: string) => {
+    const studentData = localStorage.getItem('studentData');
+    const studentId = studentData ? JSON.parse(studentData)._id : 'me';
+    return api.post(`/students/${studentId}/update-github`, { username }, token);
   },
 
   // Update/Delete Projects

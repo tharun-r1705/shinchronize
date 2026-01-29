@@ -145,8 +145,13 @@ const buildStudentContext = (student, readiness = {}) => {
         .map(mapEvent),
     },
     codingActivity: {
-      profiles: student.codingProfiles || {},
+      profiles: {
+        leetcode: student.codingProfiles?.leetcode || '',
+        github: student.codingProfiles?.github || '',
+        lastSyncedAt: student.codingProfiles?.lastSyncedAt || null,
+      },
       leetcodeStats: student.leetcodeStats || {},
+      githubStats: student.githubStats || {},
       logsRecent: ensureArray(student.codingLogs)
         .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
         .slice(0, 7)

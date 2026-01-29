@@ -28,7 +28,7 @@ const toolDefinitions = [
         type: 'function',
         function: {
             name: 'getCodingActivity',
-            description: 'Get the student\'s coding activity including LeetCode stats, problem counts by difficulty, streaks, and recent submissions',
+            description: 'Get the student\'s coding activity including LeetCode/GitHub stats, streaks, and recent logs',
             parameters: {
                 type: 'object',
                 properties: {
@@ -46,10 +46,27 @@ const toolDefinitions = [
         type: 'function',
         function: {
             name: 'syncCodingPlatforms',
-            description: 'Sync the latest activity from LeetCode and HackerRank profiles',
+            description: 'Sync the latest activity from LeetCode profile',
             parameters: {
                 type: 'object',
                 properties: {},
+                required: []
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'syncGitHubStats',
+            description: 'Sync the latest GitHub stats (repos, stars, contribution calendar when token is set)',
+            parameters: {
+                type: 'object',
+                properties: {
+                    username: {
+                        type: 'string',
+                        description: 'GitHub username (optional). If omitted, uses the username saved in profile.'
+                    }
+                },
                 required: []
             }
         }
@@ -249,9 +266,8 @@ const toolDefinitions = [
                     linkedinUrl: { type: 'string' },
                     portfolioUrl: { type: 'string' },
                     leetcodeUrl: { type: 'string' },
-                    hackerrankUrl: { type: 'string' },
                     leetcodeUsername: { type: 'string', description: 'The student\'s LeetCode username (not the full URL)' },
-                    hackerrankUsername: { type: 'string', description: 'The student\'s HackerRank username (not the full URL)' }
+                    githubUsername: { type: 'string', description: 'The student\'s GitHub username (not the full URL)' }
                 },
                 required: []
             }
@@ -429,6 +445,7 @@ const toolHandlers = {
     getStudentProfile: profileTools.getStudentProfile,
     getCodingActivity: codingTools.getCodingActivity,
     syncCodingPlatforms: codingTools.syncCodingPlatforms,
+    syncGitHubStats: codingTools.syncGitHubStats,
     getReadinessScore: readinessTools.getReadinessScore,
     getGoals: goalTools.getGoals,
     addGoal: goalTools.addGoal,
@@ -462,7 +479,7 @@ async function executeTool(toolName, args, studentId) {
 
 // Check if a tool requires confirmation (write operations)
 function requiresConfirmation(toolName) {
-    const writeTools = ['addGoal', 'updateGoalProgress', 'addProject', 'updateProfile', 'syncCodingPlatforms', 'removeGoal', 'clearGoals', 'createRoadmap', 'updateMilestoneStatus', 'addMilestone', 'deleteRoadmap'];
+    const writeTools = ['addGoal', 'updateGoalProgress', 'addProject', 'updateProfile', 'syncCodingPlatforms', 'syncGitHubStats', 'removeGoal', 'clearGoals', 'createRoadmap', 'updateMilestoneStatus', 'addMilestone', 'deleteRoadmap'];
     return writeTools.includes(toolName);
 }
 

@@ -34,7 +34,6 @@ async function getStudentProfile(studentId, args = {}) {
         githubUrl: student.githubUrl,
         portfolioUrl: student.portfolioUrl,
         leetcodeUrl: student.leetcodeUrl,
-        hackerrankUrl: student.hackerrankUrl,
         streakDays: student.streakDays || 0,
         badges: student.badges || [],
         projectCount: (student.projects || []).length,
@@ -57,7 +56,7 @@ async function updateProfile(studentId, args = {}) {
         'firstName', 'lastName', 'dateOfBirth', 'gender', 'college',
         'branch', 'year', 'graduationYear', 'cgpa', 'phone',
         'location', 'portfolioUrl', 'linkedinUrl', 'githubUrl',
-        'resumeUrl', 'headline', 'summary', 'leetcodeUrl', 'hackerrankUrl'
+        'resumeUrl', 'headline', 'summary', 'leetcodeUrl'
     ];
 
     Object.keys(args).forEach(key => {
@@ -71,9 +70,9 @@ async function updateProfile(studentId, args = {}) {
         if (!student.codingProfiles) student.codingProfiles = {};
         student.codingProfiles.leetcode = args.leetcodeUsername;
     }
-    if (args.hackerrankUsername) {
+    if (args.githubUsername) {
         if (!student.codingProfiles) student.codingProfiles = {};
-        student.codingProfiles.hackerrank = args.hackerrankUsername;
+        student.codingProfiles.github = args.githubUsername;
     }
 
     await student.save();

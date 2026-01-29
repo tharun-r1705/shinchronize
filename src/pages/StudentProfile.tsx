@@ -83,6 +83,7 @@ const DEFAULT_FORM_STATE = {
   portfolioUrl: "",
   linkedinUrl: "",
   githubUrl: "",
+  githubToken: "",
   resumeUrl: "",
   leetcodeUrl: "",
   hackerrankUrl: "",
@@ -200,6 +201,7 @@ const StudentProfile = () => {
       portfolioUrl: data?.portfolioUrl || "",
       linkedinUrl: data?.linkedinUrl || "",
       githubUrl: data?.githubUrl || "",
+      githubToken: "", // Never populate from server for security
       resumeUrl: data?.resumeUrl || "",
       leetcodeUrl:
         data?.leetcodeUrl || (data?.codingProfiles?.leetcode ? `https://leetcode.com/${data.codingProfiles.leetcode}` : ""),
@@ -411,6 +413,7 @@ const StudentProfile = () => {
         portfolioUrl: formState.portfolioUrl,
         linkedinUrl: formState.linkedinUrl,
         githubUrl: formState.githubUrl,
+        githubToken: formState.githubToken.trim() || undefined,
         resumeUrl: formState.resumeUrl,
         leetcodeUrl: formState.leetcodeUrl,
         hackerrankUrl: formState.hackerrankUrl,
@@ -745,6 +748,34 @@ const StudentProfile = () => {
                   value={formState.githubUrl}
                   onChange={handleInputChange}
                 />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="githubToken" className="flex items-center gap-2">
+                  GitHub Personal Access Token (Optional)
+                  <span className="text-xs text-muted-foreground font-normal">
+                    For contribution stats
+                  </span>
+                </Label>
+                <Input
+                  id="githubToken"
+                  name="githubToken"
+                  type="password"
+                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                  value={formState.githubToken}
+                  onChange={handleInputChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Get your token at{" "}
+                  <a
+                    href="https://github.com/settings/tokens/new?scopes=public_repo,read:user&description=EvolvEd%20Stats"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    github.com/settings/tokens/new
+                  </a>
+                  {" "}with <code className="text-xs">public_repo</code> and <code className="text-xs">read:user</code> scopes.
+                </p>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="resumeUrl">Resume link</Label>
