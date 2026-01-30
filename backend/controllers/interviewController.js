@@ -9,6 +9,7 @@ const {
   estimateWordCount,
 } = require('../utils/interviewEngine');
 const { extractTextFromPDF } = require('../utils/pdfExtractor');
+const { updateStreak } = require('../utils/streakCalculator');
 
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
@@ -346,6 +347,9 @@ const completeInterviewSession = asyncHandler(async (req, res) => {
     student.readinessHistory.push({ score: total, calculatedAt: new Date() });
 
     await student.save();
+    
+    // Update streak after completing interview
+    await updateStreak(student);
     
     // Log for debugging
     console.log('[Interview Complete] Communication Scores:', {

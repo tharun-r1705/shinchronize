@@ -120,6 +120,17 @@ const RecruiterSettings = () => {
   };
 
   const handleSave = async () => {
+    // Validate before saving
+    const errors = validateProfile();
+    if (errors.length > 0) {
+      toast({
+        title: "Profile Incomplete",
+        description: `Please fill in the following required fields: ${errors.join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
@@ -211,6 +222,29 @@ const RecruiterSettings = () => {
 
   const markChanged = () => setHasChanges(true);
 
+  // RequiredLabel component
+  const RequiredLabel = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
+    <Label htmlFor={htmlFor} className="flex items-center gap-1">
+      {children}
+      <span className="text-red-500">*</span>
+    </Label>
+  );
+
+  // Validation function
+  const validateProfile = () => {
+    const errors: string[] = [];
+    
+    if (!name.trim()) errors.push('Full Name');
+    if (!phone.trim()) errors.push('Phone Number');
+    if (!company.trim()) errors.push('Company Name');
+    if (!role.trim()) errors.push('Job Title/Role');
+    // Profile picture is optional
+    if (targetRoles.length === 0) errors.push('At least one Target Role');
+    if (preferredSkills.length === 0) errors.push('At least one Preferred Skill');
+    
+    return errors;
+  };
+
   const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -255,8 +289,33 @@ const RecruiterSettings = () => {
     }
   };
 
-  const removeProfilePicture = () => {
-    setProfilePicturePreview(null);
+  const removeProfilePicture = async () => {
+    try {
+      setIsUploadingPicture(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/recruiter/login');
+        return;
+      }
+
+      const result: any = await recruiterApi.updateProfile({ profilePicture: null }, token);
+      setProfilePicture(result?.profilePicture || null);
+      setProfilePicturePreview(result?.profilePicture || null);
+      setHasChanges(false);
+
+      toast({
+        title: 'Profile picture removed',
+        description: 'Your profile picture has been removed.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Remove failed',
+        description: error.message || 'Failed to remove profile picture',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingPicture(false);
+    }
   };
 
   if (isLoading) {
@@ -335,7 +394,11 @@ const RecruiterSettings = () => {
                 <TabsContent value="profile" className="space-y-6 mt-6">
                   {/* Profile Picture Upload Section */}
                   <div className="mb-8 pb-6 border-b">
-                    <Label className="text-base font-semibold mb-4 block">Profile Picture</Label>
+                    <Label className="flex items-center gap-2">
+                      <span className="text-base font-semibold">Profile Picture</span>
+                      <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                    </Label>
+                    <p className="text-sm text-muted-foreground mb-4">Upload a professional profile picture (optional)</p>
                     <div className="flex items-center gap-6">
                       {/* Avatar Preview */}
                       <div className="relative">
@@ -389,12 +452,13 @@ const RecruiterSettings = () => {
 
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Full Name *</Label>
+                      <RequiredLabel htmlFor="name">Full Name</RequiredLabel>
                       <Input
                         id="name"
                         value={name}
                         onChange={(e) => { setName(e.target.value); markChanged(); }}
                         placeholder="John Doe"
+                        required
                       />
                     </div>
 
@@ -409,32 +473,35 @@ const RecruiterSettings = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
+                      <RequiredLabel htmlFor="phone">Phone Number</RequiredLabel>
                       <Input
                         id="phone"
                         value={phone}
                         onChange={(e) => { setPhone(e.target.value); markChanged(); }}
                         placeholder="+1 555-123-4567"
+                        required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="company">Company Name</Label>
+                      <RequiredLabel htmlFor="company">Company Name</RequiredLabel>
                       <Input
                         id="company"
                         value={company}
                         onChange={(e) => { setCompany(e.target.value); markChanged(); }}
                         placeholder="TechCorp Inc."
+                        required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="role">Job Title/Role</Label>
+                      <RequiredLabel htmlFor="role">Job Title/Role</RequiredLabel>
                       <Input
                         id="role"
                         value={role}
                         onChange={(e) => { setRole(e.target.value); markChanged(); }}
                         placeholder="Senior Technical Recruiter"
+                        required
                       />
                     </div>
 
@@ -475,9 +542,9 @@ const RecruiterSettings = () => {
                 <TabsContent value="preferences" className="space-y-6 mt-6">
                   {/* Target Roles */}
                   <div className="space-y-3">
-                    <Label>Target Roles</Label>
+                    <RequiredLabel>Target Roles</RequiredLabel>
                     <p className="text-sm text-muted-foreground">
-                      These roles will be saved as your hiring focus
+                      At least one role is required - These roles will be saved as your hiring focus
                     </p>
                     
                     {/* Common Roles */}
@@ -524,9 +591,9 @@ const RecruiterSettings = () => {
 
                   {/* Preferred Skills */}
                   <div className="space-y-3">
-                    <Label>Preferred Skills (Default Filter)</Label>
+                    <RequiredLabel>Preferred Skills (Default Filter)</RequiredLabel>
                     <p className="text-sm text-muted-foreground">
-                      These skills will be auto-applied as filters on your dashboard
+                      At least one skill is required - These skills will be auto-applied as filters on your dashboard
                     </p>
                     
                     {/* Trending Skills */}

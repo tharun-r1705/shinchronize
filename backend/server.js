@@ -16,6 +16,7 @@ const roadmapRoutes = require('./routes/roadmapRoutes');
 
 const seedDemoData = require('./utils/seedData');
 const seedMarketData = require('./utils/seedMarketData');
+const { initializeMarketRefreshCron } = require('./jobs/marketDataRefresher');
 
 const app = express();
 
@@ -106,6 +107,9 @@ const startServer = async () => {
       await seedDemoData();
       await seedMarketData();
     }
+
+    // Initialize market data refresh cron job
+    initializeMarketRefreshCron();
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {

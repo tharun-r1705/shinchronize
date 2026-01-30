@@ -8,6 +8,7 @@ const router = express.Router();
 const Roadmap = require('../models/Roadmap');
 const Student = require('../models/Student');
 const { authenticate } = require('../utils/authMiddleware');
+const { updateStreak } = require('../utils/streakCalculator');
 
 const normalizeProjectMilestones = (roadmap) => {
     if (!roadmap || !roadmap.milestones) return;
@@ -233,6 +234,12 @@ router.post('/milestone/:milestoneId/quiz', authenticate(['student']), async (re
         }
 
         await roadmap.save();
+        
+        // Update streak after quiz attempt (whether passed or failed)
+        const student = await Student.findById(req.user.id);
+        if (student) {
+            await updateStreak(student);
+        }
 
         res.json({
             success: true,

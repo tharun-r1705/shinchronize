@@ -371,4 +371,39 @@ studentSchema.methods.comparePassword = async function (candidatePassword) {
   }
 };
 
+// Method to check if profile is complete
+studentSchema.methods.checkProfileComplete = function() {
+  const requiredFields = [
+    this.firstName,
+    this.lastName,
+    this.dateOfBirth,
+    this.gender,
+    this.college,
+    this.phone,
+    this.linkedinUrl
+  ];
+  
+  // Check all required fields are filled
+  const allFieldsFilled = requiredFields.every(field => {
+    if (typeof field === 'string') {
+      return field && field.trim().length > 0;
+    }
+    return field != null; // dateOfBirth can be Date object
+  });
+  
+  // Check at least one coding profile (LeetCode or HackerRank)
+  const hasCodingProfile = 
+    (this.codingProfiles?.leetcode && this.codingProfiles.leetcode.trim().length > 0) ||
+    (this.codingProfiles?.hackerrank && this.codingProfiles.hackerrank.trim().length > 0);
+  
+  // Check at least one skill
+  const hasSkills = this.skills && this.skills.length > 0;
+  
+  return allFieldsFilled && hasCodingProfile && hasSkills;
+};
+
+// Ensure virtuals are included when converting to JSON
+studentSchema.set('toJSON', { virtuals: true });
+studentSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.model('Student', studentSchema);

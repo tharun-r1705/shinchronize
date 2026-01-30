@@ -197,6 +197,17 @@ const StudentDashboard = () => {
 
         const data = await studentApi.getProfile(token);
         setStudent(data);
+        
+        // Check if profile is complete
+        if (!data.isProfileComplete) {
+          toast({
+            title: "Complete your profile",
+            description: "Please complete all required fields in your profile to access the dashboard",
+            variant: "default",
+          });
+          navigate('/student/profile');
+          return;
+        }
       } catch (error: any) {
         toast({
           title: "Error loading profile",
@@ -855,7 +866,7 @@ const StudentDashboard = () => {
                   <p className="text-muted-foreground mb-3">
                     {student.branch || 'Computer Science'} {student.year && `• ${student.year} Year`} {student.college && `• ${student.college}`}
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+                  <div className="grid grid-cols-1 gap-4 mt-3">
                     <div className="rounded-xl border bg-card/60 p-4">
                       <p className="text-sm text-muted-foreground">Readiness</p>
                       <div className="flex items-end justify-between gap-3 mt-1">
@@ -871,42 +882,6 @@ const StudentDashboard = () => {
                       <p className="text-xs text-muted-foreground mt-2">
                         Powered by projects, recent activity (logs + synced stats), skills, and streak.
                       </p>
-                    </div>
-
-                    <div className="rounded-xl border bg-card/60 p-4">
-                      <p className="text-sm text-muted-foreground">Consistency</p>
-                      <div className="flex items-end justify-between gap-3 mt-1">
-                        <div>
-                          <span className="text-2xl font-bold text-primary">{student.streakDays || 0}</span>
-                          <span className="text-sm text-muted-foreground"> day streak</span>
-                        </div>
-                        <Calendar className="w-5 h-5 text-primary" />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-3">
-                        Last active: {formatTimestamp(student.lastActiveAt) || '—'}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border bg-card/60 p-4">
-                      <p className="text-sm text-muted-foreground">Score Breakdown</p>
-                      <div className="space-y-2 mt-3">
-                        {getReadinessRows().slice(0, 4).map((row) => (
-                          <div key={row.key} className="space-y-1">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">{row.label}</span>
-                              <span className="font-medium">{row.value.toFixed(1)}/{row.max}</span>
-                            </div>
-                            <Progress value={row.pct} className="h-1.5" />
-                          </div>
-                        ))}
-                      </div>
-                      <Button
-                        variant="link"
-                        className="px-0 text-primary font-bold mt-2"
-                        onClick={() => navigate('/student/readiness')}
-                      >
-                        See full breakdown <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
                     </div>
                   </div>
                 </div>

@@ -1,15 +1,12 @@
-const Groq = require('groq-sdk');
+const groqClient = require('./groqClient');
 
 const MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
-const groqClient = process.env.GROQ_API_KEY
-    ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-    : null;
 
 /**
  * Generate a realistic company skill profile using AI
  */
 async function generateCompanyProfile(companyName) {
-    if (!groqClient) {
+    if (!groqClient.isAvailable()) {
         return null;
     }
 

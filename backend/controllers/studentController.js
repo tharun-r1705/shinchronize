@@ -8,26 +8,12 @@ const { fetchLeetCodeActivity, fetchHackerRankActivity } = require('../utils/cod
 const { fetchLeetCodeStats } = require('../utils/leetcode');
 const { fetchHackerRankStats } = require('../utils/hackerrank');
 const { fetchGitHubStats } = require('../utils/github');
+const groqClient = require('../utils/groqClient');
 const { parseLinkedInPdf } = require('../utils/linkedinParser');
 const { syncAutoGoals } = require('../utils/goalSync');
 const { generateDomainInsight } = require('../utils/domainInsights');
-
-let cachedPdfParse = null;
-const loadPdfParse = async () => {
-  if (cachedPdfParse) {
-    return cachedPdfParse;
-  }
-
-  const mod = await import('pdf-parse');
-  const parser = mod?.default || mod?.pdf;
-
-  if (typeof parser !== 'function') {
-    throw new Error('Failed to initialise PDF parser module');
-  }
-
-  cachedPdfParse = parser;
-  return cachedPdfParse;
-};
+const { updateStreak } = require('../utils/streakCalculator');
+const { extractTextFromPDF } = require('../utils/pdfExtractor');
 
 const buildAuthResponse = (student, breakdown = {}) => ({
   token: generateToken(student._id, 'student'),
@@ -198,7 +184,7 @@ const updateProfile = asyncHandler(async (req, res) => {
       }
     }
 
-    const requiredFields = ['avatarUrl', 'firstName', 'lastName', 'dateOfBirth', 'gender', 'college', 'phone', 'portfolioUrl', 'linkedinUrl'];
+    const requiredFields = ['firstName', 'lastName', 'dateOfBirth', 'gender', 'college', 'phone', 'linkedinUrl'];
     const hasFilledRequired = requiredFields.every((field) => {
       const value = student[field];
       if (field === 'dateOfBirth') {
@@ -210,7 +196,7 @@ const updateProfile = asyncHandler(async (req, res) => {
       return Boolean(value);
     });
 
-    const hasCodingLinks = Boolean((student.leetcodeUrl && student.leetcodeUrl.trim()) || (student.codingProfiles?.leetcode && student.codingProfiles.leetcode.trim())) &&
+    const hasCodingLinks = Boolean((student.leetcodeUrl && student.leetcodeUrl.trim()) || (student.codingProfiles?.leetcode && student.codingProfiles.leetcode.trim())) ||
       Boolean((student.hackerrankUrl && student.hackerrankUrl.trim()) || (student.codingProfiles?.hackerrank && student.codingProfiles.hackerrank.trim()));
 
     const hasSkills = Array.isArray(student.skills) && student.skills.length > 0;
@@ -292,6 +278,9 @@ const syncCodingActivity = asyncHandler(async (req, res) => {
   student.readinessHistory.push({ score: total });
   student.codingProfiles = { ...(student.codingProfiles || {}), lastSyncedAt: new Date() };
   await student.save();
+  
+  // Update streak after syncing coding activity
+  await updateStreak(student);
 
   res.json({
     added: uniqueLogs.length,
@@ -407,7 +396,9 @@ const addProject = asyncHandler(async (req, res) => {
 
   student.projects.push(project);
   syncAutoGoals(student);
-  await student.save();
+  
+  // Update streak after adding project
+  await updateStreak(student);
 
   const addedProject = student.projects[student.projects.length - 1];
 
@@ -454,7 +445,9 @@ const addCodingLog = asyncHandler(async (req, res) => {
   student.codingLogs.push(codingLog);
   student.lastActiveAt = new Date();
   syncAutoGoals(student);
-  await student.save();
+  
+  // Update streak after adding coding log
+  await updateStreak(student);
 
   const { total, breakdown } = calculateReadinessScore(student);
   student.readinessScore = total;
@@ -505,6 +498,9 @@ const addCertification = asyncHandler(async (req, res) => {
   student.readinessScore = total;
   student.readinessHistory.push({ score: total });
   await student.save();
+  
+  // Update streak after adding certification
+  await updateStreak(student);
 
   res.status(201).json({
     message: 'Certification submitted for verification',
@@ -552,6 +548,9 @@ const addEvent = asyncHandler(async (req, res) => {
   student.readinessScore = total;
   student.readinessHistory.push({ score: total });
   await student.save();
+  
+  // Update streak after adding event
+  await updateStreak(student);
 
   res.status(201).json({
     message: 'Event added successfully',
@@ -886,35 +885,300 @@ const getDomainInsights = asyncHandler(async (req, res) => {
 const importLinkedInProfile = asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No PDF file uploaded' });
 
-  const parser = await loadPdfParse();
-  const data = await parser(req.file.buffer);
-  const profile = await parseLinkedInPdf(data.text);
-
-  res.json({ profile, meta: { pages: data.numpages } });
+  try {
+    const text = await extractTextFromPDF(req.file.buffer);
+    const profile = await parseLinkedInPdf(text);
+    
+    res.json({ profile, meta: { textLength: text.length } });
+  } catch (error) {
+    return res.status(400).json({ message: `Failed to process PDF: ${error.message}` });
+  }
 });
 
 const extractResumeText = asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-  const parser = await loadPdfParse();
-  const data = await parser(req.file.buffer);
-
-  res.json({
-    message: 'Resume text extracted successfully',
-    text: data.text,
-    pages: data.numpages,
-  });
+  try {
+    const text = await extractTextFromPDF(req.file.buffer);
+    
+    res.json({
+      message: 'Resume text extracted successfully',
+      text: text,
+      textLength: text.length,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: `Failed to extract text: ${error.message}` });
+  }
 });
+
+// Helper function to validate if content is resume-related
+const isResumeContent = (text) => {
+  const lowerText = text.toLowerCase();
+  
+  // Common resume section headers
+  const resumeSections = [
+    'experience', 'education', 'skills', 'work history', 'employment',
+    'professional experience', 'work experience', 'projects', 'summary',
+    'objective', 'profile', 'qualifications', 'certifications', 'achievements',
+    'awards', 'training', 'languages', 'technical skills', 'career',
+    'professional summary', 'about me', 'responsibilities', 'accomplishments'
+  ];
+  
+  // Professional/career-related terms
+  const careerTerms = [
+    'developed', 'managed', 'led', 'created', 'implemented', 'designed',
+    'achieved', 'responsible for', 'collaborated', 'coordinated', 'analyzed',
+    'improved', 'increased', 'reduced', 'built', 'established', 'delivered',
+    'years of experience', 'bachelor', 'master', 'degree', 'university',
+    'college', 'institute', 'graduated', 'gpa', 'intern', 'employee',
+    'position', 'role', 'company', 'organization', 'corporation'
+  ];
+  
+  // Count matches
+  let sectionMatches = 0;
+  let careerTermMatches = 0;
+  
+  resumeSections.forEach(section => {
+    if (lowerText.includes(section)) sectionMatches++;
+  });
+  
+  careerTerms.forEach(term => {
+    if (lowerText.includes(term)) careerTermMatches++;
+  });
+  
+  // Check for email pattern (common in resumes)
+  const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
+  
+  // Check for phone number pattern
+  const hasPhone = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(text);
+  
+  // Check minimum length (resumes are typically substantial)
+  const hasMinimumLength = text.trim().length > 200;
+  
+  // Scoring system: need at least 2 section matches OR 3 career term matches
+  // AND (email OR phone) AND minimum length
+  const isResume = (sectionMatches >= 2 || careerTermMatches >= 3) && 
+                   (hasEmail || hasPhone) && 
+                   hasMinimumLength;
+  
+  return {
+    isResume,
+    confidence: {
+      sectionMatches,
+      careerTermMatches,
+      hasContactInfo: hasEmail || hasPhone,
+      hasMinimumLength
+    }
+  };
+};
+
+// AI-powered resume content analysis using Groq
+const analyzeResumeContent = async (resumeText, targetRole) => {
+  const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  
+  if (!groqClient.isAvailable()) {
+    throw new Error('AI service is not configured. Please set GROQ_API_KEY or GROQ_API_KEY_BACKUP.');
+  }
+
+  const prompt = `You are an expert resume analyst and ATS (Applicant Tracking System) specialist. Analyze the following resume for a ${targetRole} position and provide detailed, actionable feedback.
+
+Resume Content:
+${resumeText}
+
+Target Role: ${targetRole}
+
+Provide a comprehensive analysis in valid JSON format with the following structure:
+{
+  "overallScore": <number 0-100>,
+  "atsScore": <number 0-100>,
+  "strengths": [<array of 3-5 specific strengths found in the resume>],
+  "weaknesses": [<array of 3-5 specific areas needing improvement>],
+  "suggestions": [<array of 4-6 actionable suggestions to improve the resume>],
+  "sections": [
+    {
+      "name": "<section name like Work Experience, Education, Skills>",
+      "score": <number 0-100>,
+      "feedback": "<specific feedback for this section>"
+    }
+  ],
+  "keywords": {
+    "present": [<array of relevant technical skills and keywords found in the resume>],
+    "missing": [<array of important keywords missing for the target role>]
+  },
+  "formatting": {
+    "score": <number 0-100>,
+    "issues": [<array of formatting issues that could affect ATS parsing>]
+  },
+  "atsInsights": [<array of 4-6 specific insights about ATS optimization>]
+}
+
+Analysis Guidelines:
+1. Overall Score: Base this on content quality, relevance to ${targetRole}, quantifiable achievements, and professional presentation
+2. ATS Score: Focus on keyword optimization, section structure, formatting compatibility, and parsability
+3. Strengths: Identify specific strong points (e.g., "Strong use of metrics with 8 quantifiable achievements", "Excellent technical skills alignment with ${targetRole}")
+4. Weaknesses: Point out gaps (e.g., "Missing leadership keywords", "Limited quantifiable impact metrics")
+5. Suggestions: Provide actionable improvements (e.g., "Add specific technologies like Docker and Kubernetes", "Quantify team size and project scope")
+6. Section Analysis: Evaluate each major section found (Experience, Education, Skills, Summary, etc.)
+7. Keywords: Extract actual technologies/skills found vs. what's missing for ${targetRole}
+8. Formatting: Check for ATS compatibility issues (tables, graphics, unusual fonts, parsing problems)
+9. ATS Insights: Provide specific tips for improving ATS score
+
+Be specific, reference actual content from the resume, and ensure all feedback is actionable and relevant to ${targetRole} positions.
+
+Return ONLY valid JSON, no additional text.`;
+
+  try {
+    const completion = await groqClient.chat.completions.create({
+      model: MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert resume analyst specializing in ATS optimization and career coaching. Always respond with valid JSON only.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 4096,
+      response_format: { type: 'json_object' }
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content;
+    
+    if (!aiResponse) {
+      throw new Error('No response from AI service');
+    }
+
+    const analysis = JSON.parse(aiResponse);
+    
+    // Validate and ensure all required fields are present
+    return {
+      overallScore: Math.min(100, Math.max(0, analysis.overallScore || 50)),
+      atsScore: Math.min(100, Math.max(0, analysis.atsScore || 50)),
+      strengths: Array.isArray(analysis.strengths) && analysis.strengths.length > 0 
+        ? analysis.strengths 
+        : ['Resume structure is present'],
+      weaknesses: Array.isArray(analysis.weaknesses) && analysis.weaknesses.length > 0 
+        ? analysis.weaknesses 
+        : ['Consider adding more specific details'],
+      suggestions: Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0 
+        ? analysis.suggestions 
+        : ['Tailor your resume to the target role'],
+      sections: Array.isArray(analysis.sections) && analysis.sections.length > 0 
+        ? analysis.sections 
+        : [{
+            name: 'Overall',
+            score: 50,
+            feedback: 'Add clear sections for better organization'
+          }],
+      keywords: {
+        present: Array.isArray(analysis.keywords?.present) ? analysis.keywords.present : [],
+        missing: Array.isArray(analysis.keywords?.missing) ? analysis.keywords.missing : []
+      },
+      formatting: {
+        score: Math.min(100, Math.max(0, analysis.formatting?.score || 70)),
+        issues: Array.isArray(analysis.formatting?.issues) 
+          ? analysis.formatting.issues 
+          : ['Ensure consistent formatting throughout']
+      },
+      atsInsights: Array.isArray(analysis.atsInsights) && analysis.atsInsights.length > 0 
+        ? analysis.atsInsights 
+        : [
+            'Use standard section headers for better ATS parsing',
+            'Include relevant keywords from job postings',
+            'Avoid complex formatting that ATS systems cannot parse'
+          ]
+    };
+    
+  } catch (error) {
+    console.error('Error in AI resume analysis:', error);
+    
+    // Fallback to basic analysis if AI fails
+    return {
+      overallScore: 50,
+      atsScore: 50,
+      strengths: ['Resume submitted successfully'],
+      weaknesses: ['AI analysis temporarily unavailable - please try again'],
+      suggestions: [
+        'Ensure your resume includes clear sections for Experience, Education, and Skills',
+        `Highlight specific achievements relevant to ${targetRole}`,
+        'Use action verbs to describe your accomplishments',
+        'Include quantifiable metrics where possible'
+      ],
+      sections: [{
+        name: 'General',
+        score: 50,
+        feedback: 'AI analysis temporarily unavailable. Please try again or contact support.'
+      }],
+      keywords: {
+        present: [],
+        missing: []
+      },
+      formatting: {
+        score: 70,
+        issues: ['Unable to analyze formatting - AI service temporarily unavailable']
+      },
+      atsInsights: [
+        'Use standard section headers like "Work Experience", "Education", and "Skills"',
+        'Include contact information at the top',
+        'Save as PDF or DOCX for best ATS compatibility',
+        'Avoid tables, graphics, and unusual formatting'
+      ]
+    };
+  }
+};
+
+// Get role-specific keywords
+const getRoleSpecificKeywords = (role) => {
+  const roleLower = role.toLowerCase();
+  
+  const keywords = {
+    'software engineer': ['algorithms', 'data structures', 'system design', 'rest api', 'microservices', 'agile', 'git', 'ci/cd', 'testing', 'code review'],
+    'data scientist': ['machine learning', 'python', 'r', 'statistics', 'sql', 'tensorflow', 'pytorch', 'data visualization', 'big data', 'predictive modeling'],
+    'product manager': ['product strategy', 'roadmap', 'stakeholder management', 'user research', 'agile', 'analytics', 'prioritization', 'market analysis', 'kpis', 'cross-functional'],
+    'devops': ['kubernetes', 'docker', 'ci/cd', 'jenkins', 'terraform', 'aws', 'monitoring', 'automation', 'linux', 'scripting'],
+    'frontend': ['react', 'javascript', 'typescript', 'html', 'css', 'responsive design', 'webpack', 'redux', 'ui/ux', 'accessibility'],
+    'backend': ['api design', 'databases', 'scalability', 'microservices', 'node.js', 'python', 'java', 'sql', 'nosql', 'security'],
+    'full stack': ['frontend', 'backend', 'databases', 'rest api', 'react', 'node.js', 'mongodb', 'responsive design', 'deployment', 'version control'],
+    'ui/ux': ['figma', 'sketch', 'prototyping', 'wireframing', 'user research', 'usability testing', 'design systems', 'accessibility', 'responsive design', 'adobe xd'],
+    'marketing': ['digital marketing', 'seo', 'sem', 'content marketing', 'analytics', 'social media', 'campaign management', 'email marketing', 'conversion optimization', 'brand strategy']
+  };
+  
+  // Find matching role keywords
+  for (const [key, values] of Object.entries(keywords)) {
+    if (roleLower.includes(key)) {
+      return values;
+    }
+  }
+  
+  // Default technical keywords
+  return ['leadership', 'communication', 'problem solving', 'analytical skills', 'project management', 'teamwork', 'innovation', 'strategic thinking', 'adaptability', 'time management'];
+};
 
 const analyzeResume = asyncHandler(async (req, res) => {
   const { resumeText, targetRole } = req.body;
   if (!resumeText) return res.status(400).json({ message: 'Resume text is required' });
+  if (!targetRole) return res.status(400).json({ message: 'Target role is required' });
 
-  // This would typically involve an AI call to analyze the resume
-  res.json({
-    score: 85,
-    recommendations: ['Add more keywords related to ' + (targetRole || 'Software Engineering'), 'Include quantified achievements'],
-  });
+  // Validate if the content is actually a resume
+  const validation = isResumeContent(resumeText);
+  
+  if (!validation.isResume) {
+    return res.status(400).json({ 
+      message: 'The uploaded content does not appear to be a resume. Please upload a valid resume or CV that includes sections like experience, education, and skills.',
+      validationDetails: {
+        reason: 'Content validation failed',
+        suggestion: 'Make sure your document contains typical resume sections such as work experience, education, skills, and contact information.'
+      }
+    });
+  }
+
+  // Perform AI-powered resume analysis
+  const analysis = await analyzeResumeContent(resumeText, targetRole);
+
+  res.json({ analysis });
 });
 
 module.exports = {

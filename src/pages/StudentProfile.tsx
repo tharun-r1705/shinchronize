@@ -97,6 +97,14 @@ type FormState = typeof DEFAULT_FORM_STATE;
 
 type CodingProfiles = CodingProfilesPayload;
 
+// Helper component for required field labels
+const RequiredLabel = ({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) => (
+  <Label htmlFor={htmlFor} className="flex items-center gap-1">
+    {children}
+    <span className="text-red-500" title="Required field">*</span>
+  </Label>
+);
+
 const formatDateForInput = (value?: string) => {
   if (!value) return "";
   const date = new Date(value);
@@ -388,8 +396,40 @@ const StudentProfile = () => {
         return;
       }
 
+      // Validate required fields
+      const missingFields: string[] = [];
+      // Profile photo is optional
+      if (!formState.firstName?.trim()) missingFields.push("First Name");
+      if (!formState.lastName?.trim()) missingFields.push("Last Name");
+      if (!formState.dateOfBirth) missingFields.push("Date of Birth");
+      if (!formState.gender) missingFields.push("Gender");
+      if (!formState.college?.trim()) missingFields.push("College");
+      if (!formState.phone?.trim()) missingFields.push("Phone Number");
+      // Portfolio URL is optional
+      if (!formState.linkedinUrl?.trim()) missingFields.push("LinkedIn URL");
+
       const leetcodeUsername = extractLeetCodeUsername(formState.leetcodeUrl);
       const hackerrankUsername = extractHackerRankUsername(formState.hackerrankUrl);
+      
+      // Check at least one coding profile
+      if (!leetcodeUsername && !hackerrankUsername) {
+        missingFields.push("LeetCode or HackerRank Profile");
+      }
+      
+      // Check at least one skill
+      if (skillsArray.length === 0) {
+        missingFields.push("At least one Skill");
+      }
+
+      if (missingFields.length > 0) {
+        toast({
+          title: "Required fields missing",
+          description: `Please fill in: ${missingFields.join(", ")}`,
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
 
       const updatedCodingProfiles: CodingProfiles = {
         ...(codingProfiles || {}),
@@ -544,7 +584,7 @@ const StudentProfile = () => {
                 <Button variant="outline" size="sm" className="gap-2">
                   <Upload className="w-4 h-4" />
                   <label className="cursor-pointer">
-                    Upload photo
+		            Upload photo
                     <input
                       type="file"
                       accept="image/*"
@@ -553,41 +593,59 @@ const StudentProfile = () => {
                     />
                   </label>
                 </Button>
+                {(avatarPreview || formState.avatarUrl) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      setFormState((prev) => ({ ...prev, avatarUrl: "" }));
+                      setAvatarPreview("");
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                    Remove photo
+                  </Button>
+                )}
               </div>
               <div className="grid gap-4 flex-1 md:grid-cols-2">
                 <div className="space-y-1">
-                  <Label htmlFor="firstName">First name</Label>
+                  <RequiredLabel htmlFor="firstName">First name</RequiredLabel>
                   <Input
                     id="firstName"
                     name="firstName"
                     placeholder="John"
                     value={formState.firstName}
                     onChange={handleInputChange}
+                    required
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="lastName">Last name</Label>
+                  <RequiredLabel htmlFor="lastName">Last name</RequiredLabel>
                   <Input
                     id="lastName"
                     name="lastName"
                     placeholder="Doe"
                     value={formState.lastName}
                     onChange={handleInputChange}
+                    required
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="dateOfBirth">Date of birth</Label>
+                  <RequiredLabel htmlFor="dateOfBirth">Date of birth</RequiredLabel>
                   <Input
                     id="dateOfBirth"
                     type="date"
                     name="dateOfBirth"
                     value={formState.dateOfBirth}
                     onChange={handleInputChange}
+                    required
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Gender</Label>
-                  <Select value={formState.gender} onValueChange={handleGenderChange}>
+                  <RequiredLabel htmlFor="gender">Gender</RequiredLabel>
+                  <Select value={formState.gender} onValueChange={handleGenderChange} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -600,13 +658,14 @@ const StudentProfile = () => {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="phone">Phone number</Label>
+                  <RequiredLabel htmlFor="phone">Phone number</RequiredLabel>
                   <Input
                     id="phone"
                     name="phone"
                     placeholder="+91 98765 43210"
                     value={formState.phone}
                     onChange={handleInputChange}
+                    required
                   />
                 </div>
                 <div className="space-y-1">
@@ -626,13 +685,14 @@ const StudentProfile = () => {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <Label htmlFor="college">College</Label>
+                <RequiredLabel htmlFor="college">College</RequiredLabel>
                 <Input
                   id="college"
                   name="college"
                   placeholder="Your college name"
                   value={formState.college}
                   onChange={handleInputChange}
+                  required
                 />
               </div>
               <div className="space-y-1">
@@ -730,13 +790,14 @@ const StudentProfile = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="linkedinUrl">LinkedIn</Label>
+                <RequiredLabel htmlFor="linkedinUrl">LinkedIn</RequiredLabel>
                 <Input
                   id="linkedinUrl"
                   name="linkedinUrl"
                   placeholder="https://linkedin.com/in/username"
                   value={formState.linkedinUrl}
                   onChange={handleInputChange}
+                  required
                 />
               </div>
               <div className="space-y-1">
@@ -788,7 +849,10 @@ const StudentProfile = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="leetcodeUrl">LeetCode profile</Label>
+                <Label htmlFor="leetcodeUrl" className="flex items-center gap-1">
+                  LeetCode profile
+                  <span className="text-amber-600 text-xs font-normal">(At least one required: LeetCode or HackerRank)</span>
+                </Label>
                 <Input
                   id="leetcodeUrl"
                   name="leetcodeUrl"
@@ -798,7 +862,10 @@ const StudentProfile = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="hackerrankUrl">HackerRank profile</Label>
+                <Label htmlFor="hackerrankUrl" className="flex items-center gap-1">
+                  HackerRank profile
+                  <span className="text-amber-600 text-xs font-normal">(At least one required: LeetCode or HackerRank)</span>
+                </Label>
                 <Input
                   id="hackerrankUrl"
                   name="hackerrankUrl"
@@ -813,9 +880,12 @@ const StudentProfile = () => {
 
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Skills</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Skills
+              <span className="text-red-500">*</span>
+            </CardTitle>
             <CardDescription>
-              Add comma separated skills to highlight your expertise areas.
+              Add comma separated skills to highlight your expertise areas. At least one skill is required.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

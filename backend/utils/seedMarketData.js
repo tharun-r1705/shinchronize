@@ -1,3 +1,17 @@
+/**
+ * Seed Market Data - Bootstrap Only
+ * 
+ * This file seeds initial market data for development and testing purposes.
+ * It only runs when SEED_DEMO_DATA=true in the environment variables.
+ * 
+ * For production and ongoing data refreshes, the market data is automatically
+ * updated by the daily cron job in backend/jobs/marketDataRefresher.js which
+ * runs at 2:00 AM IST and fetches real-time data from Adzuna API.
+ * 
+ * This seed data provides a baseline when the database is first initialized,
+ * but should not be relied upon for accurate, up-to-date market intelligence.
+ */
+
 const mongoose = require('mongoose');
 const SkillMarketData = require('../models/SkillMarketData');
 const CompanySkillProfile = require('../models/CompanySkillProfile');

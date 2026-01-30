@@ -38,6 +38,7 @@ const RecruiterDashboard = () => {
   const [contactSubject, setContactSubject] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [isSendingContact, setIsSendingContact] = useState(false);
+  const [recruiterProfile, setRecruiterProfile] = useState<any>(null);
 
   // Predefined trending skills
   const trendingSkills = [
@@ -58,6 +59,21 @@ const RecruiterDashboard = () => {
             variant: "destructive",
           });
           navigate('/recruiter/login');
+          return;
+        }
+
+        // Fetch recruiter profile first to check if complete
+        const profile: any = await recruiterApi.getProfile(token);
+        setRecruiterProfile(profile);
+        
+        // Check if profile is complete
+        if (!profile.isProfileComplete) {
+          toast({
+            title: "Complete Your Profile",
+            description: "Please complete your profile before accessing the dashboard",
+            variant: "destructive",
+          });
+          navigate('/recruiter/settings');
           return;
         }
 

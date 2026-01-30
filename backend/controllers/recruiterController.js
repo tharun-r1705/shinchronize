@@ -64,6 +64,23 @@ const updatePreferences = asyncHandler(async (req, res) => {
     runValidators: true,
   });
 
+  // Check if profile is complete and update the field
+  const requiredFields = [
+    recruiter.name,
+    recruiter.email,
+    recruiter.phone,
+    recruiter.company,
+    recruiter.role,
+    // profilePicture is optional
+  ];
+  
+  const hasAllFields = requiredFields.every(field => field && field.toString().trim() !== '');
+  const hasTargetRoles = recruiter.preferences?.roles?.length > 0;
+  const hasPreferredSkills = recruiter.preferences?.skills?.length > 0;
+  
+  recruiter.profileCompleted = hasAllFields && hasTargetRoles && hasPreferredSkills;
+  await recruiter.save();
+
   res.json(recruiter);
 });
 
@@ -343,8 +360,7 @@ const aiAssistant = asyncHandler(async (req, res) => {
 
   try {
     // Use Groq API for AI responses
-    const Groq = require('groq-sdk');
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const groqClient = require('../utils/groqClient');
 
     // Build system prompt with context
     const systemPrompt = `You are an expert AI recruitment assistant for EvolvEd, a platform that tracks student growth and readiness for campus placements.
@@ -383,7 +399,7 @@ Be helpful, professional, and data-driven in your responses. Focus on growth pat
     ];
 
     // Call Groq API
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await groqClient.chat.completions.create({
       messages: messages,
       model: 'llama-3.3-70b-versatile', // Using Llama 3.3 70B for better reasoning
       temperature: 0.7,
@@ -560,6 +576,23 @@ const uploadProfilePicture = asyncHandler(async (req, res) => {
       { profilePicture: dataUrl },
       { new: true }
     );
+
+    // Check if profile is complete and update the field
+    const requiredFields = [
+      recruiter.name,
+      recruiter.email,
+      recruiter.phone,
+      recruiter.company,
+      recruiter.role,
+      // profilePicture is optional
+    ];
+    
+    const hasAllFields = requiredFields.every(field => field && field.toString().trim() !== '');
+    const hasTargetRoles = recruiter.preferences?.roles?.length > 0;
+    const hasPreferredSkills = recruiter.preferences?.skills?.length > 0;
+    
+    recruiter.profileCompleted = hasAllFields && hasTargetRoles && hasPreferredSkills;
+    await recruiter.save();
 
     res.json({
       message: 'Profile picture uploaded successfully',

@@ -43,6 +43,9 @@ const SkillMarketTracker = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [companyType, setCompanyType] = useState("all");
     const [studentProfile, setStudentProfile] = useState<any>(null);
+    const [marketInsights, setMarketInsights] = useState<any>(null);
+    const [insightsLoading, setInsightsLoading] = useState(false);
+    const [lastDataUpdate, setLastDataUpdate] = useState<Date | null>(null);
 
     // State for real-time search
     const [isSearching, setIsSearching] = useState(false);
@@ -66,6 +69,18 @@ const SkillMarketTracker = () => {
                 setCompanies(companiesData);
                 setStudentProfile(profileData);
                 
+                // Get the most recent lastUpdated timestamp from skills
+                if (skillsData && skillsData.length > 0) {
+                    const mostRecent = skillsData.reduce((latest: any, skill: any) => {
+                        const skillDate = skill.lastUpdated ? new Date(skill.lastUpdated) : null;
+                        if (!latest || (skillDate && skillDate > latest)) {
+                            return skillDate;
+                        }
+                        return latest;
+                    }, null);
+                    setLastDataUpdate(mostRecent);
+                }
+                
                 // Debug: Check skillRadar structure
                 if (profileData) {
                     console.log('Student Profile:', profileData);
@@ -73,6 +88,9 @@ const SkillMarketTracker = () => {
                     console.log('SkillRadar type:', typeof profileData.skillRadar);
                     console.log('SkillRadar keys:', profileData.skillRadar ? Object.keys(profileData.skillRadar) : 'none');
                 }
+
+                // Fetch market insights
+                await fetchMarketInsights();
             } catch (error: any) {
                 toast({
                     title: "Error loading market data",
@@ -86,6 +104,21 @@ const SkillMarketTracker = () => {
 
         fetchData();
     }, [toast]);
+
+    const fetchMarketInsights = async () => {
+        setInsightsLoading(true);
+        try {
+            const response = await fetch('/api/market/insights');
+            if (!response.ok) throw new Error('Failed to fetch insights');
+            const data = await response.json();
+            setMarketInsights(data);
+        } catch (error: any) {
+            console.error('Error fetching market insights:', error);
+            // Fail silently - insights are supplementary
+        } finally {
+            setInsightsLoading(false);
+        }
+    };
 
     // Load all companies when companyType changes (without search query)
     useEffect(() => {
@@ -176,7 +209,21 @@ const SkillMarketTracker = () => {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card px-4 py-2 rounded-full border border-border shadow-sm">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            Live Data Synced: {new Date().toLocaleTimeString()}
+                            {lastDataUpdate ? (
+                                <>
+                                    Last Updated: {(() => {
+                                        const hours = Math.floor((Date.now() - new Date(lastDataUpdate).getTime()) / (1000 * 60 * 60));
+                                        if (hours < 1) return 'Just now';
+                                        if (hours === 1) return '1 hour ago';
+                                        if (hours < 24) return `${hours} hours ago`;
+                                        const days = Math.floor(hours / 24);
+                                        if (days === 1) return '1 day ago';
+                                        return `${days} days ago`;
+                                    })()}
+                                </>
+                            ) : (
+                                <>Live Data Synced: {new Date().toLocaleTimeString()}</>
+                            )}
                         </div>
                     </motion.div>
                 </header>
@@ -304,6 +351,126 @@ const SkillMarketTracker = () => {
                                 </CardContent>
                             </Card>
                         </motion.div>
+
+                        {/* AI Market Insights */}
+                        {marketInsights && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.15 }}
+                            >
+                                <Card className="border-violet-200 bg-gradient-to-br from-violet-50/50 to-indigo-50/30 shadow-premium overflow-hidden">
+                                    <CardHeader className="border-b bg-gradient-to-r from-violet-500/10 to-indigo-500/10">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    <div className="p-2 rounded-lg bg-violet-500/10">
+                                                        <TrendingUp className="w-5 h-5 text-violet-600" />
+                                                    </div>
+                                                    AI-Powered Market Insights
+                                                </CardTitle>
+                                                <CardDescription>Intelligent analysis of current skill trends and recommendations</CardDescription>
+                                            </div>
+                                            {marketInsights.generatedAt && (
+                                                <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-xs">
+                                                    Updated {new Date(marketInsights.generatedAt).toLocaleDateString()}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-6 space-y-6">
+                                        {/* Overview */}
+                                        {marketInsights.overview && (
+                                            <div className="bg-white/80 p-5 rounded-xl border border-violet-100">
+                                                <h4 className="font-bold text-sm text-violet-900 mb-2 flex items-center gap-2">
+                                                    <Info className="w-4 h-4" />
+                                                    Market Overview
+                                                </h4>
+                                                <p className="text-sm text-slate-700 leading-relaxed">{marketInsights.overview}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Trend Insights */}
+                                        {marketInsights.trends && marketInsights.trends.length > 0 && (
+                                            <div className="space-y-3">
+                                                <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                                                    <BarChart3 className="w-4 h-4 text-indigo-600" />
+                                                    Trending Skills Analysis
+                                                </h4>
+                                                <div className="grid gap-3">
+                                                    {marketInsights.trends.map((trend: any, idx: number) => (
+                                                        <div key={idx} className="bg-white p-4 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors">
+                                                            <div className="flex items-start justify-between gap-3 mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold text-slate-900">{trend.skillName}</span>
+                                                                    <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-700">
+                                                                        {trend.category}
+                                                                    </Badge>
+                                                                </div>
+                                                                <Badge className="bg-emerald-500/10 text-emerald-700 border-none text-xs">
+                                                                    {trend.demandScore}% Demand
+                                                                </Badge>
+                                                            </div>
+                                                            {trend.insight && (
+                                                                <p className="text-xs text-slate-600 leading-relaxed">{trend.insight}</p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Emerging Skills */}
+                                        {marketInsights.emergingSkills && marketInsights.emergingSkills.length > 0 && (
+                                            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-xl border border-emerald-200">
+                                                <h4 className="font-bold text-sm text-emerald-900 mb-3 flex items-center gap-2">
+                                                    <ArrowUpRight className="w-4 h-4" />
+                                                    Emerging Skills to Watch
+                                                </h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {marketInsights.emergingSkills.map((skill: string, idx: number) => (
+                                                        <Badge key={idx} className="bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+                                                            {skill}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Recommendations */}
+                                        {marketInsights.recommendations && marketInsights.recommendations.length > 0 && (
+                                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-200">
+                                                <h4 className="font-bold text-sm text-amber-900 mb-3 flex items-center gap-2">
+                                                    <Info className="w-4 h-4" />
+                                                    Strategic Recommendations
+                                                </h4>
+                                                <ul className="space-y-2">
+                                                    {marketInsights.recommendations.map((rec: string, idx: number) => (
+                                                        <li key={idx} className="text-sm text-slate-700 flex items-start gap-2">
+                                                            <span className="text-amber-600 mt-0.5">•</span>
+                                                            <span className="flex-1">{rec}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+
+                        {insightsLoading && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex items-center justify-center p-8 bg-violet-50/50 rounded-xl border border-violet-200"
+                            >
+                                <div className="flex items-center gap-3 text-violet-600">
+                                    <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-sm font-medium">Generating AI insights...</span>
+                                </div>
+                            </motion.div>
+                        )}
 
                         {/* Personalized ROI Calculator */}
                         <motion.div

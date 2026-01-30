@@ -171,6 +171,11 @@ export default function ResumeAnalyzer() {
       return;
     }
 
+    if (!targetRole.trim()) {
+      setError('Please enter a target role for your resume analysis');
+      return;
+    }
+
     setIsAnalyzing(true);
     setError('');
 
@@ -182,7 +187,7 @@ export default function ResumeAnalyzer() {
       }
 
       const response = await studentApi.analyzeResume(
-        { resumeText, targetRole: targetRole || 'Software Engineer' },
+        { resumeText, targetRole },
         token
       ) as { analysis: ResumeAnalysis };
 
@@ -257,13 +262,13 @@ export default function ResumeAnalyzer() {
                   <div className="space-y-3">
                     <label className="text-sm font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-widest">
                       <Target className="w-4 h-4" />
-                      Target Role
+                      Target Role <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative group">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <input
                         type="text"
-                        placeholder="e.g. Senior Software Engineer"
+                        placeholder="e.g. Senior Software Engineer (Required)"
                         value={targetRole}
                         onChange={(e) => setTargetRole(e.target.value)}
                         className="w-full pl-12 pr-4 py-4 border-2 border-muted bg-muted/20 rounded-2xl focus:border-primary/50 focus:bg-background transition-all outline-none font-medium"
@@ -395,7 +400,7 @@ export default function ResumeAnalyzer() {
 
                   <Button
                     onClick={handleAnalyze}
-                    disabled={isAnalyzing || isExtracting || !resumeText.trim()}
+                    disabled={isAnalyzing || isExtracting || !resumeText.trim() || !targetRole.trim()}
                     className="w-full py-8 rounded-2xl shadow-2xl shadow-primary/30 bg-gradient-to-r from-primary via-blue-600 to-secondary hover:translate-y-[-2px] active:translate-y-[1px] transition-all font-black text-xl tracking-tight overflow-hidden group relative"
                   >
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />

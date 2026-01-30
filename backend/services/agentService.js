@@ -4,7 +4,7 @@
  * Handles conversation flow, tool execution, and LLM interaction
  */
 
-const Groq = require('groq-sdk');
+const groqClient = require('../utils/groqClient');
 const dayjs = require('dayjs');
 const Student = require('../models/Student');
 const AgentConversation = require('../models/AgentConversation');
@@ -12,10 +12,6 @@ const { toolDefinitions, executeTool, requiresConfirmation } = require('../tools
 const { calculateReadinessScore } = require('../utils/readinessScore');
 
 const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-
-const groqClient = process.env.GROQ_API_KEY
-    ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-    : null;
 
 /**
  * Build personalized system prompt for the agent
@@ -276,8 +272,8 @@ If details are missing, make reasonable assumptions and state them briefly in yo
  * Process a message from the user
  */
 async function processMessage(studentId, userMessage, conversationId = null) {
-    if (!groqClient) {
-        throw new Error('AI service is not configured. Please set GROQ_API_KEY.');
+    if (!groqClient.isAvailable()) {
+        throw new Error('AI service is not configured. Please set GROQ_API_KEY or GROQ_API_KEY_BACKUP.');
     }
 
     // Get student data

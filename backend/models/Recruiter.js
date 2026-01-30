@@ -63,4 +63,31 @@ recruiterSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
+// Virtual field to check if recruiter profile is complete
+recruiterSchema.virtual('isProfileComplete').get(function() {
+  // Required fields for complete profile
+  const requiredFields = [
+    this.name,
+    this.email,
+    this.phone,
+    this.company,
+    this.role
+  ];
+  
+  // Check if all required fields are filled
+  const hasAllFields = requiredFields.every(field => field && field.toString().trim() !== '');
+  
+  // Must have at least one target role
+  const hasTargetRoles = this.preferences?.roles?.length > 0;
+  
+  // Must have at least one preferred skill
+  const hasPreferredSkills = this.preferences?.skills?.length > 0;
+  
+  // Update the actual field
+  const isComplete = hasAllFields && hasTargetRoles && hasPreferredSkills;
+  
+  // Return the computed value
+  return isComplete;
+});
+
 module.exports = mongoose.model('Recruiter', recruiterSchema);

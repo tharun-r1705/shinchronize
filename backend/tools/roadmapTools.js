@@ -46,12 +46,12 @@ async function createRoadmap(studentId, args) {
         })),
         skills: m.skills || [],
         order: index,
-        requiresQuiz: m.requiresQuiz !== undefined ? m.requiresQuiz : (m.category === 'skill'),
+        // Consolidated requiresQuiz logic: projects don't need quizzes, skills default to requiring quiz unless specified
+        requiresQuiz: m.category === 'project' ? false : (m.requiresQuiz !== undefined ? m.requiresQuiz : true),
         quizStatus: 'none',
         // Project specific
         problemStatements: m.category === 'project' ? (m.problemStatements || []) : [],
-        projectSubmission: null,
-        requiresQuiz: m.category === 'project' ? false : (m.requiresQuiz !== undefined ? m.requiresQuiz : true)
+        projectSubmission: null
     }));
 
     const roadmap = new Roadmap({
@@ -194,7 +194,12 @@ async function addMilestone(studentId, args) {
             type: allowedResourceTypes.includes(r.type) ? r.type : 'other'
         })),
         skills: skills || [],
-        order: roadmap.milestones.length
+        order: roadmap.milestones.length,
+        // Projects don't need quizzes, skills default to requiring quiz
+        requiresQuiz: category === 'project' ? false : true,
+        quizStatus: 'none',
+        problemStatements: category === 'project' ? [] : undefined,
+        projectSubmission: null
     };
 
     // Insert after specific milestone if specified

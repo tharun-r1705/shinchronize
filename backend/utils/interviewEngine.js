@@ -1,13 +1,6 @@
-const Groq = require('groq-sdk');
+const groqClient = require('./groqClient');
 
 const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-
-function getGroqClient() {
-  if (!process.env.GROQ_API_KEY) {
-    return null;
-  }
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
-}
 
 function coerceStringArray(value, fallback = []) {
   if (Array.isArray(value)) return value.filter((v) => typeof v === 'string' && v.trim()).map((v) => v.trim());
@@ -50,9 +43,8 @@ function estimateWordCount(text) {
 }
 
 async function groqTranscribeAudio(fileBuffer, originalName, mimetype, language = 'en') {
-  const client = getGroqClient();
-  if (!client) {
-    throw new Error('AI service is not configured. Please set GROQ_API_KEY.');
+  if (!groqClient.isAvailable()) {
+    throw new Error('AI service is not configured. Please set GROQ_API_KEY or GROQ_API_KEY_BACKUP.');
   }
   if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
     throw new Error('Audio file buffer is required');
@@ -70,7 +62,7 @@ async function groqTranscribeAudio(fileBuffer, originalName, mimetype, language 
     { type: mimetype || 'audio/webm' }
   );
 
-  const transcription = await client.audio.transcriptions.create({
+  const transcription = await groqClient.audio.transcriptions.create({
     file: file,
     model: 'whisper-large-v3-turbo',
     response_format: 'json',
@@ -82,9 +74,8 @@ async function groqTranscribeAudio(fileBuffer, originalName, mimetype, language 
 }
 
 async function groqTextToSpeech({ text, voice = 'troy', model = 'canopylabs/orpheus-v1-english', responseFormat = 'wav' }) {
-  const client = getGroqClient();
-  if (!client) {
-    throw new Error('AI service is not configured. Please set GROQ_API_KEY.');
+  if (!groqClient.isAvailable()) {
+    throw new Error('AI service is not configured. Please set GROQ_API_KEY or GROQ_API_KEY_BACKUP.');
   }
   const input = (text || '').toString();
   if (!input.trim()) {
@@ -96,7 +87,7 @@ async function groqTextToSpeech({ text, voice = 'troy', model = 'canopylabs/orph
   const normalized = allowed.has(fmt) ? fmt : 'wav';
 
   try {
-    const res = await client.audio.speech.create({
+    const res = await groqClient.audio.speech.create({
       model,
       voice,
       input,
@@ -124,8 +115,7 @@ async function generateNextQuestion({
   askedQuestions,
   lastAnswer,
 }) {
-  const client = getGroqClient();
-  if (!client) {
+  if (!groqClient.isAvailable()) {
     // Fallback to deterministic question if AI key missing
     return {
       type: 'behavioral',
@@ -165,7 +155,7 @@ Rules:
 
 ${schemaHint}`;
 
-  const completion = await client.chat.completions.create({
+  const completion = await groqClient.chat.completions.create({
     model: MODEL,
     temperature: 0.6,
     max_tokens: 350,
@@ -193,8 +183,7 @@ ${schemaHint}`;
 }
 
 async function evaluateCommunication({ answer, voiceMetrics }) {
-  const client = getGroqClient();
-  if (!client) {
+  if (!groqClient.isAvailable()) {
     return {
       clarity: 60,
       structure: 60,
@@ -237,7 +226,7 @@ ${hasVoice ? 'Include feedback on pacing and filler word usage if applicable.' :
 
 ${schemaHint}`;
 
-  const completion = await client.chat.completions.create({
+  const completion = await groqClient.chat.completions.create({
     model: MODEL,
     temperature: 0.4,
     max_tokens: 400,
@@ -261,12 +250,11 @@ ${schemaHint}`;
 }
 
 async function evaluateAnswer({ question, answer, type, targetRole, voiceMetrics }) {
-  const client = getGroqClient();
-  if (!client) {
+  if (!groqClient.isAvailable()) {
     return {
       score: 60,
       strengths: ['Answer recorded.'],
-      improvements: ['Configure GROQ_API_KEY to enable detailed feedback.'],
+      improvements: ['Configure GROQ_API_KEY or GROQ_API_KEY_BACKUP to enable detailed feedback.'],
       sampleAnswer: '',
       communication: {
         clarity: 60,
@@ -298,7 +286,7 @@ Focus on technical accuracy, depth, and completeness (NOT communication style).
 ${schemaHint}`;
 
   const [contentCompletion, commResult] = await Promise.all([
-    client.chat.completions.create({
+    groqClient.chat.completions.create({
       model: MODEL,
       temperature: 0.4,
       max_tokens: 500,

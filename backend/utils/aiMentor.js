@@ -1,4 +1,4 @@
-const Groq = require('groq-sdk');
+const groqClient = require('./groqClient');
 const dayjs = require('dayjs');
 
 const MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
@@ -21,10 +21,6 @@ const formatDate = (value) => {
   if (!date.isValid()) return null;
   return date.format('YYYY-MM-DD');
 };
-
-const groqClient = process.env.GROQ_API_KEY
-  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-  : null;
 
 const mapProject = (project) => ({
   title: truncate(project.title, 80),
@@ -262,8 +258,8 @@ const extractJson = (content) => {
 };
 
 async function generateMentorSuggestions(student, readiness) {
-  if (!groqClient) {
-    throw new Error('Groq AI is not configured. Please set GROQ_API_KEY.');
+  if (!groqClient.isAvailable()) {
+    throw new Error('Groq AI is not configured. Please set GROQ_API_KEY or GROQ_API_KEY_BACKUP.');
   }
 
   const context = buildStudentContext(student, readiness);

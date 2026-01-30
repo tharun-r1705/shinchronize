@@ -1,14 +1,10 @@
-const Groq = require('groq-sdk');
+const groqClient = require('./groqClient');
 
 const MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
 
-const groqClient = process.env.GROQ_API_KEY
-    ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-    : null;
-
 const generateQuizQuestions = async (context) => {
-    if (!groqClient) {
-        throw new Error('Groq AI is not configured. Please set GROQ_API_KEY.');
+    if (!groqClient.isAvailable()) {
+        throw new Error('Groq AI is not configured. Please set GROQ_API_KEY or GROQ_API_KEY_BACKUP.');
     }
 
     // Handle both string and object input for backward compatibility

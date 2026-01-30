@@ -340,6 +340,9 @@ export default function InterviewSession() {
       return;
     }
 
+    // Stop TTS if speaking
+    stopSpeaking();
+
     setError('');
     setTranscription('');
 
@@ -455,6 +458,15 @@ export default function InterviewSession() {
         variant: "destructive",
       });
     }
+  };
+
+  // Stop TTS playback
+  const stopSpeaking = () => {
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current.currentTime = 0;
+    }
+    setIsSpeaking(false);
   };
 
   const statusBadgeVariant = (status?: string) => {
@@ -632,17 +644,15 @@ export default function InterviewSession() {
                         <Badge variant="outline">{currentQuestion.type}</Badge>
                         {currentQuestion.category ? <Badge variant="secondary">{currentQuestion.category}</Badge> : null}
                         <Button
-                          type="button"
                           variant="outline"
                           size="sm"
                           className="gap-2"
-                          onClick={speakQuestion}
-                          disabled={isSpeaking}
+                          onClick={isSpeaking ? stopSpeaking : speakQuestion}
                         >
                           {isSpeaking ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Speaking…
+                              <Square className="h-4 w-4" />
+                              Stop
                             </>
                           ) : (
                             <>
@@ -670,6 +680,7 @@ export default function InterviewSession() {
                         <Textarea
                           value={answer}
                           onChange={(e) => setAnswer(e.target.value)}
+                          onFocus={stopSpeaking}
                           placeholder="Type your answer…"
                           className="min-h-[180px]"
                           disabled={isSubmitting}
