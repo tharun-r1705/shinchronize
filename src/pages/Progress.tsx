@@ -766,7 +766,7 @@ const Progress = () => {
     [derivedGitHubUsername, navigate, toast]
   );
 
-  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
+
 
 
   useEffect(() => {

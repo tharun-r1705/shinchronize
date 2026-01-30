@@ -794,19 +794,32 @@ export interface RoadmapMilestone {
   requiresQuiz?: boolean;
   quizStatus?: 'none' | 'pending' | 'passed' | 'failed';
   lastQuizScore?: number;
+  problemStatements?: Array<{
+    statement: string;
+    requirements: string[];
+    difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+    hints: string[];
+  }>;
+  projectSubmission?: {
+    githubLink: string;
+    submittedAt: string;
+    status: 'pending' | 'verified' | 'rejected';
+    feedback?: string;
+  };
 }
 
 
 export interface Roadmap {
   _id: string;
-  studentId: string;
   title: string;
+  description: string;
   targetRole: string;
+  targetCompany?: string;
+  timeline: string;
   milestones: RoadmapMilestone[];
   progress: number;
   isActive: boolean;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface RoadmapResponse {
@@ -816,9 +829,12 @@ export interface RoadmapResponse {
 }
 
 export const roadmapApi = {
+  create: (data: { title: string; targetRole: string; currentSkills: string[]; targetCompany?: string }, token: string) =>
+    api.post<{ success: boolean; roadmap: Roadmap }>('/roadmap', data, token),
+
   // Get active roadmap
   getActive: (token: string) =>
-    api.get<RoadmapResponse>('/roadmap', token),
+    api.get<{ success: boolean; roadmap: Roadmap }>('/roadmap', token),
 
   // Get all roadmaps (including inactive)
   getAll: (token: string) =>
@@ -826,11 +842,17 @@ export const roadmapApi = {
 
   // Get specific roadmap
   getById: (id: string, token: string) =>
-    api.get<RoadmapResponse>(`/roadmap/${id}`, token),
+    api.get<{ success: boolean; roadmap: Roadmap }>(`/roadmap/${id}`, token),
 
   // Update milestone status
-  updateMilestone: (milestoneId: string, status: RoadmapMilestone['status'], token: string) =>
-    api.patch<RoadmapResponse>(`/roadmap/milestone/${milestoneId}`, { status }, token),
+  updateMilestone: (milestoneId: string, status: string, token: string) =>
+    api.patch<{ success: boolean; roadmap: Roadmap }>(`/roadmap/milestone/${milestoneId}`, { status }, token),
+
+  submitProject: (milestoneId: string, data: { githubLink: string }, token: string) =>
+    api.post<{ success: boolean; roadmap: Roadmap; message: string }>(`/roadmap/milestone/${milestoneId}/project`, data, token),
+
+  resetProject: (milestoneId: string, token: string) =>
+    api.delete<{ success: boolean; roadmap: Roadmap; message: string }>(`/roadmap/milestone/${milestoneId}/project`, token),
 
   // Delete roadmap
   delete: (id: string, token: string) =>
@@ -838,12 +860,17 @@ export const roadmapApi = {
 
   // Activate a roadmap
   activate: (id: string, token: string) =>
-    api.patch<RoadmapResponse>(`/roadmap/${id}/activate`, {}, token),
+    api.patch<{ success: boolean; roadmap: Roadmap }>(`/roadmap/${id}/activate`, {}, token),
 
   // Submit quiz results
   submitQuiz: (milestoneId: string, score: number, token: string) =>
-    api.post<RoadmapResponse & { passed: boolean; score: number }>(`/roadmap/milestone/${milestoneId}/quiz`, { score }, token),
+    api.post<{ success: boolean; passed: boolean; roadmap: Roadmap; message: string }>(`/roadmap/milestone/${milestoneId}/quiz`, { score }, token),
+
+  // Get/Generate quiz
+  getQuiz: (milestoneId: string, token: string, refresh = false) =>
+    api.get<{ success: boolean; questions: any[] }>(`/roadmap/milestone/${milestoneId}/quiz${refresh ? '?refresh=true' : ''}`, token),
 };
+
 
 
 export default api;

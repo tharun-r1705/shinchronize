@@ -41,6 +41,10 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 const categoryIcons: Record<string, typeof BookOpen> = {
     'skill': BookOpen,
     'project': Code2,
@@ -70,13 +74,16 @@ interface MilestoneCardProps {
     index: number;
     total: number;
     onStatusChange: (id: string, status: RoadmapMilestone['status']) => void;
+    onProjectSubmit: (id: string, data: { githubLink: string }) => Promise<void>;
+    onProjectReset: (id: string) => Promise<void>;
     isLocked?: boolean;
 }
 
-const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: MilestoneCardProps) => {
+const MilestoneCard = ({ milestone, index, total, onStatusChange, onProjectSubmit, onProjectReset, isLocked }: MilestoneCardProps) => {
     const navigate = useNavigate();
-
     const [expanded, setExpanded] = useState(false);
+    const [githubLink, setGithubLink] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const IconComponent = categoryIcons[milestone.category] || Target;
     const StatusIcon = statusIcons[milestone.status];
@@ -87,6 +94,25 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
         'in-progress': 'text-amber-500',
         'completed': 'text-green-500'
     };
+
+    // Initialize state from props if already submitted
+    useEffect(() => {
+        if (milestone.projectSubmission) {
+            setGithubLink(milestone.projectSubmission.githubLink || '');
+        }
+    }, [milestone.projectSubmission]);
+
+    const handleSubmit = async () => {
+        if (!githubLink) return;
+        setIsSubmitting(true);
+        try {
+            await onProjectSubmit(milestone.id, { githubLink });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const isProject = milestone.category === 'project';
 
     return (
         <div className={`relative flex gap-6 ${isLocked ? 'opacity-60 grayscale-[0.5]' : ''}`}>
@@ -118,7 +144,7 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
                                         <Clock className="w-2.5 h-2.5" /> {milestone.duration}
                                     </Badge>
                                 )}
-                                {milestone.requiresQuiz && (
+                                {milestone.requiresQuiz && !isProject && (
                                     <Badge variant={milestone.quizStatus === 'passed' ? 'default' : 'secondary'} className={`text-[10px] h-5 flex items-center gap-1 ${milestone.quizStatus === 'passed' ? 'bg-green-500/20 text-green-600 border-green-500/30' : ''
                                         }`}>
                                         <Award className="w-2.5 h-2.5" />
@@ -127,12 +153,67 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
                                 )}
                             </div>
 
-
                             <h4 className="font-semibold text-base mb-1">{milestone.title}</h4>
                             <p className="text-sm text-muted-foreground line-clamp-2">{milestone.description}</p>
 
+
+                            {/* Project Submission Form */}
+                            {isProject && milestone.status === 'in-progress' && !milestone.projectSubmission?.githubLink && (
+                                <div className="mt-4 p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-3">
+                                    <h5 className="text-sm font-medium">Submit Your Project</h5>
+                                    <p className="text-xs text-muted-foreground">Build a project related to this milestone and submit your GitHub repository link.</p>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="github-link" className="text-xs">GitHub Repository URL</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="github-link"
+                                                placeholder="https://github.com/username/repo"
+                                                value={githubLink}
+                                                onChange={(e) => setGithubLink(e.target.value)}
+                                                className="h-8 text-sm"
+                                            />
+                                            <Button
+                                                size="sm"
+                                                className="h-8 shrink-0"
+                                                onClick={handleSubmit}
+                                                disabled={!githubLink || isSubmitting}
+                                            >
+                                                {isSubmitting ? 'Submitting...' : 'Submit'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Submitted Project View */}
+                            {isProject && milestone.projectSubmission?.githubLink && milestone.status === 'completed' && (
+                                <div className="mt-4 space-y-2">
+                                    <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                            <div>
+                                                <p className="text-sm font-medium text-green-800">Project Submitted & Verified</p>
+                                                <a href={milestone.projectSubmission?.githubLink || (milestone as any).selectedProject?.githubLink} target="_blank" rel="noopener noreferrer" className="text-xs text-green-700 hover:underline flex items-center gap-1">
+                                                    View on GitHub <ExternalLink className="w-3 h-3" />
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">Completed</Badge>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs w-full"
+                                        onClick={() => onProjectReset(milestone.id)}
+                                    >
+                                        <Circle className="w-3 h-3 mr-1" />
+                                        Reset & Resubmit Project
+                                    </Button>
+                                </div>
+                            )}
+
                             {/* Skills */}
-                            {milestone.skills && milestone.skills.length > 0 && (
+                            {!isProject && milestone.skills && milestone.skills.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
                                     {milestone.skills.map((skill, i) => (
                                         <Badge key={i} variant="outline" className="text-xs bg-background">
@@ -144,7 +225,8 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
 
                             {/* Expandable section */}
                             <AnimatePresence>
-                                {expanded && milestone.resources && milestone.resources.length > 0 && (
+
+                                {expanded && !isProject && milestone.resources && milestone.resources.length > 0 && (
                                     <motion.div
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: 'auto', opacity: 1 }}
@@ -153,38 +235,18 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
                                     >
                                         <p className="text-xs font-medium text-muted-foreground mb-2">Resources:</p>
                                         <div className="space-y-1">
-                                            {milestone.resources.map((resource, i) => {
-                                                const isInternal = resource.url?.startsWith('/student/learning/') || resource.url?.startsWith('learning/');
-                                                const url = isInternal
-                                                    ? (resource.url.startsWith('/') ? resource.url : `/${resource.url}`)
-                                                    : (resource.url?.startsWith('http') ? resource.url : `https://${resource.url}`);
-
-                                                if (isInternal) {
-                                                    return (
-                                                        <Link
-                                                            key={i}
-                                                            to={url}
-                                                            className="flex items-center gap-2 text-sm text-primary hover:underline"
-                                                        >
-                                                            <BookOpen className="w-3 h-3" />
-                                                            {resource.title || "Learn on EvolvEd"}
-                                                        </Link>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <a
-                                                        key={i}
-                                                        href={url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-2 text-sm text-primary hover:underline"
-                                                    >
-                                                        <ExternalLink className="w-3 h-3" />
-                                                        {resource.title || (resource.url?.length > 50 ? resource.url.slice(0, 50) + '...' : resource.url)}
-                                                    </a>
-                                                );
-                                            })}
+                                            {milestone.resources.map((resource, i) => (
+                                                <a
+                                                    key={i}
+                                                    href={resource.url?.startsWith('http') ? resource.url : `https://${resource.url}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                                >
+                                                    <ExternalLink className="w-3 h-3" />
+                                                    {resource.title || (resource.url?.length > 50 ? resource.url.slice(0, 50) + '...' : resource.url)}
+                                                </a>
+                                            ))}
                                         </div>
 
                                     </motion.div>
@@ -212,17 +274,31 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
                                         Start
                                     </Button>
                                 )}
-                                {milestone.status === 'in-progress' && (
+                                {milestone.status === 'in-progress' && !isProject && (
                                     <>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-7 text-xs hover:bg-green-500/10 hover:border-green-500/50"
-                                            onClick={() => onStatusChange(milestone.id, 'completed')}
-                                        >
-                                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                                            Complete
-                                        </Button>
+                                        {milestone.requiresQuiz && milestone.quizStatus !== 'passed' ? (
+                                            <Button
+                                                size="sm"
+                                                className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
+                                                onClick={() => {
+                                                    const skill = milestone.skills?.[0] || 'general';
+                                                    navigate(`/student/quiz/${skill.toLowerCase()}?milestoneId=${milestone.id}`);
+                                                }}
+                                            >
+                                                <Award className="w-3 h-3 mr-1" />
+                                                Take Quiz
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs hover:bg-green-500/10 hover:border-green-500/50"
+                                                onClick={() => onStatusChange(milestone.id, 'completed')}
+                                            >
+                                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                Complete
+                                            </Button>
+                                        )}
                                         <Button
                                             size="sm"
                                             variant="ghost"
@@ -234,7 +310,18 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
                                         </Button>
                                     </>
                                 )}
-                                {milestone.status === 'completed' && (
+                                {milestone.status === 'in-progress' && isProject && (
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs"
+                                        onClick={() => onStatusChange(milestone.id, 'not-started')}
+                                    >
+                                        <Circle className="w-3 h-3 mr-1" />
+                                        Reset
+                                    </Button>
+                                )}
+                                {milestone.status === 'completed' && !isProject && (
                                     <Button
                                         size="sm"
                                         variant="ghost"
@@ -247,7 +334,7 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, isLocked }: Mi
                                 )}
                             </div>
 
-                            {milestone.resources && milestone.resources.length > 0 && (
+                            {(!isProject && milestone.resources && milestone.resources.length > 0) && (
                                 <Button
                                     size="sm"
                                     variant="ghost"
@@ -385,6 +472,50 @@ const RoadmapVisualizer = () => {
         );
     }
 
+    const handleProjectSubmit = async (milestoneId: string, data: { githubLink: string }) => {
+        const token = localStorage.getItem('token');
+        if (!token || !roadmap) return;
+
+        try {
+            const response = await roadmapApi.submitProject(milestoneId, data, token);
+            if (response.success && response.roadmap) {
+                setRoadmap(response.roadmap);
+                toast({
+                    title: "Project Submitted!",
+                    description: response.message || "Your project has been verified."
+                });
+            }
+        } catch (error: any) {
+            toast({
+                title: "Submission failed",
+                description: error.message || "Could not submit project",
+                variant: "destructive"
+            });
+        }
+    };
+
+    const handleProjectReset = async (milestoneId: string) => {
+        const token = localStorage.getItem('token');
+        if (!token || !roadmap) return;
+
+        try {
+            const response = await roadmapApi.resetProject(milestoneId, token);
+            if (response.success && response.roadmap) {
+                setRoadmap(response.roadmap);
+                toast({
+                    title: "Project Reset",
+                    description: response.message || "You can now submit a new project."
+                });
+            }
+        } catch (error: any) {
+            toast({
+                title: "Reset failed",
+                description: error.message || "Could not reset project",
+                variant: "destructive"
+            });
+        }
+    };
+
     const completedCount = roadmap.milestones.filter(m => m.status === 'completed').length;
     const inProgressCount = roadmap.milestones.filter(m => m.status === 'in-progress').length;
 
@@ -479,6 +610,8 @@ const RoadmapVisualizer = () => {
                                 index={index}
                                 total={roadmap.milestones.length}
                                 onStatusChange={handleStatusChange}
+                                onProjectSubmit={handleProjectSubmit}
+                                onProjectReset={handleProjectReset}
                                 isLocked={isLocked}
                             />
                         );

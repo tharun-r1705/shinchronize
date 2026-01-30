@@ -192,6 +192,10 @@ const LearningHub = () => {
                             <p className="text-muted-foreground text-lg max-w-3xl leading-relaxed">
                                 {skill.description}
                             </p>
+                            <div className="mt-4 flex items-center gap-2 text-primary font-medium text-sm">
+                                <Award className="w-4 h-4" />
+                                <span>Completing this path automatically adds this skill to your profile.</span>
+                            </div>
                         </div>
 
                         <div className="w-full md:w-64 bg-card border rounded-2xl p-5 shadow-sm">

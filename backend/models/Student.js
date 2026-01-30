@@ -356,11 +356,19 @@ studentSchema.pre('save', async function (next) {
 });
 
 studentSchema.methods.comparePassword = async function (candidatePassword) {
-  if (!this.password) {
-    const doc = await this.constructor.findById(this._id).select('+password');
-    return bcrypt.compare(candidatePassword, doc.password);
+  try {
+    if (!this.password) {
+      const doc = await this.constructor.findById(this._id).select('+password');
+      if (!doc || !doc.password) {
+        throw new Error('Password not found for user');
+      }
+      return bcrypt.compare(candidatePassword, doc.password);
+    }
+    return bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    console.error('comparePassword error:', error);
+    throw error;
   }
-  return bcrypt.compare(candidatePassword, this.password);
 };
 
 module.exports = mongoose.model('Student', studentSchema);

@@ -343,26 +343,52 @@ const toolDefinitions = [
                             properties: {
                                 title: { type: 'string', description: 'Milestone title' },
                                 description: { type: 'string', description: 'What to accomplish' },
-                                category: { 
-                                    type: 'string', 
+                                category: {
+                                    type: 'string',
                                     enum: ['skill', 'project', 'certification', 'interview', 'networking', 'other']
                                 },
                                 duration: { type: 'string', description: 'Estimated time (e.g., "2 weeks")' },
                                 skills: { type: 'array', items: { type: 'string' }, description: 'Skills to gain' },
-                                resources: { 
-                                    type: 'array', 
-                                    items: { 
+                                resources: {
+                                    type: 'array',
+                                    items: {
                                         type: 'object',
                                         properties: {
                                             title: { type: 'string', description: 'Resource name' },
                                             url: { type: 'string', description: 'Resource URL' },
                                             type: { type: 'string', description: 'Resource type (e.g., video, article, course, tutorial, documentation)' }
                                         }
-                                    }, 
-                                    description: 'Helpful resources with title, url, and type' 
+                                    },
+                                    description: 'Helpful resources with title, url, and type'
                                 }
                             },
                             required: ['title', 'description', 'category']
+                        }
+                    },
+                    problemStatements: {
+                        type: 'array',
+                        description: 'For project milestones only - 3 problem statements with requirements and hints',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                statement: { type: 'string' },
+                                requirements: { type: 'array', items: { type: 'string' } },
+                                difficulty: { type: 'string' },
+                                hints: { type: 'array', items: { type: 'string' } }
+                            }
+                        }
+                    },
+                    projectOptions: {
+                        type: 'array',
+                        description: 'Three distinct project options for project milestones',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                title: { type: 'string' },
+                                description: { type: 'string' },
+                                difficulty: { type: 'string', enum: ['Beginner', 'Intermediate'] },
+                                tags: { type: 'array', items: { type: 'string' } }
+                            }
                         }
                     }
                 },
@@ -414,23 +440,23 @@ const toolDefinitions = [
                 properties: {
                     title: { type: 'string', description: 'Milestone title' },
                     description: { type: 'string', description: 'What to accomplish' },
-                    category: { 
-                        type: 'string', 
+                    category: {
+                        type: 'string',
                         enum: ['skill', 'project', 'certification', 'interview', 'networking', 'other']
                     },
                     duration: { type: 'string', description: 'Estimated time' },
                     skills: { type: 'array', items: { type: 'string' }, description: 'Skills to gain' },
-                    resources: { 
-                        type: 'array', 
-                        items: { 
+                    resources: {
+                        type: 'array',
+                        items: {
                             type: 'object',
                             properties: {
                                 title: { type: 'string' },
                                 url: { type: 'string' },
                                 type: { type: 'string', description: 'Resource type (video, article, course, etc.)' }
                             }
-                        }, 
-                        description: 'Helpful resources' 
+                        },
+                        description: 'Helpful resources'
                     },
                     insertAfter: { type: 'string', description: 'ID of milestone to insert after (optional)' }
                 },

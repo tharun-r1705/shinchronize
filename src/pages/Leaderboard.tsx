@@ -26,9 +26,15 @@ type LeaderboardEntry = {
   score: number;
   streak: number;
   projects: number;
+  totalSolved: number;
   badges: string[];
   achievements: string;
   avatarUrl?: string;
+  platformStats?: {
+    leetcode: { totalSolved: number; recent30: number };
+    hackerrank: { totalSolved: number; recent30: number };
+    github: { totalCommits: number; recent30: number };
+  };
 };
 
 const Leaderboard = () => {
@@ -98,11 +104,13 @@ const Leaderboard = () => {
             score: Number(entry?.score) || 0,
             streak: Number(entry?.streak) || 0,
             projects: Number(entry?.projects) || 0,
+            totalSolved: Number(entry?.totalSolved) || 0,
             badges: Array.isArray(entry?.badges)
               ? entry.badges.map((badge: unknown) => String(badge)).filter(Boolean)
               : [],
             achievements: String(entry?.achievements || ""),
             avatarUrl: entry?.avatarUrl ? String(entry.avatarUrl) : undefined,
+            platformStats: entry?.platformStats,
           })
         ) || [];
 
@@ -530,6 +538,29 @@ const Leaderboard = () => {
                                 ))}
                               </div>
                             )}
+
+                            {student.platformStats && (
+                              <div className="flex gap-4 mt-3">
+                                {student.platformStats.leetcode.totalSolved > 0 && (
+                                  <div className="flex items-center gap-1.5" title="LeetCode Solved">
+                                    <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                                    <span className="text-xs font-medium text-muted-foreground">LC: {student.platformStats.leetcode.totalSolved}</span>
+                                  </div>
+                                )}
+                                {student.platformStats.hackerrank.totalSolved > 0 && (
+                                  <div className="flex items-center gap-1.5" title="HackerRank Solved">
+                                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                                    <span className="text-xs font-medium text-muted-foreground">HR: {student.platformStats.hackerrank.totalSolved}</span>
+                                  </div>
+                                )}
+                                {student.platformStats.github.totalCommits > 0 && (
+                                  <div className="flex items-center gap-1.5" title="GitHub Commits">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                    <span className="text-xs font-medium text-muted-foreground">GH: {student.platformStats.github.totalCommits}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex flex-col gap-2 items-end flex-shrink-0">
@@ -537,6 +568,10 @@ const Leaderboard = () => {
                               {student.score}%
                             </div>
                             <div className="flex items-center gap-4 text-sm">
+                              <div className="text-center">
+                                <p className="text-muted-foreground">Solved</p>
+                                <p className="font-semibold">{student.totalSolved}</p>
+                              </div>
                               <div className="text-center">
                                 <p className="text-muted-foreground">Streak</p>
                                 <p className="font-semibold">{student.streak}d</p>
@@ -616,20 +651,47 @@ const Leaderboard = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-md border bg-card/60 p-3 shadow-sm">
-                      <p className="text-xs text-muted-foreground">Current Rank</p>
-                      <p className="text-xl font-semibold">#{selectedStudent.rank}</p>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="rounded-md border bg-card/60 p-2 shadow-sm">
+                      <p className="text-[10px] text-muted-foreground">Rank</p>
+                      <p className="text-lg font-semibold">#{selectedStudent.rank}</p>
                     </div>
-                    <div className="rounded-md border bg-card/60 p-3 shadow-sm">
-                      <p className="text-xs text-muted-foreground">Streak</p>
-                      <p className="text-xl font-semibold">{selectedStudent.streak} days</p>
+                    <div className="rounded-md border bg-card/60 p-2 shadow-sm">
+                      <p className="text-[10px] text-muted-foreground">Solved</p>
+                      <p className="text-lg font-semibold">{selectedStudent.totalSolved}</p>
                     </div>
-                    <div className="rounded-md border bg-card/60 p-3 shadow-sm">
-                      <p className="text-xs text-muted-foreground">Projects</p>
-                      <p className="text-xl font-semibold">{selectedStudent.projects}</p>
+                    <div className="rounded-md border bg-card/60 p-2 shadow-sm">
+                      <p className="text-[10px] text-muted-foreground">Streak</p>
+                      <p className="text-lg font-semibold">{selectedStudent.streak}d</p>
+                    </div>
+                    <div className="rounded-md border bg-card/60 p-2 shadow-sm">
+                      <p className="text-[10px] text-muted-foreground">Projects</p>
+                      <p className="text-lg font-semibold">{selectedStudent.projects}</p>
                     </div>
                   </div>
+
+                  {selectedStudent.platformStats && (
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coding Activity</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-3 bg-muted/50 rounded-lg flex flex-col items-center">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold">LeetCode</span>
+                          <span className="text-lg font-bold">{selectedStudent.platformStats.leetcode.totalSolved}</span>
+                          <span className="text-[10px] text-muted-foreground">Solved</span>
+                        </div>
+                        <div className="p-3 bg-muted/50 rounded-lg flex flex-col items-center">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold">HackerRank</span>
+                          <span className="text-lg font-bold">{selectedStudent.platformStats.hackerrank.totalSolved}</span>
+                          <span className="text-[10px] text-muted-foreground">Solved</span>
+                        </div>
+                        <div className="p-3 bg-muted/50 rounded-lg flex flex-col items-center">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold">GitHub</span>
+                          <span className="text-lg font-bold">{selectedStudent.platformStats.github.totalCommits}</span>
+                          <span className="text-[10px] text-muted-foreground">Commits</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {!!selectedStudent.badges?.length && (
                     <div className="space-y-2">

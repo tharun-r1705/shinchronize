@@ -580,13 +580,17 @@ const StudentDashboard = () => {
     try {
       // Create updated skillRadar object
       const currentSkillRadar = student?.skillRadar || {};
+      const currentSkills = student?.skills || [];
 
       const updatedSkillRadar = {
         ...currentSkillRadar,
         [skillNameToUse]: skillScore,
       };
 
-      const response = await studentApi.updateProfile({ skillRadar: updatedSkillRadar }, token);
+      const response = await studentApi.updateProfile({
+        skillRadar: updatedSkillRadar,
+        skills: currentSkills.includes(skillNameToUse) ? currentSkills : [...currentSkills, skillNameToUse]
+      }, token);
 
       toast({
         title: editingSkillName ? "Skill updated successfully" : "Skill added successfully",
@@ -636,7 +640,14 @@ const StudentDashboard = () => {
       const updatedSkillRadar = { ...currentSkillRadar };
       delete updatedSkillRadar[skillToDelete];
 
-      await studentApi.updateProfile({ skillRadar: updatedSkillRadar }, token);
+      // Remove from student.skills as well to keep in sync
+      const currentSkills = student?.skills || [];
+      const updatedSkills = currentSkills.filter((s: string) => s !== skillToDelete);
+
+      await studentApi.updateProfile({
+        skillRadar: updatedSkillRadar,
+        skills: updatedSkills
+      }, token);
 
       toast({ title: "Skill deleted successfully", variant: "default" });
 
@@ -688,20 +699,20 @@ const StudentDashboard = () => {
   };
 
   // Transform skillRadar for chart
+  // Transform skillRadar for chart
   const getSkillsData = () => {
-    if (!student?.skillRadar) {
-      return [];
-    }
-    const entries = Object.entries(student.skillRadar);
+    const profileSkills = student?.skills || [];
+    const radarMap = student?.skillRadar || {};
 
-    if (entries.length === 0) {
+    if (profileSkills.length === 0) {
       return [];
     }
 
-    const skillsArray = entries.map(([skill, score]) => ({
+    const skillsArray = profileSkills.map((skill: string) => ({
       skill,
-      score: Number(score)
+      score: Number(radarMap[skill] || 0)
     }));
+
     return skillsArray;
   };
 

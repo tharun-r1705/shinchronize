@@ -104,7 +104,13 @@ Remember: You're not just answering questions - you're actively helping ${firstN
    * Node.js: https://nodejs.org/docs/
  - For resources, use titles like "Official Documentation" or "Main Reference".
  - **CRITICAL**: DO NOT suggest or link to Codecademy. Instead, use alternatives like FreeCodeCamp, Coursera, EdX, or the tech's official documentation.
- - Ensure internal learning links (/student/learning/...) are the first resource in any skill-based milestone.`;
+ - Ensure internal learning links (/student/learning/...) are the first resource in any skill-based milestone.
+
+ Project Guidelines:
+ - For milestones with category="project", you MUST provide exactly 1 problem statement in the \`problemStatements\` array. It must include: statement, requirements (array of strings), difficulty, and hints (array of strings). Projects do NOT require quizzes - set requiresQuiz to false for project milestones.
+ - The options should vary slightly in focus (e.g., E-commerce vs. Social Media vs. Utility) but cover the same core skills.
+ - Mark them as 'project' category.
+ - Do not set \`requiresQuiz\` for projects.`;
 }
 
 function isRoadmapRequest(message = '') {
@@ -117,7 +123,7 @@ function isRoadmapRequest(message = '') {
 function getRoadmapQuestions(student) {
     const firstName = student.firstName || student.name?.split(' ')[0] || 'there';
     return [
-        `Great, ${firstName}. Before I build your roadmap, what exact role or goal are you targeting? (e.g., AI Engineer, Full Stack Developer, Data Analyst)`,
+        `Great, ${firstName}. Before I build your roadmap, what exact role or goal are you targeting ? (e.g., AI Engineer, Full Stack Developer, Data Analyst)`,
         'What’s your current level and background? List the skills/tools you already know and any projects or internships you’ve done.',
         'What timeline and weekly time commitment can you realistically follow? (e.g., 8 weeks, 6 months; 5–8 hrs/week)'
     ];
@@ -137,16 +143,16 @@ function extractTargetRole(message = '') {
 
 function buildProfileSummary(student) {
     const skills = Array.isArray(student.skills) && student.skills.length > 0
-        ? `Skills: ${student.skills.join(', ')}`
+        ? `Skills: ${student.skills.join(', ')} `
         : '';
     const projects = Array.isArray(student.projects) && student.projects.length > 0
-        ? `Projects: ${student.projects.map(p => p.title).filter(Boolean).join(', ')}`
+        ? `Projects: ${student.projects.map(p => p.title).filter(Boolean).join(', ')} `
         : '';
     const experience = Array.isArray(student.experience) && student.experience.length > 0
-        ? `Experience: ${student.experience.map(e => e.role || e.title).filter(Boolean).join(', ')}`
+        ? `Experience: ${student.experience.map(e => e.role || e.title).filter(Boolean).join(', ')} `
         : '';
     const certifications = Array.isArray(student.certifications) && student.certifications.length > 0
-        ? `Certifications: ${student.certifications.map(c => c.name).filter(Boolean).join(', ')}`
+        ? `Certifications: ${student.certifications.map(c => c.name).filter(Boolean).join(', ')} `
         : '';
 
     const parts = [skills, projects, experience, certifications].filter(Boolean);
@@ -256,12 +262,12 @@ function isProfileReference(message = '') {
 }
 
 function buildRoadmapIntakePrompt(intake) {
-    return `Create a personalized roadmap now using the answers below. Do NOT ask more questions. Use the createRoadmap tool.
+    return `Create a personalized roadmap now using the answers below.Do NOT ask more questions.Use the createRoadmap tool.
 
-Roadmap intake summary:
-- Target role/goal: ${intake.answers.q1 || 'Not specified'}
-- Current level/skills/projects: ${intake.answers.q2 || 'Not specified'}
-- Timeline & weekly commitment: ${intake.answers.q3 || 'Not specified'}
+        Roadmap intake summary:
+- Target role / goal: ${intake.answers.q1 || 'Not specified'}
+    - Current level / skills / projects: ${intake.answers.q2 || 'Not specified'}
+    - Timeline & weekly commitment: ${intake.answers.q3 || 'Not specified'}
 
 If details are missing, make reasonable assumptions and state them briefly in your response.`;
 }
@@ -374,7 +380,7 @@ async function processMessage(studentId, userMessage, conversationId = null) {
         { role: 'system', content: systemPrompt },
         {
             role: 'system',
-            content: `STUDENT_SNAPSHOT_JSON:\n${JSON.stringify(snapshot)}`
+            content: `STUDENT_SNAPSHOT_JSON: \n${JSON.stringify(snapshot)} `
         },
         ...recentContext
     ];
@@ -431,7 +437,7 @@ async function processMessage(studentId, userMessage, conversationId = null) {
             if (requiresConfirmation(toolName)) {
                 // For now, we'll execute anyway but log it
                 // In production, this would trigger a confirmation flow
-                console.log(`Executing write operation: ${toolName}`, toolArgs);
+                console.log(`Executing write operation: ${toolName} `, toolArgs);
             }
 
             try {
@@ -447,7 +453,7 @@ async function processMessage(studentId, userMessage, conversationId = null) {
                     result
                 });
             } catch (error) {
-                console.error(`Tool execution error (${toolName}):`, error);
+                console.error(`Tool execution error(${toolName}): `, error);
                 toolResults.push({
                     tool_call_id: toolCall.id,
                     role: 'tool',

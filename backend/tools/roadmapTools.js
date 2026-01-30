@@ -46,8 +46,12 @@ async function createRoadmap(studentId, args) {
         })),
         skills: m.skills || [],
         order: index,
-        requiresQuiz: m.requiresQuiz !== undefined ? m.requiresQuiz : (m.category === 'skill' || m.category === 'project'),
-        quizStatus: 'none'
+        requiresQuiz: m.requiresQuiz !== undefined ? m.requiresQuiz : (m.category === 'skill'),
+        quizStatus: 'none',
+        // Project specific
+        problemStatements: m.category === 'project' ? (m.problemStatements || []) : [],
+        projectSubmission: null,
+        requiresQuiz: m.category === 'project' ? false : (m.requiresQuiz !== undefined ? m.requiresQuiz : true)
     }));
 
     const roadmap = new Roadmap({

@@ -6,7 +6,25 @@
 const express = require('express');
 const router = express.Router();
 const Roadmap = require('../models/Roadmap');
+const Student = require('../models/Student');
 const { authenticate } = require('../utils/authMiddleware');
+
+const normalizeProjectMilestones = (roadmap) => {
+    if (!roadmap || !roadmap.milestones) return;
+    roadmap.milestones.forEach((milestone) => {
+        if (milestone.category !== 'project') return;
+
+        const hasSubmission = Boolean(milestone.projectSubmission?.githubLink);
+        if (!hasSubmission) {
+            milestone.status = milestone.status === 'completed' ? 'not-started' : milestone.status;
+            milestone.completedAt = undefined;
+            if (milestone.projectSubmission && !milestone.projectSubmission.githubLink) {
+                milestone.projectSubmission = undefined;
+            }
+        }
+    });
+};
+
 
 // Get student's active roadmap
 router.get('/', authenticate(['student']), async (req, res) => {
@@ -16,6 +34,7 @@ router.get('/', authenticate(['student']), async (req, res) => {
             isActive: true
         });
 
+
         if (!roadmap) {
             return res.json({
                 success: true,
@@ -24,6 +43,7 @@ router.get('/', authenticate(['student']), async (req, res) => {
             });
         }
 
+        normalizeProjectMilestones(roadmap);
         res.json({ success: true, roadmap });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -36,6 +56,8 @@ router.get('/all', authenticate(['student']), async (req, res) => {
         const roadmaps = await Roadmap.find({ student: req.user.id })
             .sort({ createdAt: -1 });
 
+
+        roadmaps.forEach(normalizeProjectMilestones);
         res.json({ success: true, roadmaps });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -50,6 +72,7 @@ router.get('/:id', authenticate(['student']), async (req, res) => {
             student: req.user.id
         });
 
+
         if (!roadmap) {
             return res.status(404).json({
                 success: false,
@@ -57,6 +80,7 @@ router.get('/:id', authenticate(['student']), async (req, res) => {
             });
         }
 
+        normalizeProjectMilestones(roadmap);
         res.json({ success: true, roadmap });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -93,6 +117,14 @@ router.patch('/milestone/:milestoneId', authenticate(['student']), async (req, r
         // Update the milestone status
         const milestone = roadmap.milestones.find(m => m.id === milestoneId);
         if (milestone) {
+            // Prevent manual completion of project milestones
+            if (milestone.category === 'project' && status === 'completed') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Project milestones can only be completed by submitting a GitHub repository link'
+                });
+            }
+
             // Check if completing this milestone requires passing a quiz
             if (status === 'completed' && milestone.requiresQuiz && milestone.quizStatus !== 'passed') {
                 return res.status(400).json({
@@ -103,8 +135,34 @@ router.patch('/milestone/:milestoneId', authenticate(['student']), async (req, r
             }
 
             milestone.status = status;
+
+            // Handle completion
             if (status === 'completed' && !milestone.completedAt) {
                 milestone.completedAt = new Date();
+
+                // Automatically add milestone skills to student's profile if any
+                if (milestone.skills && milestone.skills.length > 0) {
+                    const student = await Student.findById(req.user.id);
+                    if (student) {
+                        let skillsAdded = false;
+                        milestone.skills.forEach(skill => {
+                            if (!student.skills.includes(skill)) {
+                                student.skills.push(skill);
+                                skillsAdded = true;
+                            }
+                        });
+                        if (skillsAdded) {
+                            await student.save();
+                        }
+                    }
+                }
+            }
+            // Handle restart/reset
+            else if (status === 'in-progress' || status === 'not-started') {
+                milestone.completedAt = undefined;
+                milestone.quizStatus = 'none';
+                milestone.lastQuizScore = 0;
+                milestone.quizQuestions = []; // Force fresh generation on next attempt
             }
             await roadmap.save();
         }
@@ -147,10 +205,28 @@ router.post('/milestone/:milestoneId/quiz', authenticate(['student']), async (re
 
         if (score >= 75) {
             milestone.quizStatus = 'passed';
-            // Auto-complete if they just passed? Let's leave it to the user or auto-complete if they are in progress
-            if (milestone.status === 'in-progress') {
+
+            // Auto-complete if they passed, even if skip start
+            if (milestone.status !== 'completed') {
                 milestone.status = 'completed';
                 milestone.completedAt = new Date();
+
+                // Automatically add milestone skills to student's profile if any
+                if (milestone.skills && milestone.skills.length > 0) {
+                    const student = await Student.findById(req.user.id);
+                    if (student) {
+                        let skillsAdded = false;
+                        milestone.skills.forEach(skill => {
+                            if (!student.skills.includes(skill)) {
+                                student.skills.push(skill);
+                                skillsAdded = true;
+                            }
+                        });
+                        if (skillsAdded) {
+                            await student.save();
+                        }
+                    }
+                }
             }
         } else {
             milestone.quizStatus = 'failed';
@@ -168,6 +244,152 @@ router.post('/milestone/:milestoneId/quiz', authenticate(['student']), async (re
                 : 'You did not pass the skill test this time. Review the materials and try again!'
         });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Submit project for a milestone
+router.post('/milestone/:milestoneId/project', authenticate(['student']), async (req, res) => {
+    try {
+        const { milestoneId } = req.params;
+        const { githubLink } = req.body;
+
+        if (!githubLink) {
+            return res.status(400).json({ success: false, message: 'GitHub link is required' });
+        }
+
+        const roadmap = await Roadmap.findOne({
+            student: req.user.id,
+            isActive: true,
+            'milestones.id': milestoneId
+        });
+
+        if (!roadmap) {
+            return res.status(404).json({ success: false, message: 'Roadmap or milestone not found' });
+        }
+
+        const milestone = roadmap.milestones.find(m => m.id === milestoneId);
+        if (!milestone) {
+            return res.status(404).json({ success: false, message: 'Milestone not found' });
+        }
+
+        // Update project submission
+        milestone.projectSubmission = {
+            githubLink: githubLink,
+            submittedAt: new Date(),
+            status: 'verified' // Auto-verify for now
+        };
+
+        // Mark milestone as completed
+        milestone.status = 'completed';
+        milestone.completedAt = new Date();
+
+        // Add skills to student profile
+        if (milestone.skills && milestone.skills.length > 0) {
+            const student = await Student.findById(req.user.id);
+            if (student) {
+                let skillsAdded = false;
+                milestone.skills.forEach(skill => {
+                    if (!student.skills.includes(skill)) {
+                        student.skills.push(skill);
+                        skillsAdded = true;
+                    }
+                });
+                if (skillsAdded) {
+                    await student.save();
+                }
+            }
+        }
+
+        await roadmap.save();
+
+        res.json({ success: true, roadmap, message: 'Project submitted successfully!' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Reset project submission for a milestone
+router.delete('/milestone/:milestoneId/project', authenticate(['student']), async (req, res) => {
+    try {
+        const { milestoneId } = req.params;
+
+        const roadmap = await Roadmap.findOne({
+            student: req.user.id,
+            isActive: true,
+            'milestones.id': milestoneId
+        });
+
+        if (!roadmap) {
+            return res.status(404).json({ success: false, message: 'Roadmap or milestone not found' });
+        }
+
+        const milestone = roadmap.milestones.find(m => m.id === milestoneId);
+        if (!milestone) {
+            return res.status(404).json({ success: false, message: 'Milestone not found' });
+        }
+
+        // Clear project submission (both new and old formats)
+        milestone.projectSubmission = undefined;
+        milestone.selectedProject = undefined;
+        milestone.status = 'not-started';
+        milestone.completedAt = undefined;
+
+        await roadmap.save();
+
+        res.json({ success: true, roadmap, message: 'Project reset successfully. You can now submit a new project.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Generate or fetch quiz for a milestone
+router.get('/milestone/:milestoneId/quiz', authenticate(['student']), async (req, res) => {
+    try {
+        const { milestoneId } = req.params;
+
+        const roadmap = await Roadmap.findOne({
+            student: req.user.id,
+            isActive: true,
+            'milestones.id': milestoneId
+        });
+
+        if (!roadmap) {
+            return res.status(404).json({ success: false, message: 'Roadmap or milestone not found' });
+        }
+
+        const milestone = roadmap.milestones.find(m => m.id === milestoneId);
+        if (!milestone) {
+            return res.status(404).json({ success: false, message: 'Milestone not found' });
+        }
+
+        // Return existing questions if valid and sufficient
+        if (milestone.quizQuestions && milestone.quizQuestions.length >= 5 && !req.query.refresh) {
+            return res.json({ success: true, questions: milestone.quizQuestions });
+        }
+
+        // Generate new questions
+        const context = {
+            title: milestone.title,
+            skills: milestone.skills || [],
+            description: milestone.description
+        };
+        const { generateQuizQuestions } = require('../utils/quizGenerator');
+
+        console.log(`Generating quiz for context: ${JSON.stringify(context)}`);
+        const questions = await generateQuizQuestions(context);
+
+        // Save to milestone - using Mongoose parent document save
+        // We need to locate the subdocument in the array and update it
+        const milestoneIndex = roadmap.milestones.findIndex(m => m.id === milestoneId);
+        if (milestoneIndex !== -1) {
+            roadmap.milestones[milestoneIndex].quizQuestions = questions;
+            await roadmap.save();
+        }
+
+        res.json({ success: true, questions });
+    } catch (error) {
+        console.error('Quiz route error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });

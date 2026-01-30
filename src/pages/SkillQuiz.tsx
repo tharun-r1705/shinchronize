@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { StudentNavbar } from "@/components/StudentNavbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,82 +10,88 @@ import { motion, AnimatePresence } from "framer-motion";
 import { roadmapApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
-const quizQuestions: Record<string, any[]> = {
-    python: [
-        {
-            id: 1,
-            question: "Which of the following is used to define a block of code in Python?",
-            options: ["Brackets", "Indentation", "Parentheses", "Quotation marks"],
-            correct: 1
-        },
-        {
-            id: 2,
-            question: "What is the correct way to create a list in Python?",
-            options: ["list = (1, 2, 3)", "list = {1, 2, 3}", "list = [1, 2, 3]", "list = <1, 2, 3>"],
-            correct: 2
-        },
-        {
-            id: 3,
-            question: "How do you start a comment in Python?",
-            options: ["//", "/*", "--", "#"],
-            correct: 3
-        },
-        {
-            id: 4,
-            question: "Which data type is used to store multiple items in a single variable and is ordered?",
-            options: ["Set", "List", "Dictionary", "String"],
-            correct: 1
-        }
-    ],
-    javascript: [
-        {
-            id: 1,
-            question: "Which keyword is used to declare a block-scoped variable in JavaScript?",
-            options: ["var", "let", "const", "Both let and const"],
-            correct: 3
-        },
-        {
-            id: 2,
-            question: "What does 'DOM' stand for?",
-            options: ["Data Object Model", "Document Object Model", "Digital Orbital Model", "Document Observation Method"],
-            correct: 1
-        }
-    ]
-};
-
 const SkillQuiz = () => {
     const { skillId } = useParams<{ skillId: string }>();
+    const [searchParams] = useSearchParams();
+    const milestoneIdParam = searchParams.get('milestoneId');
+
     const navigate = useNavigate();
     const { toast } = useToast();
 
+    // State
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
-    const [milestoneId, setMilestoneId] = useState<string | null>(null);
+    const [milestoneId, setMilestoneId] = useState<string | null>(milestoneIdParam);
 
-    const questions = skillId && quizQuestions[skillId.toLowerCase()] ? quizQuestions[skillId.toLowerCase()] : quizQuestions.python;
+    // Dynamic Quiz State
+    const [questions, setQuestions] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
     const skillName = skillId ? skillId.charAt(0).toUpperCase() + skillId.slice(1) : "Skill";
 
     useEffect(() => {
-        // Find the active milestone for this skill from the active roadmap
-        const findMilestone = async () => {
+        const fetchQuiz = async () => {
             const token = localStorage.getItem('token');
-            if (!token) return;
+            if (!token) {
+                navigate('/student/login');
+                return;
+            }
+
             try {
-                const response = await roadmapApi.getActive(token);
-                if (response.roadmap) {
-                    const milestone = response.roadmap.milestones.find((m: any) =>
-                        m.status === 'in-progress' || m.status === 'not-started'
-                    );
-                    if (milestone) setMilestoneId(milestone.id);
+                // 1. Resolve milestone ID if missing
+                let activeMilestoneId = milestoneId;
+                if (!activeMilestoneId) {
+                    const response = await roadmapApi.getActive(token);
+                    if (response.roadmap) {
+                        const milestone = response.roadmap.milestones.find((m: any) =>
+                            (m.status === 'in-progress' || m.status === 'not-started') &&
+                            (skillId && m.skills?.some((s: string) => s.toLowerCase().includes(skillId.toLowerCase())))
+                        );
+                        if (milestone) {
+                            activeMilestoneId = milestone.id;
+                            setMilestoneId(milestone.id);
+                        } else {
+                            // Only set error if we strictly needed to find it here, 
+                            // but usually the param is passed.
+                            console.warn("Milestone not found for this skill");
+                        }
+                    }
                 }
-            } catch (error) {
-                console.error("Failed to fetch roadmap:", error);
+
+                // 2. Fetch Questions
+                if (activeMilestoneId) {
+                    setIsLoading(true);
+                    setError(null);
+
+                    // Artificial delay for better UX if response is too fast? No, faster is better.
+                    const quizResponse = await roadmapApi.getQuiz(activeMilestoneId, token);
+
+                    if (quizResponse.questions && quizResponse.questions.length > 0) {
+                        setQuestions(quizResponse.questions);
+                    } else {
+                        throw new Error("No questions available for this module yet.");
+                    }
+                } else {
+                    setError("Could not find a relevant active milestone for this quiz. Please start the milestone from your roadmap.");
+                }
+            } catch (err: any) {
+                console.error("Quiz fetch error:", err);
+                setError(err.message || "Failed to load quiz.");
+                toast({
+                    title: "Error loading quiz",
+                    description: err.message,
+                    variant: "destructive"
+                });
+            } finally {
+                setIsLoading(false);
             }
         };
-        findMilestone();
-    }, []);
+
+        fetchQuiz();
+    }, [milestoneIdParam, skillId, navigate, toast]);
 
     const handleSelectOption = (optionIndex: number) => {
         setAnswers({ ...answers, [currentStep]: optionIndex });
@@ -145,6 +151,41 @@ const SkillQuiz = () => {
         }
     };
 
+    useEffect(() => {
+        if (result?.passed) {
+            const timer = setTimeout(() => {
+                navigate('/student/dashboard');
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [result, navigate]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+                <StudentNavbar />
+                <div className="flex-1 flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+                    <p className="text-muted-foreground animate-pulse">Generating your unique assessment...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+                <StudentNavbar />
+                <Card className="max-w-md w-full p-8 text-center border-red-200 bg-red-50 dark:bg-red-900/10">
+                    <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-2">Quiz Load Failed</h2>
+                    <p className="text-muted-foreground mb-6">{error}</p>
+                    <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
+                </Card>
+            </div>
+        );
+    }
+
     if (result) {
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -171,7 +212,7 @@ const SkillQuiz = () => {
                         </h2>
                         <p className="text-muted-foreground mb-6">
                             {result.passed
-                                ? "You've successfully mastered this module's requirements."
+                                ? "You've successfully mastered this module's requirements. Redirecting to roadmap..."
                                 : "You haven't reached the requirement for this module yet."}
                         </p>
 
@@ -200,6 +241,14 @@ const SkillQuiz = () => {
                         </div>
                     </Card>
                 </motion.div>
+            </div>
+        );
+    }
+
+    if (questions.length === 0) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <p>No questions found.</p>
             </div>
         );
     }
@@ -246,6 +295,13 @@ const SkillQuiz = () => {
                                 <CardTitle className="text-2xl leading-tight">
                                     {currentQuestion.question}
                                 </CardTitle>
+                                {currentQuestion.codeSnippet && (
+                                    <div className="mt-4 p-4 bg-muted/50 rounded-lg border font-mono text-sm overflow-x-auto">
+                                        <pre className="whitespace-pre-wrap break-words">
+                                            <code>{currentQuestion.codeSnippet}</code>
+                                        </pre>
+                                    </div>
+                                )}
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {currentQuestion.options.map((option: string, idx: number) => (
@@ -253,8 +309,8 @@ const SkillQuiz = () => {
                                         key={idx}
                                         onClick={() => handleSelectOption(idx)}
                                         className={`group cursor-pointer flex items-center p-4 rounded-xl border-2 transition-all duration-200 ${answers[currentStep] === idx
-                                                ? 'border-primary bg-primary/5 shadow-inner'
-                                                : 'border-transparent bg-muted/40 hover:bg-muted/70 hover:border-muted'
+                                            ? 'border-primary bg-primary/5 shadow-inner'
+                                            : 'border-transparent bg-muted/40 hover:bg-muted/70 hover:border-muted'
                                             }`}
                                     >
                                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-4 transition-colors ${answers[currentStep] === idx ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30'

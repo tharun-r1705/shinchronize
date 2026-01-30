@@ -62,12 +62,28 @@ const signup = asyncHandler(async (req, res) => {
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
+
   const student = await Student.findOne({ email }).select('+password');
   if (!student) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
-  const isMatch = await student.comparePassword(password);
+  if (!student.password) {
+    console.error('Password not found for student:', student._id);
+    return res.status(500).json({ message: 'User account is corrupted. Please contact support.' });
+  }
+
+  let isMatch;
+  try {
+    isMatch = await student.comparePassword(password);
+  } catch (err) {
+    console.error('Error comparing passwords:', err);
+    return res.status(500).json({ message: 'Authentication error occurred' });
+  }
+
   if (!isMatch) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
@@ -618,23 +634,52 @@ const getLeaderboard = asyncHandler(async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100);
 
   const students = await Student.find({})
-    .select('name college readinessScore streakDays projects badges avatarUrl')
+    .select('name college readinessScore streakDays projects badges avatarUrl githubStats leetcodeStats hackerrankStats codingLogs')
     .lean();
 
   const withDerived = students
-    .map((s) => ({
-      _id: s._id,
-      name: s.name,
-      college: s.college || '',
-      readinessScore: Number(s.readinessScore) || 0,
-      streakDays: Number(s.streakDays) || 0,
-      projects: Array.isArray(s.projects) ? s.projects : [],
-      badges: Array.isArray(s.badges) ? s.badges : [],
-      avatarUrl: s.avatarUrl || '',
-      projectsCount: Array.isArray(s.projects) ? s.projects.length : 0,
-    }))
+    .map((s) => {
+      const leetcLogs = (s.codingLogs || []).filter(l => (l.platform || '').toLowerCase().includes('leetcode'));
+      const hrLogs = (s.codingLogs || []).filter(l => (l.platform || '').toLowerCase().includes('hackerrank'));
+
+      const leetSolved = (s.leetcodeStats?.totalSolved || 0) + leetcLogs.reduce((acc, log) => acc + (log.problemsSolved || 0), 0);
+      const hrSolved = (s.hackerrankStats?.totalSolved || 0) + hrLogs.reduce((acc, log) => acc + (log.problemsSolved || 0), 0);
+      const totalSolved = leetSolved + hrSolved;
+
+      // Debug log for students with activity to ensure stats are calculated correctly
+      if (totalSolved > 0) {
+        console.log(`[getLeaderboard] Student: ${s.name}, Total: ${totalSolved}, LC: ${leetSolved}, HR: ${hrSolved}`);
+      }
+
+      return {
+        _id: s._id,
+        name: s.name,
+        college: s.college || '',
+        readinessScore: Number(s.readinessScore) || 0,
+        streakDays: Number(s.streakDays) || 0,
+        projectsCount: Array.isArray(s.projects) ? s.projects.length : 0,
+        badges: Array.isArray(s.badges) ? s.badges : [],
+        avatarUrl: s.avatarUrl || '',
+        totalSolved,
+        platformStats: {
+          leetcode: {
+            totalSolved: leetSolved,
+            recent30: s.leetcodeStats?.recentActivity?.last30Days || 0,
+          },
+          hackerrank: {
+            totalSolved: hrSolved,
+            recent30: s.hackerrankStats?.recentActivity?.last30Days || 0,
+          },
+          github: {
+            totalCommits: s.githubStats?.totalCommits || 0,
+            recent30: s.githubStats?.recentActivity?.last30Days || 0,
+          },
+        },
+      };
+    })
     .sort((a, b) => {
       if (b.readinessScore !== a.readinessScore) return b.readinessScore - a.readinessScore;
+      if (b.totalSolved !== a.totalSolved) return b.totalSolved - a.totalSolved;
       if (b.streakDays !== a.streakDays) return b.streakDays - a.streakDays;
       return b.projectsCount - a.projectsCount;
     })
@@ -649,7 +694,9 @@ const getLeaderboard = asyncHandler(async (req, res) => {
       projects: s.projectsCount,
       badges: s.badges,
       avatarUrl: s.avatarUrl,
-      achievements: `${s.projectsCount} Project${s.projectsCount !== 1 ? 's' : ''} • ${s.streakDays} Day Streak`,
+      totalSolved: s.totalSolved,
+      achievements: `${s.totalSolved} Solved • ${s.projectsCount} Project${s.projectsCount !== 1 ? 's' : ''} • ${s.streakDays}d Streak`,
+      platformStats: s.platformStats,
     }));
 
   res.json({ leaderboard: withDerived });
@@ -832,7 +879,7 @@ const deleteEvent = asyncHandler(async (req, res) => {
 
 const getDomainInsights = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
-  const insight = await generateDomainInsight(student);
+  const insight = await generateDomainInsight(student.skills || [], student.skillRadar || {});
   res.json(insight);
 });
 
