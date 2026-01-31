@@ -544,6 +544,141 @@ const contactStudent = asyncHandler(async (req, res) => {
   }
 });
 
+const contactMultipleStudents = asyncHandler(async (req, res) => {
+  const { studentIds, subject, message } = req.body;
+
+  if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+    return res.status(400).json({ message: 'Student IDs array is required' });
+  }
+
+  if (!subject || !message) {
+    return res.status(400).json({ message: 'Subject and message are required' });
+  }
+
+  // Verify the recruiter is authenticated
+  if (!req.user || !req.user._id) {
+    return res.status(401).json({ message: 'Recruiter not authenticated. Please log in again.' });
+  }
+
+  // Get recruiter info
+  const recruiter = await Recruiter.findById(req.user._id);
+  if (!recruiter) {
+    return res.status(404).json({ message: 'Recruiter not found' });
+  }
+
+  // Find all students
+  const students = await Student.find({ _id: { $in: studentIds } }).select('name email college');
+  if (students.length === 0) {
+    return res.status(404).json({ message: 'No students found' });
+  }
+
+  // Track contacts
+  if (!recruiter.contactedCandidates) {
+    recruiter.contactedCandidates = [];
+  }
+
+  students.forEach(student => {
+    const existingContact = recruiter.contactedCandidates.find(
+      contact => contact.studentId && contact.studentId.toString() === student._id.toString()
+    );
+
+    if (existingContact) {
+      existingContact.lastContactedAt = new Date();
+      existingContact.contactCount = (existingContact.contactCount || 1) + 1;
+    } else {
+      recruiter.contactedCandidates.push({
+        studentId: student._id,
+        lastContactedAt: new Date(),
+        contactCount: 1,
+      });
+    }
+  });
+
+  await recruiter.save();
+
+  // Send emails
+  const emailResults = {
+    sent: [],
+    failed: [],
+    queued: [],
+  };
+
+  try {
+    const nodemailer = require('nodemailer');
+
+    if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('⚠️  SMTP not configured. Contacts queued without email.');
+      return res.status(202).json({
+        message: `Contacts queued for ${students.length} students (email service not configured)`,
+        note: 'Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, FROM_EMAIL in environment to enable email sending.',
+        contactedStudents: students.map(s => ({ id: s._id, name: s.name, email: s.email })),
+        queuedAt: new Date(),
+      });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const fromEmail = process.env.FROM_EMAIL || recruiter.email;
+    const signature = `\n\nBest regards,\n${recruiter.name}${recruiter.company ? `\n${recruiter.company}` : ''}`;
+
+    // Send emails to all students
+    for (const student of students) {
+      try {
+        const text = `Dear ${student.name},\n\n${message}${signature}\n\n— Sent via EvolvEd`;
+        const html = `
+          <p>Dear ${student.name},</p>
+          <p>${message.replace(/\n/g, '<br>')}</p>
+          <p>${signature.replace(/\n/g, '<br>')}</p>
+          <hr/>
+          <p style="color: #666; font-size: 12px;">— Sent via EvolvEd</p>
+        `;
+
+        await transporter.sendMail({
+          from: `"${recruiter.name}" <${fromEmail}>`,
+          to: student.email,
+          subject: subject,
+          text: text,
+          html: html,
+        });
+
+        emailResults.sent.push({
+          id: student._id,
+          name: student.name,
+          email: student.email,
+        });
+      } catch (emailError) {
+        console.error(`Failed to send email to ${student.email}:`, emailError);
+        emailResults.failed.push({
+          id: student._id,
+          name: student.name,
+          email: student.email,
+          error: emailError.message,
+        });
+      }
+    }
+
+    res.json({
+      message: `Successfully contacted ${emailResults.sent.length} of ${students.length} students`,
+      results: emailResults,
+      totalContacted: students.length,
+    });
+  } catch (error) {
+    console.error('Bulk contact error:', error);
+    res.status(500).json({
+      message: 'Failed to send bulk messages',
+      error: error.message,
+    });
+  }
+});
+
 const uploadProfilePicture = asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
@@ -587,5 +722,6 @@ module.exports = {
   getStudentProfile,
   aiAssistant,
   contactStudent,
+  contactMultipleStudents,
   uploadProfilePicture,
 };

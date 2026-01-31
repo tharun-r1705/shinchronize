@@ -14,6 +14,7 @@ const {
   getStudentProfile,
   aiAssistant,
   contactStudent,
+  contactMultipleStudents,
   uploadProfilePicture,
 } = require('../controllers/recruiterController');
 const { authenticate } = require('../utils/authMiddleware');
@@ -67,6 +68,12 @@ router.post(
   studentIdParamValidation,
   handleValidation,
   contactStudent
+);
+
+router.post(
+  '/contact/bulk',
+  authenticate(['recruiter']),
+  contactMultipleStudents
 );
 
 const multer = require('multer');

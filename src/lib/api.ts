@@ -587,6 +587,9 @@ export const recruiterApi = {
   contactStudent: (studentId: string, data: { subject: string; message: string }, token: string) =>
     api.post(`/recruiters/contact/${studentId}`, data, token),
 
+  contactMultipleStudents: (studentIds: string[], data: { subject: string; message: string }, token: string) =>
+    api.post('/recruiters/contact/bulk', { studentIds, ...data }, token),
+
   uploadProfilePicture: (file: File, token: string) => {
     const formData = new FormData();
     formData.append('profilePicture', file);
@@ -872,5 +875,62 @@ export const roadmapApi = {
 };
 
 
+
+// Job API for Talent Pool
+import type { Job, CreateJobPayload, JobStats, MatchExplanation } from '@/types/job';
+
+export const jobApi = {
+  // Create a new job
+  createJob: (data: CreateJobPayload, token: string) =>
+    api.post<{ job: Job }>('/jobs', data, token),
+
+  // Get all jobs for the recruiter
+  getAllJobs: (token: string, status?: 'draft' | 'active' | 'closed' | 'expired') => {
+    const endpoint = status ? `/jobs?status=${status}` : '/jobs';
+    return api.get<{ jobs: Job[] }>(endpoint, token);
+  },
+
+  // Get a specific job by ID
+  getJob: (jobId: string, token: string) =>
+    api.get<{ job: Job }>(`/jobs/${jobId}`, token),
+
+  // Update a job
+  updateJob: (jobId: string, data: Partial<CreateJobPayload>, token: string) =>
+    api.put<{ job: Job }>(`/jobs/${jobId}`, data, token),
+
+  // Delete a job
+  deleteJob: (jobId: string, token: string) =>
+    api.delete<{ message: string }>(`/jobs/${jobId}`, token),
+
+  // Publish a job (changes status to active and triggers matching)
+  publishJob: (jobId: string, token: string) =>
+    api.post<{ job: Job; message: string }>(`/jobs/${jobId}/publish`, {}, token),
+
+  // Manually trigger student matching for a job
+  matchStudents: (jobId: string, token: string) =>
+    api.post<{ job: Job; matchCount: number; message: string }>(`/jobs/${jobId}/match`, {}, token),
+
+  // Get matched students for a job
+  getMatches: (
+    jobId: string,
+    token: string,
+    params?: { minScore?: number; limit?: number; sortBy?: 'score' | 'name' | 'readiness' }
+  ) => {
+    const queryParams = new URLSearchParams();
+    if (params?.minScore) queryParams.set('minScore', String(params.minScore));
+    if (params?.limit) queryParams.set('limit', String(params.limit));
+    if (params?.sortBy) queryParams.set('sortBy', params.sortBy);
+    const query = queryParams.toString();
+    return api.get<{ matches: any[] }>(`/jobs/${jobId}/matches${query ? `?${query}` : ''}`, token);
+  },
+
+  // Get detailed match explanation for a specific student
+  getMatchExplanation: (jobId: string, studentId: string, token: string) =>
+    api.get<MatchExplanation>(`/jobs/${jobId}/matches/${studentId}/explain`, token),
+
+  // Get job statistics
+  getJobStats: (jobId: string, token: string) =>
+    api.get<{ stats: JobStats }>(`/jobs/${jobId}/stats`, token),
+};
 
 export default api;

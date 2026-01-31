@@ -13,6 +13,7 @@ const marketRoutes = require('./routes/marketRoutes');
 const interviewRoutes = require('./routes/interviewRoutes');
 const ttsRoutes = require('./routes/ttsRoutes');
 const roadmapRoutes = require('./routes/roadmapRoutes');
+const jobRoutes = require('./routes/jobRoutes');
 
 const seedDemoData = require('./utils/seedData');
 const seedMarketData = require('./utils/seedMarketData');
@@ -83,6 +84,7 @@ app.use('/api/interview', interviewRoutes);
 app.use('/api/tts', ttsRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/roadmap', roadmapRoutes);
+app.use('/api/jobs', jobRoutes);
 
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);

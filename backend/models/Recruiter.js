@@ -11,6 +11,7 @@ const recruiterSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     profilePicture: { type: String, default: null }, // URL to profile picture
     savedCandidates: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
+    activeJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Job' }],
     contactedCandidates: [
       {
         studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
