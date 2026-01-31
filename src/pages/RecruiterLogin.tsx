@@ -142,7 +142,7 @@ const RecruiterLogin = () => {
                       disabled={isLoading}
                     />
                   </div>
-                  <Button type="submit" className="w-full bg-gradient-secondary" disabled={isLoading}>
+                  <Button type="submit" className="w-full bg-gradient-secondary text-white shadow-md hover:opacity-95" disabled={isLoading}>
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
@@ -197,7 +197,7 @@ const RecruiterLogin = () => {
                       disabled={isLoading}
                     />
                   </div>
-                  <Button type="submit" className="w-full bg-gradient-secondary" disabled={isLoading}>
+                  <Button type="submit" className="w-full bg-gradient-secondary text-white shadow-md hover:opacity-95" disabled={isLoading}>
                     {isLoading ? "Creating Account..." : "Create Account"}
                   </Button>
                 </form>

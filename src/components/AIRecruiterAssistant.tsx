@@ -169,7 +169,7 @@ const AIRecruiterAssistant = ({ students, selectedStudents = [] }: AIRecruiterAs
         <Button
           onClick={() => setIsOpen(true)}
           size="lg"
-          className="rounded-full w-16 h-16 bg-gradient-secondary shadow-glow hover:shadow-glow-lg"
+          className="rounded-full w-16 h-16 bg-gradient-secondary text-white shadow-glow hover:shadow-glow-lg"
         >
           <Sparkles className="w-6 h-6" />
         </Button>

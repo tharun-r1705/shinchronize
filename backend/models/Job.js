@@ -87,7 +87,6 @@ const jobSchema = new mongoose.Schema(
     // Matching Criteria
     requiredSkills: {
       type: [String],
-      required: true,
       default: [],
     },
     preferredSkills: {

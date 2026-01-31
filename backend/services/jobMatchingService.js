@@ -4,6 +4,86 @@ const Job = require('../models/Job');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+const COMMON_SKILLS = [
+  'JavaScript', 'TypeScript', 'Python', 'Java', 'C', 'C++', 'C#', 'Go', 'Rust', 'PHP',
+  'React', 'Angular', 'Vue', 'Next.js', 'Node.js', 'Express', 'Django', 'Flask', 'Spring',
+  'MongoDB', 'PostgreSQL', 'MySQL', 'Redis', 'SQL', 'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes',
+  'HTML', 'CSS', 'Tailwind', 'GraphQL', 'REST', 'Microservices', 'Machine Learning', 'AI', 'NLP'
+];
+
+const STOPWORDS = new Set([
+  'the', 'and', 'or', 'to', 'of', 'in', 'for', 'with', 'a', 'an', 'on', 'at', 'by', 'is', 'are',
+  'as', 'from', 'this', 'that', 'will', 'be', 'we', 'you', 'your', 'our', 'their', 'they', 'it',
+  'role', 'job', 'position', 'candidate', 'experience', 'skills', 'required', 'preferred'
+]);
+
+const uniqueList = (items = []) => Array.from(new Set(items.map(s => s.trim()).filter(Boolean)));
+
+/**
+ * Parse job description into required/preferred skills
+ * @param {string} description
+ * @returns {Promise<{requiredSkills: string[], preferredSkills: string[]}>}
+ */
+async function parseJobDescriptionToSkills(description = '') {
+  if (!description || !description.trim()) {
+    return { requiredSkills: [], preferredSkills: [] };
+  }
+
+  try {
+    const prompt = `Extract skills from the job description and return a JSON object with keys "requiredSkills" and "preferredSkills".
+Only include concrete technical skills, tools, frameworks, languages, or platforms.
+Job Description:\n${description}`;
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a strict information extraction system. Respond only in JSON.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+      temperature: 0.2,
+      max_tokens: 512,
+      response_format: { type: 'json_object' },
+    });
+
+    const response = chatCompletion.choices[0]?.message?.content;
+    const parsed = JSON.parse(response || '{}');
+
+    return {
+      requiredSkills: uniqueList(parsed.requiredSkills || []),
+      preferredSkills: uniqueList(parsed.preferredSkills || []),
+    };
+  } catch (error) {
+    console.error('Error parsing job description:', error);
+  }
+
+  // Fallback: keyword match from common skills
+  const lower = description.toLowerCase();
+  const matched = COMMON_SKILLS.filter(skill => lower.includes(skill.toLowerCase()));
+  if (matched.length > 0) {
+    return { requiredSkills: uniqueList(matched), preferredSkills: [] };
+  }
+
+  // Fallback: simple keyword extraction
+  const keywords = description
+    .replace(/[^a-zA-Z0-9+\s]/g, ' ')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !STOPWORDS.has(word));
+  const frequency = keywords.reduce((acc, word) => {
+    acc[word] = (acc[word] || 0) + 1;
+    return acc;
+  }, {});
+  const topWords = Object.keys(frequency)
+    .sort((a, b) => frequency[b] - frequency[a])
+    .slice(0, 8)
+    .map(word => word[0].toUpperCase() + word.slice(1));
+
+  return { requiredSkills: uniqueList(topWords), preferredSkills: [] };
+}
+
 /**
  * Generate detailed job description using AI
  * @param {Object} basicJobInfo - Basic job information
@@ -97,11 +177,15 @@ function calculateJobMatchScore(student, job) {
   const studentSkills = [
     ...(student.skills || []),
     ...(student.projects?.flatMap(p => p.tags || []) || [])
-  ].map(s => s.toLowerCase());
+  ].map(s => String(s).trim().toLowerCase());
 
   // 1. Required Skills Match (30 points) - CRITICAL
   const requiredMatched = job.requiredSkills.filter(skill => {
-    const matched = studentSkills.some(s => s.includes(skill.toLowerCase()));
+    const skillLower = String(skill).trim().toLowerCase();
+    // Check both: if student skill includes job skill OR job skill includes student skill
+    const matched = studentSkills.some(s => 
+      s.includes(skillLower) || skillLower.includes(s) || s === skillLower
+    );
     if (matched) {
       skillsMatched.push(skill);
     } else {
@@ -118,9 +202,12 @@ function calculateJobMatchScore(student, job) {
   breakdown.requiredSkills = Math.round(requiredScore);
 
   // 2. Preferred Skills Match (10 points) - BONUS
-  const preferredMatched = (job.preferredSkills || []).filter(skill =>
-    studentSkills.some(s => s.includes(skill.toLowerCase()))
-  );
+  const preferredMatched = (job.preferredSkills || []).filter(skill => {
+    const skillLower = String(skill).trim().toLowerCase();
+    return studentSkills.some(s => 
+      s.includes(skillLower) || skillLower.includes(s) || s === skillLower
+    );
+  });
   
   const preferredScore = job.preferredSkills?.length > 0
     ? Math.min((preferredMatched.length / job.preferredSkills.length) * 10, 10)
@@ -301,10 +388,15 @@ async function matchStudentsToJob(jobId) {
       .select('name email college branch readinessScore readinessHistory skills projects certifications cgpa leetcodeStats githubStats')
       .lean();
 
-    console.log(`Matching ${students.length} students to job: ${job.title}`);
+    console.log(`\n========== MATCHING STUDENTS TO JOB ==========`);
+    console.log(`Job: ${job.title}`);
+    console.log(`Required Skills: ${job.requiredSkills.join(', ')}`);
+    console.log(`Total Students: ${students.length}`);
 
     // Calculate match scores for all students
-    const matches = [];
+    let matches = [];
+    const allCandidates = [];
+    let debugCount = 0;
     for (const student of students) {
       // Apply basic filters first
       if (job.minReadinessScore > 0 && (student.readinessScore || 0) < job.minReadinessScore) {
@@ -319,31 +411,49 @@ async function matchStudentsToJob(jobId) {
 
       const matchData = calculateJobMatchScore(student, job);
       
-      // CRITICAL FILTER: Must match at least 80% of required skills
-      const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 80;
+      // CRITICAL FILTER: Must match at least 50% of required skills (configurable)
+      const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 50;
       const requiredSkillsCount = job.requiredSkills.length;
       const matchedSkillsCount = matchData.skillsMatched.length;
       const skillMatchPercentage = requiredSkillsCount > 0 
         ? (matchedSkillsCount / requiredSkillsCount) * 100 
-        : 0;
+        : 100;
+
+      // Keep all candidates for potential fallback
+      allCandidates.push({
+        student,
+        matchData,
+      });
       
-      // Debug logging for skill matching
-      if (matchedSkillsCount > 0 && skillMatchPercentage < MINIMUM_SKILL_MATCH_PERCENTAGE) {
-        console.log(`FILTERED OUT: ${student.name || student.email}`);
+      // Debug logging for first 3 students
+      if (debugCount < 3) {
+        console.log(`\n--- Student ${debugCount + 1}: ${student.name || student.email} ---`);
+        console.log(`  Student Skills: ${(student.skills || []).slice(0, 5).join(', ')}${(student.skills || []).length > 5 ? '...' : ''}`);
         console.log(`  Skills Matched: ${matchData.skillsMatched.join(', ')} (${matchedSkillsCount}/${requiredSkillsCount})`);
         console.log(`  Skills Missing: ${matchData.skillsMissing.join(', ')}`);
-        console.log(`  Match %: ${skillMatchPercentage.toFixed(1)}% < ${MINIMUM_SKILL_MATCH_PERCENTAGE}% threshold`);
+        console.log(`  Match %: ${skillMatchPercentage.toFixed(1)}%`);
+        console.log(`  Match Score: ${matchData.totalScore}`);
+        console.log(`  Passes Filter: ${skillMatchPercentage >= MINIMUM_SKILL_MATCH_PERCENTAGE ? 'YES' : 'NO'}`);
+        debugCount++;
       }
       
-      // Only include students who match at least 80% of required skills
-      if (skillMatchPercentage >= MINIMUM_SKILL_MATCH_PERCENTAGE) {
-        console.log(`MATCHED: ${student.name || student.email} - ${matchedSkillsCount}/${requiredSkillsCount} skills (${skillMatchPercentage.toFixed(1)}%)`);
+      // Only include students who match at least threshold % of required skills
+      if (requiredSkillsCount === 0 || skillMatchPercentage >= MINIMUM_SKILL_MATCH_PERCENTAGE) {
         matches.push({
           student,
           matchData,
         });
       }
     }
+
+    // Fallback: if strict skill gating yields zero matches, show top candidates by score
+    if (matches.length === 0 && allCandidates.length > 0) {
+      matches = allCandidates;
+      console.log('No students met the skill threshold; using fallback to show top candidates by overall score.');
+    }
+
+    console.log(`\n========== MATCHING RESULTS ==========`);
+    console.log(`Total Matches Found: ${matches.length}/${students.length} students`);
 
     // Sort by match score (highest first)
     matches.sort((a, b) => b.matchData.totalScore - a.matchData.totalScore);
@@ -386,9 +496,10 @@ async function matchStudentsToJob(jobId) {
     job.lastMatchedAt = new Date();
     await job.save();
 
-    const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 80;
+    const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 50;
     console.log(`Successfully matched ${matchedStudentsData.length} students to job ${job.title}`);
     console.log(`Matching criteria: ${MINIMUM_SKILL_MATCH_PERCENTAGE}% of ${job.requiredSkills.length} required skills (${Math.ceil(job.requiredSkills.length * MINIMUM_SKILL_MATCH_PERCENTAGE / 100)} skills minimum)`);
+    console.log(`Required skills: ${job.requiredSkills.join(', ')}`);
 
     return {
       jobId: job._id,
@@ -432,6 +543,7 @@ async function refreshJobMatches(studentId = null) {
 
 module.exports = {
   generateJobDescription,
+  parseJobDescriptionToSkills,
   calculateJobMatchScore,
   generateMatchReason,
   matchStudentsToJob,

@@ -30,7 +30,8 @@ const handleValidation = (req, res, next) => {
 const createJobValidation = [
   body('title').trim().notEmpty().withMessage('Job title is required'),
   body('location').trim().notEmpty().withMessage('Location is required'),
-  body('requiredSkills').isArray({ min: 1 }).withMessage('At least one required skill is needed'),
+  body('description').trim().notEmpty().withMessage('Job description is required'),
+  body('requiredSkills').optional().isArray().withMessage('Required skills must be an array'),
   body('jobType').optional().isIn(['Full-time', 'Internship', 'Contract', 'Part-time']).withMessage('Invalid job type'),
   body('minReadinessScore').optional().isInt({ min: 0, max: 100 }).withMessage('Min readiness score must be between 0-100'),
   body('minCGPA').optional().isFloat({ min: 0, max: 10 }).withMessage('Min CGPA must be between 0-10'),
@@ -40,7 +41,8 @@ const createJobValidation = [
 const updateJobValidation = [
   body('title').optional().trim().notEmpty().withMessage('Job title cannot be empty'),
   body('location').optional().trim().notEmpty().withMessage('Location cannot be empty'),
-  body('requiredSkills').optional().isArray({ min: 1 }).withMessage('At least one required skill is needed'),
+  body('description').optional().trim().notEmpty().withMessage('Job description cannot be empty'),
+  body('requiredSkills').optional().isArray().withMessage('Required skills must be an array'),
   body('status').optional().isIn(['draft', 'active', 'closed', 'expired']).withMessage('Invalid status'),
   body('minReadinessScore').optional().isInt({ min: 0, max: 100 }).withMessage('Min readiness score must be between 0-100'),
   body('minCGPA').optional().isFloat({ min: 0, max: 10 }).withMessage('Min CGPA must be between 0-10'),

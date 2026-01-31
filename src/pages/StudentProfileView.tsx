@@ -25,7 +25,8 @@ import {
   Building,
   CheckCircle2,
   Clock,
-  X
+  X,
+  FileText
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +37,11 @@ const StudentProfileView = () => {
   const { studentId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const toExternalUrl = (value?: string) => {
+    if (!value) return "";
+    return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  };
   const [student, setStudent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -299,7 +305,7 @@ const StudentProfileView = () => {
                   <div className="flex gap-2 mt-4">
                     {student.portfolioUrl && (
                       <Button variant="outline" size="sm" asChild>
-                        <a href={student.portfolioUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={toExternalUrl(student.portfolioUrl)} target="_blank" rel="noopener noreferrer">
                           <Globe className="w-4 h-4 mr-2" />
                           Portfolio
                         </a>
@@ -307,7 +313,7 @@ const StudentProfileView = () => {
                     )}
                     {student.githubUrl && (
                       <Button variant="outline" size="sm" asChild>
-                        <a href={student.githubUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={toExternalUrl(student.githubUrl)} target="_blank" rel="noopener noreferrer">
                           <Github className="w-4 h-4 mr-2" />
                           GitHub
                         </a>
@@ -315,15 +321,23 @@ const StudentProfileView = () => {
                     )}
                     {student.linkedinUrl && (
                       <Button variant="outline" size="sm" asChild>
-                        <a href={student.linkedinUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={toExternalUrl(student.linkedinUrl)} target="_blank" rel="noopener noreferrer">
                           <Linkedin className="w-4 h-4 mr-2" />
                           LinkedIn
                         </a>
                       </Button>
                     )}
+                    {student.resumeUrl && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={toExternalUrl(student.resumeUrl)} target="_blank" rel="noopener noreferrer">
+                          <FileText className="w-4 h-4 mr-2" />
+                          Resume
+                        </a>
+                      </Button>
+                    )}
                     {student.leetcodeUrl && (
                       <Button variant="outline" size="sm" asChild>
-                        <a href={student.leetcodeUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={toExternalUrl(student.leetcodeUrl)} target="_blank" rel="noopener noreferrer">
                           <Code className="w-4 h-4 mr-2" />
                           LeetCode
                         </a>

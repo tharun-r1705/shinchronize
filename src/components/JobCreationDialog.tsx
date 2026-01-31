@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Sparkles, X, Plus } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { jobApi } from "@/lib/api";
 import type { CreateJobPayload, Job } from "@/types/job";
@@ -38,7 +38,6 @@ export default function JobCreationDialog({
   job,
 }: JobCreationDialogProps) {
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const isEditMode = Boolean(job);
 
@@ -46,19 +45,11 @@ export default function JobCreationDialog({
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [jobType, setJobType] = useState<"Full-time" | "Internship" | "Contract" | "Part-time">("Internship");
-  const [requiredSkills, setRequiredSkills] = useState<string[]>([]);
-  const [preferredSkills, setPreferredSkills] = useState<string[]>([]);
-  const [newSkill, setNewSkill] = useState("");
-  const [newPreferredSkill, setNewPreferredSkill] = useState("");
+  const [description, setDescription] = useState("");
   const [experienceRequired, setExperienceRequired] = useState("");
   const [minReadinessScore, setMinReadinessScore] = useState("50");
   const [minCGPA, setMinCGPA] = useState("6.0");
   const [minProjects, setMinProjects] = useState("1");
-
-  // AI-generated content preview
-  const [aiDescription, setAiDescription] = useState("");
-  const [aiResponsibilities, setAiResponsibilities] = useState<string[]>([]);
-  const [aiQualifications, setAiQualifications] = useState<string[]>([]);
 
   // Populate form for edit and reset when closed
   useEffect(() => {
@@ -66,15 +57,11 @@ export default function JobCreationDialog({
       setTitle(job.title || "");
       setLocation(job.location || "");
       setJobType(job.jobType || "Internship");
-      setRequiredSkills(job.requiredSkills || []);
-      setPreferredSkills(job.preferredSkills || []);
+      setDescription(job.description || "");
       setExperienceRequired(job.experienceRequired || "");
       setMinReadinessScore(String(job.minReadinessScore ?? 50));
       setMinCGPA(String(job.minCGPA ?? 6.0));
       setMinProjects(String(job.minProjects ?? 1));
-      setAiDescription(job.description || "");
-      setAiResponsibilities(job.responsibilities || []);
-      setAiQualifications(job.qualifications || []);
       return;
     }
 
@@ -82,45 +69,19 @@ export default function JobCreationDialog({
       setTitle("");
       setLocation("");
       setJobType("Internship");
-      setRequiredSkills([]);
-      setPreferredSkills([]);
+      setDescription("");
       setExperienceRequired("");
       setMinReadinessScore("50");
       setMinCGPA("6.0");
       setMinProjects("1");
-      setAiDescription("");
-      setAiResponsibilities([]);
-      setAiQualifications([]);
     }
   }, [open, job]);
 
-  const addRequiredSkill = () => {
-    if (newSkill.trim() && !requiredSkills.includes(newSkill.trim())) {
-      setRequiredSkills([...requiredSkills, newSkill.trim()]);
-      setNewSkill("");
-    }
-  };
-
-  const addPreferredSkill = () => {
-    if (newPreferredSkill.trim() && !preferredSkills.includes(newPreferredSkill.trim())) {
-      setPreferredSkills([...preferredSkills, newPreferredSkill.trim()]);
-      setNewPreferredSkill("");
-    }
-  };
-
-  const removeRequiredSkill = (skill: string) => {
-    setRequiredSkills(requiredSkills.filter((s) => s !== skill));
-  };
-
-  const removePreferredSkill = (skill: string) => {
-    setPreferredSkills(preferredSkills.filter((s) => s !== skill));
-  };
-
   const handleSaveJob = async (publishNow: boolean = false) => {
-    if (!title.trim() || !location.trim() || requiredSkills.length === 0) {
+    if (!title.trim() || !location.trim() || !description.trim()) {
       toast({
         title: "Missing required fields",
-        description: "Please fill in title, location, and at least one required skill.",
+        description: "Please fill in title, location, and job description.",
         variant: "destructive",
       });
       return;
@@ -138,8 +99,7 @@ export default function JobCreationDialog({
         title,
         location,
         jobType,
-        requiredSkills,
-        preferredSkills: preferredSkills.length > 0 ? preferredSkills : undefined,
+        description,
         experienceRequired: experienceRequired || undefined,
         minReadinessScore: parseInt(minReadinessScore),
         minCGPA: parseFloat(minCGPA),
@@ -194,7 +154,7 @@ export default function JobCreationDialog({
           <DialogDescription>
             {isEditMode
               ? "Update the job details below."
-              : "Fill in the basic details and AI will help generate a professional job description."}
+              : "Provide a clear job description and AI will extract key skills automatically."}
           </DialogDescription>
         </DialogHeader>
 
@@ -237,68 +197,19 @@ export default function JobCreationDialog({
             </div>
           </div>
 
-          {/* Required Skills */}
+          {/* Job Description */}
           <div className="space-y-2">
-            <Label>Required Skills *</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a required skill"
-                value={newSkill}
-                onChange={(e) => setNewSkill(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addRequiredSkill();
-                  }
-                }}
-              />
-              <Button type="button" onClick={addRequiredSkill} size="sm">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {requiredSkills.map((skill) => (
-                <Badge key={skill} variant="default" className="flex items-center gap-1">
-                  {skill}
-                  <X
-                    className="h-3 w-3 cursor-pointer"
-                    onClick={() => removeRequiredSkill(skill)}
-                  />
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Preferred Skills */}
-          <div className="space-y-2">
-            <Label>Preferred Skills (Optional)</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a preferred skill"
-                value={newPreferredSkill}
-                onChange={(e) => setNewPreferredSkill(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addPreferredSkill();
-                  }
-                }}
-              />
-              <Button type="button" onClick={addPreferredSkill} size="sm" variant="outline">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {preferredSkills.map((skill) => (
-                <Badge key={skill} variant="secondary" className="flex items-center gap-1">
-                  {skill}
-                  <X
-                    className="h-3 w-3 cursor-pointer"
-                    onClick={() => removePreferredSkill(skill)}
-                  />
-                </Badge>
-              ))}
-            </div>
+            <Label htmlFor="description">Job Description *</Label>
+            <Textarea
+              id="description"
+              placeholder="Paste the job description here. AI will extract key skills automatically."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={6}
+            />
+            <p className="text-xs text-muted-foreground">
+              Tip: Include required technologies, responsibilities, and experience.
+            </p>
           </div>
 
           {/* Experience */}

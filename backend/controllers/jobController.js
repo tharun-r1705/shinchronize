@@ -2,14 +2,14 @@ const Job = require('../models/Job');
 const Student = require('../models/Student');
 const asyncHandler = require('../utils/asyncHandler');
 const {
-  generateJobDescription,
+  parseJobDescriptionToSkills,
   matchStudentsToJob,
   generateMatchReason,
   calculateJobMatchScore,
 } = require('../services/jobMatchingService');
 
 /**
- * Create a new job posting with AI-generated description
+ * Create a new job posting using recruiter-provided description
  * POST /api/jobs
  */
 const createJob = asyncHandler(async (req, res) => {
@@ -21,31 +21,29 @@ const createJob = asyncHandler(async (req, res) => {
     salaryRange,
     requiredSkills,
     preferredSkills,
+    description,
     minReadinessScore,
     minCGPA,
     minProjects,
   } = req.body;
 
   // Validate required fields
-  if (!title || !location || !requiredSkills || requiredSkills.length === 0) {
+  if (!title || !location || !description || !description.trim()) {
     return res.status(400).json({
-      message: 'Title, location, and at least one required skill are mandatory',
+      message: 'Title, location, and job description are mandatory',
     });
   }
 
   // Get company from recruiter profile
   const company = req.user.company || 'Our Company';
 
-  // Generate AI description
-  console.log('Generating AI job description...');
-  const aiGenerated = await generateJobDescription({
-    title,
-    location,
-    requiredSkills,
-    preferredSkills,
-    experience,
-    company,
-  });
+  // Parse skills from description if not provided
+  let parsedSkills = { requiredSkills: [], preferredSkills: [] };
+  if (!requiredSkills || requiredSkills.length === 0) {
+    parsedSkills = await parseJobDescriptionToSkills(description);
+  }
+  const finalRequiredSkills = requiredSkills?.length ? requiredSkills : parsedSkills.requiredSkills;
+  const finalPreferredSkills = preferredSkills?.length ? preferredSkills : parsedSkills.preferredSkills;
 
   // Create job
   const job = new Job({
@@ -56,11 +54,11 @@ const createJob = asyncHandler(async (req, res) => {
     jobType: jobType || 'Full-time',
     experience: experience || '0-2 years',
     salaryRange,
-    description: aiGenerated.description,
-    responsibilities: aiGenerated.responsibilities,
-    qualifications: aiGenerated.qualifications,
-    requiredSkills,
-    preferredSkills: preferredSkills || [],
+    description,
+    responsibilities: [],
+    qualifications: [],
+    requiredSkills: finalRequiredSkills || [],
+    preferredSkills: finalPreferredSkills || [],
     minReadinessScore: minReadinessScore || 0,
     minCGPA: minCGPA || 0,
     minProjects: minProjects || 0,
@@ -138,6 +136,17 @@ const updateJob = asyncHandler(async (req, res) => {
   // Verify ownership
   if (job.recruiterId.toString() !== req.user._id.toString()) {
     return res.status(403).json({ message: 'Not authorized to update this job' });
+  }
+
+  // If description is updated without skills, re-parse skills
+  if (updates.description && (!updates.requiredSkills || updates.requiredSkills.length === 0)) {
+    const parsed = await parseJobDescriptionToSkills(updates.description);
+    if (!updates.requiredSkills || updates.requiredSkills.length === 0) {
+      updates.requiredSkills = parsed.requiredSkills;
+    }
+    if (!updates.preferredSkills || updates.preferredSkills.length === 0) {
+      updates.preferredSkills = parsed.preferredSkills;
+    }
   }
 
   // Update allowed fields

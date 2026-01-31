@@ -447,7 +447,7 @@ export default function TalentPoolPage() {
                         <div className="text-sm">
                           <p className="font-semibold mb-1">Quality Matching Active</p>
                           <p className="text-white/90">
-                            Students must match at least <strong>80% of required skills</strong> ({Math.ceil(selectedJob.requiredSkills.length * 0.8)} out of {selectedJob.requiredSkills.length} skills) to appear in results.
+                            Students must match at least <strong>50% of required skills</strong> ({Math.ceil(selectedJob.requiredSkills.length * 0.5)} out of {selectedJob.requiredSkills.length} skills) to appear in results.
                             Click "Refresh Matches" to update with latest matching algorithm.
                           </p>
                         </div>

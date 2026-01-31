@@ -84,7 +84,8 @@ export interface CreateJobPayload {
   title: string;
   location: string;
   jobType?: 'Full-time' | 'Internship' | 'Contract' | 'Part-time';
-  requiredSkills: string[];
+  description?: string;
+  requiredSkills?: string[];
   preferredSkills?: string[];
   experienceRequired?: string;
   minReadinessScore?: number;

@@ -51,6 +51,10 @@ const RecruiterDashboard = () => {
   const [selectedStudentName, setSelectedStudentName] = useState<string>("");
   const [selectedMatchScore, setSelectedMatchScore] = useState<number>(0);
   const [jobSearchQuery, setJobSearchQuery] = useState("");
+  const [whyChatInput, setWhyChatInput] = useState("");
+  const [whyChatMessages, setWhyChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [whyChatStudentId, setWhyChatStudentId] = useState<string>("");
+  const [whyChatLoading, setWhyChatLoading] = useState(false);
 
   // Bulk contact state
   const [showBulkContactDialog, setShowBulkContactDialog] = useState(false);
@@ -218,6 +222,41 @@ const RecruiterDashboard = () => {
     setSelectedStudentName(studentName);
     setSelectedMatchScore(matchScore);
     setShowExplanationModal(true);
+  };
+
+  const handleWhyChatSubmit = async () => {
+    if (!selectedJob) return;
+    if (!whyChatInput.trim()) return;
+    if (!whyChatStudentId) {
+      toast({
+        title: "Select a candidate",
+        description: "Choose a candidate to ask about.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const question = whyChatInput.trim();
+    setWhyChatMessages((prev) => [...prev, { role: "user", content: question }]);
+    setWhyChatInput("");
+    setWhyChatLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not authenticated");
+
+      const explanation = await jobApi.getMatchExplanation(selectedJob._id, whyChatStudentId, token);
+      const responseText = explanation.matchReason || "No explanation available for this candidate.";
+      setWhyChatMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
+    } catch (error: any) {
+      toast({
+        title: "Unable to fetch explanation",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setWhyChatLoading(false);
+    }
   };
 
   const openContactModal = (student: any) => {
@@ -600,14 +639,22 @@ const RecruiterDashboard = () => {
                         </div>
 
                         <div className="flex flex-wrap gap-1.5">
-                          {job.requiredSkills.slice(0, 3).map((skill) => (
-                            <Badge key={skill} variant="outline" className="text-xs font-normal">
-                              {skill}
-                            </Badge>
-                          ))}
-                          {job.requiredSkills.length > 3 && (
+                          {job.requiredSkills.length > 0 ? (
+                            <>
+                              {job.requiredSkills.slice(0, 3).map((skill) => (
+                                <Badge key={skill} variant="outline" className="text-xs font-normal">
+                                  {skill}
+                                </Badge>
+                              ))}
+                              {job.requiredSkills.length > 3 && (
+                                <Badge variant="outline" className="text-xs font-normal">
+                                  +{job.requiredSkills.length - 3}
+                                </Badge>
+                              )}
+                            </>
+                          ) : (
                             <Badge variant="outline" className="text-xs font-normal">
-                              +{job.requiredSkills.length - 3}
+                              AI Parsed Skills
                             </Badge>
                           )}
                         </div>
@@ -676,11 +723,17 @@ const RecruiterDashboard = () => {
                           {selectedJob.location} • {selectedJob.matchCount || 0} matches found
                         </p>
                         <div className="flex flex-wrap gap-2 mt-3">
-                          {selectedJob.requiredSkills.map((skill) => (
-                            <Badge key={skill} className="bg-white/20 text-white border-white/30">
-                              {skill}
+                          {selectedJob.requiredSkills.length > 0 ? (
+                            selectedJob.requiredSkills.map((skill) => (
+                              <Badge key={skill} className="bg-white/20 text-white border-white/30">
+                                {skill}
+                              </Badge>
+                            ))
+                          ) : (
+                            <Badge className="bg-white/20 text-white border-white/30">
+                              AI-parsed skills will appear here
                             </Badge>
-                          ))}
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -706,7 +759,9 @@ const RecruiterDashboard = () => {
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                         <p className="text-sm text-white/90">
-                          Students must match at least <strong>80% of required skills</strong> ({Math.ceil(selectedJob.requiredSkills.length * 0.8)} out of {selectedJob.requiredSkills.length} skills) to appear in results.
+                          {selectedJob.requiredSkills.length > 0
+                            ? <>Students must match at least <strong>50% of AI-extracted skills</strong> ({Math.ceil(selectedJob.requiredSkills.length * 0.5)} out of {selectedJob.requiredSkills.length} skills) to appear in results.</>
+                            : <>AI is matching candidates based on your job description.</>}
                         </p>
                       </div>
                     </div>
@@ -865,6 +920,83 @@ const RecruiterDashboard = () => {
                     })}
                   </div>
                 )}
+
+                {/* Why This Candidate Chat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Brain className="w-5 h-5" />
+                      Ask Why This Candidate Was Chosen
+                    </CardTitle>
+                    <CardDescription>
+                      Select a candidate and ask a question. The AI will justify the match.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Candidate</Label>
+                        <Select value={whyChatStudentId} onValueChange={setWhyChatStudentId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select candidate" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {matchedStudents.map((match: any) => {
+                              const student = typeof match.studentId === 'object' ? match.studentId : null;
+                              if (!student) return null;
+                              return (
+                                <SelectItem key={student._id} value={student._id}>
+                                  {student.name || student.email}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Question</Label>
+                        <Input
+                          placeholder="Why did you choose this person?"
+                          value={whyChatInput}
+                          onChange={(e) => setWhyChatInput(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleWhyChatSubmit();
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={handleWhyChatSubmit} disabled={whyChatLoading || !whyChatInput.trim()}>
+                        {whyChatLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Thinking...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            Ask AI
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {whyChatMessages.length > 0 && (
+                      <div className="space-y-3 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30">
+                        {whyChatMessages.map((msg, idx) => (
+                          <div key={idx} className={msg.role === "user" ? "text-right" : "text-left"}>
+                            <div className={msg.role === "user" ? "inline-block rounded-lg bg-primary text-primary-foreground px-3 py-2 text-sm" : "inline-block rounded-lg bg-card px-3 py-2 text-sm"}>
+                              {msg.content}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </motion.div>
             )}
           </TabsContent>
