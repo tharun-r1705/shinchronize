@@ -1,5 +1,25 @@
 // Job and Talent Pool Type Definitions
 
+// Learning rate categories
+export type LearningCategory = 'fast' | 'steady' | 'developing' | 'not_determined';
+export type LearningTrend = 'accelerating' | 'steady' | 'slowing';
+
+// Learning metrics interface
+export interface LearningMetrics {
+  learningRate: number | null;
+  learningCategory: LearningCategory;
+  components?: {
+    readinessVelocity: number;
+    milestoneSpeed: number;
+    quizPerformance: number;
+    codingGrowth: number;
+    skillAcquisition: number;
+    projectVelocity: number;
+  };
+  trend?: LearningTrend;
+  calculatedAt?: Date | string;
+}
+
 export interface MatchedStudent {
   studentId: {
     _id: string;
@@ -32,6 +52,7 @@ export interface MatchedStudent {
       totalSolved?: number;
       streak?: number;
     };
+    learningMetrics?: LearningMetrics;
   } | string;
   matchScore: number;
   matchReason: string;
@@ -135,6 +156,7 @@ export interface MatchExplanation {
       name: string;
       provider?: string;
     }>;
+    learningMetrics?: LearningMetrics;
   };
   job: {
     id: string; // Backend returns 'id' not '_id'

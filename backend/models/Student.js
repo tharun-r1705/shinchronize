@@ -302,6 +302,34 @@ const studentSchema = new mongoose.Schema(
         topFeedback: { type: [String], default: [] },
       },
     },
+    learningMetrics: {
+      learningRate: { type: Number, default: null, min: 0, max: 100 },
+      learningCategory: { 
+        type: String, 
+        enum: ['fast', 'steady', 'developing', 'not_determined'],
+        default: 'not_determined'
+      },
+      components: {
+        readinessVelocity: { type: Number, default: 0, min: 0, max: 100 },
+        milestoneSpeed: { type: Number, default: 0, min: 0, max: 100 },
+        quizPerformance: { type: Number, default: 0, min: 0, max: 100 },
+        codingGrowth: { type: Number, default: 0, min: 0, max: 100 },
+        skillAcquisition: { type: Number, default: 0, min: 0, max: 100 },
+        projectVelocity: { type: Number, default: 0, min: 0, max: 100 }
+      },
+      calculatedAt: { type: Date },
+      dataPointsUsed: { type: Number, default: 0, min: 0 },
+      trend: { 
+        type: String, 
+        enum: ['accelerating', 'steady', 'slowing'], 
+        default: 'steady' 
+      },
+      history: [{
+        learningRate: { type: Number, min: 0, max: 100 },
+        category: { type: String, enum: ['fast', 'steady', 'developing', 'not_determined'] },
+        calculatedAt: { type: Date, default: Date.now }
+      }]
+    },
     githubToken: { type: String, trim: true, select: false },
     role: { type: String, default: 'student' },
     isProfileComplete: { type: Boolean, default: false },

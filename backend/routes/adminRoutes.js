@@ -9,6 +9,7 @@ const {
   verifyItem,
   getDashboardStats,
   listStudents,
+  calculateAllLearningRates,
 } = require('../controllers/adminController');
 const { authenticate } = require('../utils/authMiddleware');
 const {
@@ -26,5 +27,6 @@ router.get('/pending', authenticate(['admin']), listPendingVerifications);
 router.post('/verify', authenticate(['admin']), adminVerifyValidation, handleValidation, verifyItem);
 router.get('/stats', authenticate(['admin']), getDashboardStats);
 router.get('/students', authenticate(['admin']), listStudents);
+router.post('/calculate-learning-rates', authenticate(['admin']), calculateAllLearningRates);
 
 module.exports = router;

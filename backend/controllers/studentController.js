@@ -15,6 +15,7 @@ const { generateDomainInsight } = require('../utils/domainInsights');
 const { updateStreak } = require('../utils/streakCalculator');
 const { extractTextFromPDF } = require('../utils/pdfExtractor');
 const { validateCompleteProfile } = require('../utils/profileValidation');
+const learningRateService = require('../services/learningRateService');
 
 const buildAuthResponse = (student, breakdown = {}) => ({
   token: generateToken(student._id, 'student'),
@@ -1207,6 +1208,82 @@ const analyzeResume = asyncHandler(async (req, res) => {
   res.json({ analysis });
 });
 
+// Learning Rate endpoints
+const getLearningRate = asyncHandler(async (req, res) => {
+  const studentId = req.student.id;
+
+  const student = await Student.findById(studentId);
+  if (!student) {
+    return res.status(404).json({ message: 'Student not found' });
+  }
+
+  // Return cached learning metrics if exists and recent (within 24 hours)
+  if (student.learningMetrics?.calculatedAt) {
+    const hoursSinceCalc = (Date.now() - student.learningMetrics.calculatedAt) / (1000 * 60 * 60);
+    if (hoursSinceCalc < 24) {
+      return res.json({
+        success: true,
+        learningMetrics: student.learningMetrics,
+        cached: true
+      });
+    }
+  }
+
+  // Calculate fresh learning rate
+  const metrics = await learningRateService.calculateLearningRate(studentId);
+  await learningRateService.saveLearningRate(studentId, metrics);
+
+  res.json({
+    success: true,
+    learningMetrics: metrics,
+    cached: false
+  });
+});
+
+const recalculateLearningRate = asyncHandler(async (req, res) => {
+  const studentId = req.student.id;
+
+  const metrics = await learningRateService.calculateLearningRate(studentId);
+  await learningRateService.saveLearningRate(studentId, metrics);
+
+  res.json({
+    success: true,
+    message: 'Learning rate recalculated successfully',
+    learningMetrics: metrics
+  });
+});
+
+const getLearningRateBreakdown = asyncHandler(async (req, res) => {
+  const studentId = req.student.id;
+
+  const breakdown = await learningRateService.getLearningRateBreakdown(studentId);
+
+  res.json({
+    success: true,
+    breakdown
+  });
+});
+
+// For recruiters to view student's learning rate
+const getStudentLearningRate = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+
+  const student = await Student.findById(studentId).select('learningMetrics name email');
+  if (!student) {
+    return res.status(404).json({ message: 'Student not found' });
+  }
+
+  res.json({
+    success: true,
+    student: {
+      id: student._id,
+      name: student.name,
+      email: student.email,
+      learningMetrics: student.learningMetrics
+    }
+  });
+});
+
 module.exports = {
   signup,
   login,
@@ -1237,4 +1314,8 @@ module.exports = {
   importLinkedInProfile,
   extractResumeText,
   analyzeResume,
+  getLearningRate,
+  recalculateLearningRate,
+  getLearningRateBreakdown,
+  getStudentLearningRate,
 };

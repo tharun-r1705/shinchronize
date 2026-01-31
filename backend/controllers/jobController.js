@@ -260,12 +260,12 @@ const matchStudents = asyncHandler(async (req, res) => {
  */
 const getMatchedStudents = asyncHandler(async (req, res) => {
   const { jobId } = req.params;
-  const { limit = 50, minScore = 0 } = req.query;
+  const { limit = 50, minScore = 0, learningCategory } = req.query;
 
   const job = await Job.findById(jobId)
     .populate({
       path: 'matchedStudents.studentId',
-      select: 'name email college branch readinessScore skills projects certifications cgpa leetcodeStats githubStats avatarUrl',
+      select: 'name email college branch readinessScore skills projects certifications cgpa leetcodeStats githubStats avatarUrl learningMetrics',
     })
     .lean();
 
@@ -281,6 +281,17 @@ const getMatchedStudents = asyncHandler(async (req, res) => {
   // Filter and limit matches
   let matches = job.matchedStudents
     .filter(m => m.matchScore >= parseInt(minScore))
+    .filter(m => {
+      // Filter by learning category if specified
+      if (learningCategory && learningCategory !== 'all') {
+        const student = m.studentId;
+        if (typeof student === 'object' && student.learningMetrics) {
+          return student.learningMetrics.learningCategory === learningCategory;
+        }
+        return false;
+      }
+      return true;
+    })
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, parseInt(limit));
 
@@ -311,7 +322,7 @@ const getMatchExplanation = asyncHandler(async (req, res) => {
   }
 
   const student = await Student.findById(studentId)
-    .select('name email college branch readinessScore readinessHistory skills projects certifications cgpa leetcodeStats githubStats')
+    .select('name email college branch readinessScore readinessHistory skills projects certifications cgpa leetcodeStats githubStats learningMetrics')
     .lean();
 
   if (!student) {
@@ -379,6 +390,19 @@ const getMatchExplanation = asyncHandler(async (req, res) => {
       skills: student.skills,
       projects: student.projects,
       certifications: student.certifications,
+      learningMetrics: student.learningMetrics || {
+        learningRate: null,
+        learningCategory: 'not_determined',
+        components: {
+          readinessVelocity: 0,
+          milestoneSpeed: 0,
+          quizPerformance: 0,
+          codingGrowth: 0,
+          skillAcquisition: 0,
+          projectVelocity: 0
+        },
+        trend: 'steady'
+      },
     },
     job: {
       id: job._id,

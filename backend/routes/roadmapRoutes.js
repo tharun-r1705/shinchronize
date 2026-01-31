@@ -10,6 +10,7 @@ const Student = require('../models/Student');
 const { authenticate } = require('../utils/authMiddleware');
 const { updateStreak } = require('../utils/streakCalculator');
 const { logActivity } = require('../services/activityLogger');
+const { triggerLearningRateUpdate } = require('../services/learningRateService');
 
 const normalizeProjectMilestones = (roadmap) => {
     if (!roadmap || !roadmap.milestones) return;
@@ -172,6 +173,9 @@ router.patch('/milestone/:milestoneId', authenticate(['student']), async (req, r
                         skills: milestone.skills
                     }
                 });
+
+                // Trigger learning rate update
+                triggerLearningRateUpdate(req.user.id);
             }
             // Handle restart/reset
             else if (status === 'in-progress' || status === 'not-started') {
@@ -182,6 +186,11 @@ router.patch('/milestone/:milestoneId', authenticate(['student']), async (req, r
 
                 // Log milestone started or reset
                 if (status === 'in-progress' && oldStatus === 'not-started') {
+                    // Set startedAt timestamp
+                    if (!milestone.startedAt) {
+                        milestone.startedAt = new Date();
+                    }
+
                     // Validate resources when starting a milestone
                     if (milestone.resources && milestone.resources.length > 0) {
                         try {
@@ -314,6 +323,9 @@ router.post('/milestone/:milestoneId/quiz', authenticate(['student']), async (re
                     attempts: milestone.quizAttempts.length
                 }
             });
+
+            // Trigger learning rate update
+            triggerLearningRateUpdate(req.user.id);
         } else {
             milestone.quizStatus = 'failed';
 

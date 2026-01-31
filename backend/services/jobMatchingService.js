@@ -385,34 +385,62 @@ async function matchStudentsToJob(jobId) {
 
     // Fetch all students
     const students = await Student.find({})
-      .select('name email college branch readinessScore readinessHistory skills projects certifications cgpa leetcodeStats githubStats')
+      .select('name email college branch readinessScore readinessHistory skills projects certifications cgpa leetcodeStats githubStats learningMetrics')
       .lean();
 
-    console.log(`\n========== MATCHING STUDENTS TO JOB ==========`);
-    console.log(`Job: ${job.title}`);
-    console.log(`Required Skills: ${job.requiredSkills.join(', ')}`);
-    console.log(`Total Students: ${students.length}`);
+    console.log(`Matching ${students.length} students to job: ${job.title}`);
+    console.log(`Job required skills: [${job.requiredSkills.join(', ')}]`);
+
+    // STEP 1: Check if combined skills of all students cover all required skills
+    const allStudentSkills = new Set();
+    console.log('\n=== Analyzing All Student Skills ===');
+    for (const student of students) {
+      const studentSkills = [
+        ...(student.skills || []),
+        ...(student.projects?.flatMap(p => p.tags || []) || []),
+        ...(student.certifications?.map(c => c.name) || [])
+      ];
+      console.log(`${student.name || student.email}: [${studentSkills.slice(0, 5).join(', ')}${studentSkills.length > 5 ? '...' : ''}] (${studentSkills.length} total)`);
+      studentSkills.forEach(skill => allStudentSkills.add(skill.toLowerCase().trim()));
+    }
+
+    const requiredSkills = job.requiredSkills.map(s => s.toLowerCase().trim());
+    const coveredSkills = requiredSkills.filter(reqSkill => 
+      Array.from(allStudentSkills).some(studentSkill => 
+        studentSkill.includes(reqSkill) || reqSkill.includes(studentSkill)
+      )
+    );
+    
+    const allSkillsCovered = coveredSkills.length === requiredSkills.length;
+    const coveragePercentage = requiredSkills.length > 0 
+      ? (coveredSkills.length / requiredSkills.length * 100).toFixed(1)
+      : 0;
+
+    console.log(`Combined Skills Coverage: ${coveredSkills.length}/${requiredSkills.length} skills (${coveragePercentage}%)`);
+    if (allSkillsCovered) {
+      console.log('✓ ALL required skills are covered by the student pool - Using team-based matching');
+    } else {
+      console.log(`✗ Missing ${requiredSkills.length - coveredSkills.length} skills from pool - Using individual 10% threshold`);
+    }
 
     // Calculate match scores for all students
-    let matches = [];
-    const allCandidates = [];
-    let debugCount = 0;
+    const matches = [];
+    let filteredBySkills = 0;
+    
+    console.log('NOTE: Readiness Score, CGPA, and Projects filters are DISABLED for maximum candidate pool');
+    
     for (const student of students) {
-      // Apply basic filters first
-      if (job.minReadinessScore > 0 && (student.readinessScore || 0) < job.minReadinessScore) {
-        continue;
-      }
-      if (job.minCGPA > 0 && (student.cgpa || 0) < job.minCGPA) {
-        continue;
-      }
-      if (job.minProjects > 0 && (student.projects?.length || 0) < job.minProjects) {
-        continue;
-      }
+      // REMOVED: Basic filters (minReadinessScore, minCGPA, minProjects)
+      // These filters were too restrictive and excluded good candidates with matching skills
+      // The match score already factors in these attributes, so they still affect ranking
 
       const matchData = calculateJobMatchScore(student, job);
       
-      // CRITICAL FILTER: Must match at least 50% of required skills (configurable)
-      const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 50;
+      // TEAM-BASED MATCHING LOGIC:
+      // If ALL required skills are covered by the combined student pool,
+      // include ANY student who has at least ONE matching skill
+      // Otherwise, use the 10% individual threshold
+      
       const requiredSkillsCount = job.requiredSkills.length;
       const matchedSkillsCount = matchData.skillsMatched.length;
       const skillMatchPercentage = requiredSkillsCount > 0 
@@ -425,35 +453,56 @@ async function matchStudentsToJob(jobId) {
         matchData,
       });
       
-      // Debug logging for first 3 students
-      if (debugCount < 3) {
-        console.log(`\n--- Student ${debugCount + 1}: ${student.name || student.email} ---`);
-        console.log(`  Student Skills: ${(student.skills || []).slice(0, 5).join(', ')}${(student.skills || []).length > 5 ? '...' : ''}`);
-        console.log(`  Skills Matched: ${matchData.skillsMatched.join(', ')} (${matchedSkillsCount}/${requiredSkillsCount})`);
-        console.log(`  Skills Missing: ${matchData.skillsMissing.join(', ')}`);
-        console.log(`  Match %: ${skillMatchPercentage.toFixed(1)}%`);
-        console.log(`  Match Score: ${matchData.totalScore}`);
-        console.log(`  Passes Filter: ${skillMatchPercentage >= MINIMUM_SKILL_MATCH_PERCENTAGE ? 'YES' : 'NO'}`);
-        debugCount++;
+      let shouldIncludeStudent = false;
+      let matchingReason = '';
+      
+      if (allSkillsCovered) {
+        // Team-based matching: Include if student has at least 1 matching skill
+        if (matchedSkillsCount > 0) {
+          shouldIncludeStudent = true;
+          matchingReason = 'TEAM MATCH';
+          console.log(`✓ ${matchingReason}: ${student.name || student.email}`);
+          console.log(`  Matched: [${matchData.skillsMatched.join(', ')}] (${matchedSkillsCount}/${requiredSkillsCount})`);
+        } else {
+          console.log(`✗ FILTERED (no matching skills): ${student.name || student.email}`);
+          console.log(`  Student has: [${(student.skills || []).join(', ')}]`);
+          console.log(`  Job needs: [${job.requiredSkills.join(', ')}]`);
+        }
+      } else {
+        // Individual matching: Require 10% threshold
+        const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 10;
+        
+        if (skillMatchPercentage >= MINIMUM_SKILL_MATCH_PERCENTAGE) {
+          shouldIncludeStudent = true;
+          matchingReason = 'INDIVIDUAL MATCH';
+          console.log(`✓ ${matchingReason}: ${student.name || student.email}`);
+          console.log(`  Matched: [${matchData.skillsMatched.join(', ')}] (${matchedSkillsCount}/${requiredSkillsCount})`);
+        } else if (matchedSkillsCount > 0) {
+          filteredBySkills++;
+          console.log(`✗ FILTERED (Skills < 10%): ${student.name || student.email}`);
+          console.log(`  Matched: [${matchData.skillsMatched.join(', ')}] (${matchedSkillsCount}/${requiredSkillsCount})`);
+          console.log(`  Missing: [${matchData.skillsMissing.join(', ')}]`);
+          console.log(`  Match %: ${skillMatchPercentage.toFixed(1)}% < ${MINIMUM_SKILL_MATCH_PERCENTAGE}%`);
+        } else {
+          filteredBySkills++;
+          console.log(`✗ FILTERED (no skills match): ${student.name || student.email}`);
+        }
       }
       
-      // Only include students who match at least threshold % of required skills
-      if (requiredSkillsCount === 0 || skillMatchPercentage >= MINIMUM_SKILL_MATCH_PERCENTAGE) {
+      if (shouldIncludeStudent) {
         matches.push({
           student,
           matchData,
+          matchingType: matchingReason,
         });
       }
     }
 
-    // Fallback: if strict skill gating yields zero matches, show top candidates by score
-    if (matches.length === 0 && allCandidates.length > 0) {
-      matches = allCandidates;
-      console.log('No students met the skill threshold; using fallback to show top candidates by overall score.');
-    }
-
-    console.log(`\n========== MATCHING RESULTS ==========`);
-    console.log(`Total Matches Found: ${matches.length}/${students.length} students`);
+    console.log('\n=== FILTERING SUMMARY ===');
+    console.log(`Total students in database: ${students.length}`);
+    console.log(`Filtered by Skills (no match or < threshold): ${filteredBySkills}`);
+    console.log(`Final matches: ${matches.length}`);
+    console.log('========================\n');
 
     // Sort by match score (highest first)
     matches.sort((a, b) => b.matchData.totalScore - a.matchData.totalScore);
@@ -496,7 +545,7 @@ async function matchStudentsToJob(jobId) {
     job.lastMatchedAt = new Date();
     await job.save();
 
-    const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 50;
+    const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 10;
     console.log(`Successfully matched ${matchedStudentsData.length} students to job ${job.title}`);
     console.log(`Matching criteria: ${MINIMUM_SKILL_MATCH_PERCENTAGE}% of ${job.requiredSkills.length} required skills (${Math.ceil(job.requiredSkills.length * MINIMUM_SKILL_MATCH_PERCENTAGE / 100)} skills minimum)`);
     console.log(`Required skills: ${job.requiredSkills.join(', ')}`);

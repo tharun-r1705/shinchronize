@@ -15,6 +15,8 @@ const milestoneSchema = new mongoose.Schema({
         default: 'not-started'
     },
     duration: { type: String, trim: true }, // e.g., "2 weeks", "1 month"
+    expectedDurationDays: { type: Number }, // Parsed duration in days for calculations
+    startedAt: { type: Date }, // When student started this milestone
     resources: [{
         title: { type: String, trim: true },
         url: { type: String, trim: true },

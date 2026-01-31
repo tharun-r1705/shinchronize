@@ -1,6 +1,75 @@
 # Job Matching System Architecture
 
-## 📐 System Architecture Diagram
+## 📐 System Architecture Diagram (Mermaid)
+
+```mermaid
+flowchart LR
+  %% Frontend
+  subgraph FE[Frontend (Vite + React + Tailwind)]
+    UI[Recruiter Dashboard]
+    UI_Jobs[My Jobs Tab]
+    UI_Create[Job Creation Dialog]
+    UI_Select[Job Selector]
+    UI --> UI_Jobs
+    UI --> UI_Create
+    UI --> UI_Select
+  end
+
+  %% Backend API
+  subgraph API[Backend API (Express)]
+    Routes[/Routes: 
+    /api/jobs
+    /api/students
+    /api/recruiters
+    /api/market
+    /api/tts
+    /api/agent
+    /api/interview/]
+    Middleware[Middleware:
+    Auth • Validation • Error Handling]
+    Controllers[Controllers:
+    job • student • recruiter • market • agent • interview • tts]
+    Services[Services:
+    jobMatching • skillMarket • proactive • agent]
+    Routes --> Middleware --> Controllers --> Services
+  end
+
+  %% External + Data
+  subgraph EXT[External Services]
+    Groq[Groq AI API
+    (Job Description + Match Reason)]
+    GitHub[GitHub API
+    (Profile + Activity)]
+    LeetCode[LeetCode API]
+    HackerRank[HackerRank API]
+    LinkedIn[LinkedIn Parsing]
+  end
+
+  subgraph DB[MongoDB Atlas]
+    Jobs[(Job)]
+    Students[(Student)]
+    Recruiters[(Recruiter)]
+    Roadmaps[(Roadmap)]
+    Market[(SkillMarketData)]
+    Interviews[(InterviewSession)]
+  end
+
+  %% Connections
+  UI -- "HTTP/REST + JWT" --> Routes
+  Services -- "AI Calls" --> Groq
+  Services -- "Data Enrichment" --> GitHub
+  Services -- "Coding Signals" --> LeetCode
+  Services -- "Coding Signals" --> HackerRank
+  Services -- "Profile Parsing" --> LinkedIn
+  Services -- "CRUD" --> Jobs
+  Services -- "CRUD" --> Students
+  Services -- "CRUD" --> Recruiters
+  Services -- "CRUD" --> Roadmaps
+  Services -- "CRUD" --> Market
+  Services -- "CRUD" --> Interviews
+```
+
+## 📐 System Architecture Diagram (ASCII)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐

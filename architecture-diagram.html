@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shinchronize - Architecture Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1em;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 15px;
+        }
+        
+        .tab-button {
+            padding: 10px 20px;
+            background: #1e293b;
+            border: 2px solid #475569;
+            color: #94a3b8;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+        
+        .tab-button:hover {
+            background: #334155;
+            border-color: #64748b;
+            color: #cbd5e1;
+        }
+        
+        .tab-button.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        .diagram-container {
+            display: none;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        
+        .diagram-container.active {
+            display: block;
+        }
+        
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            min-height: 600px;
+        }
+        
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .legend-item {
+            background: #1e293b;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .legend-item h4 {
+            color: #60a5fa;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+        
+        .legend-item p {
+            color: #cbd5e1;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .info-box {
+            background: #1e293b;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box strong {
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Shinchronize Architecture</h1>
+            <p class="subtitle">Job Matching & Talent Pool Management System</p>
+        </header>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('system')">System Overview</button>
+            <button class="tab-button" onclick="switchTab('data-flow')">Data Flow</button>
+            <button class="tab-button" onclick="switchTab('components')">Component Details</button>
+            <button class="tab-button" onclick="switchTab('scoring')">Scoring Algorithm</button>
+        </div>
+        
+        <!-- System Overview -->
+        <div id="system" class="diagram-container active">
+            <div class="info-box">
+                <strong>System Architecture:</strong> Three-tier architecture with Frontend, API Layer, and Database
+            </div>
+            <div class="mermaid">
+graph TB
+    subgraph Frontend["Frontend - Vite + React + TypeScript"]
+        Dashboard["Recruiter Dashboard"]
+        MyJobs["My Jobs Tab"]
+        CreateJob["Job Creation Dialog"]
+        JobSelector["Job Selector Dropdown"]
+    end
+    
+    subgraph API["Backend API - Express.js"]
+        Auth["Auth Middleware - JWT"]
+        Routes["API Routes"]
+        Controllers["Controllers"]
+        Services["Business Logic Services"]
+    end
+    
+    subgraph External["External Services"]
+        GroqAI["Groq AI - Job Descriptions"]
+        GitHub["GitHub API - Profile Data"]
+        LeetCode["LeetCode API - Metrics"]
+        HackerRank["HackerRank API - Metrics"]
+    end
+    
+    subgraph Database["MongoDB Atlas"]
+        JobDB["Job Collection"]
+        StudentDB["Student Collection"]
+        RecruiterDB["Recruiter Collection"]
+    end
+    
+    Frontend -->|HTTP/REST| Routes
+    Routes --> Auth
+    Auth --> Controllers
+    Controllers --> Services
+    Services -->|API Calls| GroqAI
+    Services -->|Data| GitHub
+    Services -->|Metrics| LeetCode
+    Services -->|Metrics| HackerRank
+    Services -->|CRUD| JobDB
+    Services -->|CRUD| StudentDB
+    Services -->|CRUD| RecruiterDB
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <h4>Frontend Layer</h4>
+                    <p>React-based dashboard for recruiters to create jobs, view matches, and manage hiring pipeline</p>
+                </div>
+                <div class="legend-item">
+                    <h4>API Layer</h4>
+                    <p>Express server handling authentication, routing, request validation, and business logic orchestration</p>
+                </div>
+                <div class="legend-item">
+                    <h4>External Services</h4>
+                    <p>Third-party APIs for AI job descriptions, GitHub profiles, and coding metrics</p>
+                </div>
+                <div class="legend-item">
+                    <h4>Database Layer</h4>
+                    <p>MongoDB collections storing jobs, students, recruiters, and platform data</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Data Flow -->
+        <div id="data-flow" class="diagram-container">
+            <div class="info-box">
+                <strong>Key Flow:</strong> Job Creation → Matching Algorithm → Result Display
+            </div>
+            <div class="mermaid">
+sequenceDiagram
+    participant Recruiter
+    participant Frontend
+    participant API
+    participant Groq
+    participant DB
+    
+    Recruiter->>Frontend: Fill job form
+    Frontend->>API: POST /api/jobs
+    API->>Groq: Generate Job Description
+    Groq-->>API: JD Response
+    API->>DB: Save job draft
+    DB-->>API: Job saved
+    API-->>Frontend: OK
+    Frontend-->>Recruiter: Show preview
+    
+    Recruiter->>Frontend: Click Publish
+    Frontend->>API: POST /publish
+    API->>DB: Fetch students
+    DB-->>API: Student list
+    
+    loop Matching Process
+        API->>API: Calculate scores
+    end
+    
+    loop Top 50
+        API->>Groq: Generate reason
+        Groq-->>API: Match reason
+    end
+    
+    API->>DB: Save matches
+    DB-->>API: Done
+    API-->>Frontend: Results
+    Frontend-->>Recruiter: Display matches
+            </div>
+        </div>
+        
+        <!-- Components -->
+        <div id="components" class="diagram-container">
+            <div class="info-box">
+                <strong>Component Architecture:</strong> Modular structure for scalability and maintainability
+            </div>
+            <div class="mermaid">
+graph TD
+    JC["jobController.js"]
+    SC["studentController.js"]
+    RC["recruiterController.js"]
+    AC["agentController.js"]
+    
+    JMS["jobMatchingService.js"]
+    SMS["skillMarketService.js"]
+    PS["proactiveService.js"]
+    AS["agentService.js"]
+    
+    Job["Job Model"]
+    Student["Student Model"]
+    Recruiter["Recruiter Model"]
+    
+    GitHub["github.js"]
+    Validation["validation.js"]
+    Auth["authMiddleware.js"]
+    LeetCode["leetcode.js"]
+    HackerRank["hackerrank.js"]
+    
+    JC -->|uses| JMS
+    SC -->|uses| SMS
+    RC -->|uses| JMS
+    AC -->|uses| AS
+    
+    JMS -->|queries| Job
+    JMS -->|queries| Student
+    SMS -->|queries| Recruiter
+    
+    JC -->|validates| Auth
+    JMS -->|enriches| GitHub
+    JMS -->|enriches| LeetCode
+            </div>
+        </div>
+        
+        <!-- Scoring Algorithm -->
+        <div id="scoring" class="diagram-container">
+            <div class="info-box">
+                <strong>Match Score Calculation:</strong> Weighted scoring system (0-100 points)
+            </div>
+            <div class="mermaid">
+graph LR
+    Input["Student Profile<br/>+ Requirements"]
+    
+    Input --> S1["Required Skills<br/>30 pts"]
+    Input --> S2["Preferred Skills<br/>10 pts"]
+    Input --> S3["Project Relevance<br/>25 pts"]
+    Input --> S4["Readiness<br/>20 pts"]
+    Input --> S5["Growth<br/>10 pts"]
+    Input --> S6["CGPA<br/>3 pts"]
+    Input --> S7["Certs<br/>2 pts"]
+    
+    S1 --> Calc["Calculate Score"]
+    S2 --> Calc
+    S3 --> Calc
+    S4 --> Calc
+    S5 --> Calc
+    S6 --> Calc
+    S7 --> Calc
+    
+    Calc --> Sum["Sum: 0-100 pts"]
+    Sum --> Filter["Filter by Threshold"]
+    Filter --> Output["Final Matches"]
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <h4>Required Skills (30 pts)</h4>
+                    <p>How many job-required skills does the student have? Score = (matched/total) × 30</p>
+                </div>
+                <div class="legend-item">
+                    <h4>Preferred Skills (10 pts)</h4>
+                    <p>Bonus for nice-to-have skills. Score = (matched/total) × 10</p>
+                </div>
+                <div class="legend-item">
+                    <h4>Project Relevance (25 pts)</h4>
+                    <p>4 pts per relevant project (max 15), bonuses for verified projects and unique skills</p>
+                </div>
+                <div class="legend-item">
+                    <h4>Readiness Score (20 pts)</h4>
+                    <p>Platform readiness percentage. Score = (readiness/100) × 20</p>
+                </div>
+                <div class="legend-item">
+                    <h4>Growth Trajectory (10 pts)</h4>
+                    <p>Recent improvement in readiness. Score = min(improvement/2, 10)</p>
+                </div>
+                <div class="legend-item">
+                    <h4>CGPA (3 pts)</h4>
+                    <p>Academic performance. Score = (CGPA/10) × 3</p>
+                </div>
+                <div class="legend-item">
+                    <h4>Certifications (2 pts)</h4>
+                    <p>Relevant certifications. 1 pt per certification (max 2)</p>
+                </div>
+                <div class="legend-item">
+                    <h4>Coding Consistency (5 pts)</h4>
+                    <p>LeetCode/HackerRank activity. Score = (consistency/100) × 5</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function switchTab(tabName) {
+            // Hide all diagrams
+            document.querySelectorAll('.diagram-container').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected diagram
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            // Re-render mermaid diagrams
+            setTimeout(() => {
+                mermaid.contentLoaded();
+            }, 100);
+        }
+        
+        // Initialize mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'dark',
+            securityLevel: 'loose',
+            flowchart: { useMaxWidth: true }
+        });
+    </script>
+</body>
+</html>

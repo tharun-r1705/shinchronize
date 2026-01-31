@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle2, X, TrendingUp, Award, Brain, Code, GitBranch } from "lucide-react";
+import { Loader2, CheckCircle2, X, TrendingUp, Award, Brain, Code, GitBranch, Rocket, Sprout, BookOpen, Timer, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { jobApi } from "@/lib/api";
 import type { MatchExplanation } from "@/types/job";
+import LearnerTagBadge from "@/components/LearnerTagBadge";
 
 interface MatchExplanationModalProps {
   open: boolean;
@@ -196,6 +197,129 @@ export default function MatchExplanationModal({
               </CardContent>
             </Card>
 
+            {/* Learning Rate Card */}
+            {explanation.student.learningMetrics && (
+              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Rocket className="h-5 w-5 text-purple-600" />
+                    Learning Rate Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Main Learning Badge */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Learning Classification</p>
+                      <LearnerTagBadge
+                        learningCategory={explanation.student.learningMetrics.learningCategory}
+                        learningRate={explanation.student.learningMetrics.learningRate}
+                        trend={explanation.student.learningMetrics.trend}
+                        size="lg"
+                        showRate={true}
+                      />
+                    </div>
+                    {explanation.student.learningMetrics.learningRate !== null && (
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Learning Score</p>
+                        <p className="text-3xl font-bold text-purple-600">
+                          {explanation.student.learningMetrics.learningRate}
+                          <span className="text-lg text-muted-foreground">/100</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Learning Components Breakdown */}
+                  {explanation.student.learningMetrics.components && (
+                    <div className="space-y-3 pt-4 border-t">
+                      <p className="text-sm font-medium text-muted-foreground">Learning Components</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <TrendingUp className="h-3 w-3" />
+                              Readiness Velocity
+                            </span>
+                            <span className="font-medium">{explanation.student.learningMetrics.components.readinessVelocity}</span>
+                          </div>
+                          <Progress value={explanation.student.learningMetrics.components.readinessVelocity} className="h-1.5" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <Timer className="h-3 w-3" />
+                              Milestone Speed
+                            </span>
+                            <span className="font-medium">{explanation.student.learningMetrics.components.milestoneSpeed}</span>
+                          </div>
+                          <Progress value={explanation.student.learningMetrics.components.milestoneSpeed} className="h-1.5" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="h-3 w-3" />
+                              Quiz Performance
+                            </span>
+                            <span className="font-medium">{explanation.student.learningMetrics.components.quizPerformance}</span>
+                          </div>
+                          <Progress value={explanation.student.learningMetrics.components.quizPerformance} className="h-1.5" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <Code className="h-3 w-3" />
+                              Coding Growth
+                            </span>
+                            <span className="font-medium">{explanation.student.learningMetrics.components.codingGrowth}</span>
+                          </div>
+                          <Progress value={explanation.student.learningMetrics.components.codingGrowth} className="h-1.5" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-3 w-3" />
+                              Skill Acquisition
+                            </span>
+                            <span className="font-medium">{explanation.student.learningMetrics.components.skillAcquisition}</span>
+                          </div>
+                          <Progress value={explanation.student.learningMetrics.components.skillAcquisition} className="h-1.5" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <GitBranch className="h-3 w-3" />
+                              Project Velocity
+                            </span>
+                            <span className="font-medium">{explanation.student.learningMetrics.components.projectVelocity}</span>
+                          </div>
+                          <Progress value={explanation.student.learningMetrics.components.projectVelocity} className="h-1.5" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Trend Indicator */}
+                  {explanation.student.learningMetrics.trend && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">Learning Trend:</span>
+                        <Badge variant={
+                          explanation.student.learningMetrics.trend === 'accelerating' ? 'default' :
+                          explanation.student.learningMetrics.trend === 'slowing' ? 'destructive' : 'secondary'
+                        }>
+                          {explanation.student.learningMetrics.trend === 'accelerating' && '↑ '}
+                          {explanation.student.learningMetrics.trend === 'slowing' && '↓ '}
+                          {explanation.student.learningMetrics.trend === 'steady' && '→ '}
+                          {explanation.student.learningMetrics.trend.charAt(0).toUpperCase() + explanation.student.learningMetrics.trend.slice(1)}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Skills Match */}
             <div className="grid grid-cols-2 gap-4">
               <Card>
@@ -332,6 +456,17 @@ export default function MatchExplanationModal({
                   <span className="text-muted-foreground">Certifications:</span>
                   <span className="font-medium">{explanation.student.certifications?.length || 0}</span>
                 </div>
+                {explanation.student.learningMetrics && (
+                  <div className="flex justify-between items-center pt-2 border-t mt-2">
+                    <span className="text-muted-foreground">Learning Type:</span>
+                    <LearnerTagBadge
+                      learningCategory={explanation.student.learningMetrics.learningCategory}
+                      learningRate={explanation.student.learningMetrics.learningRate}
+                      size="sm"
+                      showRate={true}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

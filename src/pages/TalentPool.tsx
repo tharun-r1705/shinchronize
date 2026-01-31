@@ -40,12 +40,14 @@ import {
   Mail,
   Sparkles,
   AlertTriangle,
+  Rocket,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { jobApi } from "@/lib/api";
-import type { Job, MatchedStudent } from "@/types/job";
+import type { Job, MatchedStudent, LearningCategory } from "@/types/job";
 import JobCreationDialog from "@/components/JobCreationDialog";
 import MatchExplanationModal from "@/components/MatchExplanationModal";
+import LearnerTagBadge from "@/components/LearnerTagBadge";
 
 export default function TalentPoolPage() {
   const navigate = useNavigate();
@@ -70,6 +72,7 @@ export default function TalentPoolPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "active" | "closed">("all");
   const [minMatchScore, setMinMatchScore] = useState<number>(0);
+  const [learningCategoryFilter, setLearningCategoryFilter] = useState<LearningCategory | "all">("all");
 
   useEffect(() => {
     fetchJobs();
@@ -79,7 +82,7 @@ export default function TalentPoolPage() {
     if (selectedJob) {
       fetchMatches(selectedJob._id);
     }
-  }, [selectedJob, minMatchScore]);
+  }, [selectedJob, minMatchScore, learningCategoryFilter]);
 
   const fetchJobs = async () => {
     setIsLoading(true);
@@ -117,12 +120,31 @@ export default function TalentPoolPage() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
+      // For "Poor (< 40)" filter (value -1), fetch all matches and filter client-side
+      const actualMinScore = minMatchScore === -1 ? 0 : minMatchScore;
+
       const { matches } = await jobApi.getMatches(jobId, token, {
-        minScore: minMatchScore,
+        minScore: actualMinScore,
         limit: 50,
         sortBy: "score",
+        learningCategory: learningCategoryFilter !== "all" ? learningCategoryFilter : undefined,
       });
-      setMatchedStudents(matches || []);
+
+      // Filter for "Poor (< 40)" matches if selected
+      let filteredMatches = minMatchScore === -1
+        ? (matches || []).filter((match: any) => match.matchScore < 40)
+        : matches || [];
+
+      // Client-side filter for learning category (backup if API filter doesn't work)
+      if (learningCategoryFilter !== "all") {
+        filteredMatches = filteredMatches.filter((match: any) => {
+          const student = typeof match.studentId === 'object' ? match.studentId : null;
+          if (!student) return false;
+          return student.learningMetrics?.learningCategory === learningCategoryFilter;
+        });
+      }
+
+      setMatchedStudents(filteredMatches);
     } catch (error: any) {
       toast({
         title: "Error loading matches",
@@ -445,9 +467,10 @@ export default function TalentPoolPage() {
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                         <div className="text-sm">
-                          <p className="font-semibold mb-1">Quality Matching Active</p>
+                          <p className="font-semibold mb-1">Smart Team-Based Matching</p>
                           <p className="text-white/90">
-                            Students must match at least <strong>50% of required skills</strong> ({Math.ceil(selectedJob.requiredSkills.length * 0.5)} out of {selectedJob.requiredSkills.length} skills) to appear in results.
+                            <strong>If all students combined</strong> have all required skills → Shows all students with at least 1 matching skill.
+                            <strong> Otherwise</strong> → Shows students with at least 10% skill match ({Math.ceil(selectedJob.requiredSkills.length * 0.1)} out of {selectedJob.requiredSkills.length} skills).
                             Click "Refresh Matches" to update with latest matching algorithm.
                           </p>
                         </div>
@@ -479,9 +502,42 @@ export default function TalentPoolPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="0">All Matches</SelectItem>
+                          <SelectItem value="-1">Poor (&lt; 40)</SelectItem>
                           <SelectItem value="40">Fair (40+)</SelectItem>
                           <SelectItem value="60">Good (60+)</SelectItem>
                           <SelectItem value="80">Excellent (80+)</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {/* Learning Category Filter */}
+                      <Label className="text-sm font-medium ml-4">Learning Type:</Label>
+                      <Select
+                        value={learningCategoryFilter}
+                        onValueChange={(v) => setLearningCategoryFilter(v as LearningCategory | "all")}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Learners</SelectItem>
+                          <SelectItem value="fast">
+                            <div className="flex items-center gap-2">
+                              <Rocket className="h-3 w-3 text-green-500" />
+                              Fast Learners
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="steady">
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="h-3 w-3 text-blue-500" />
+                              Steady Learners
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="developing">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="h-3 w-3 text-amber-500" />
+                              Developing
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -526,7 +582,17 @@ export default function TalentPoolPage() {
                                     {student.college} • {student.branch}
                                   </CardDescription>
                                 </div>
-                                {getMatchScoreBadge(match.matchScore)}
+                                <div className="flex flex-col items-end gap-2">
+                                  {getMatchScoreBadge(match.matchScore)}
+                                  {/* Learning Rate Tag */}
+                                  <LearnerTagBadge
+                                    learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
+                                    learningRate={student.learningMetrics?.learningRate}
+                                    trend={student.learningMetrics?.trend}
+                                    size="sm"
+                                    showRate={true}
+                                  />
+                                </div>
                               </div>
                             </CardHeader>
                             <CardContent className="space-y-4">

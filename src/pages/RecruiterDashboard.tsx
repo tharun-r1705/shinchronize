@@ -23,6 +23,7 @@ import { RecruiterLayout } from "@/components/layout";
 import AIRecruiterAssistant from "@/components/AIRecruiterAssistant";
 import JobCreationDialog from "@/components/JobCreationDialog";
 import MatchExplanationModal from "@/components/MatchExplanationModal";
+import LearnerTagBadge from "@/components/LearnerTagBadge";
 import type { Job } from "@/types/job";
 
 const RecruiterDashboard = () => {
@@ -128,12 +129,21 @@ const RecruiterDashboard = () => {
       const token = localStorage.getItem("token");
       if (!token) return;
 
+      // If minMatchScore is -1, fetch all matches (0+) and filter client-side for poor matches
+      const fetchMinScore = minMatchScore === -1 ? 0 : minMatchScore;
+
       const { matches } = await jobApi.getMatches(jobId, token, {
-        minScore: minMatchScore,
+        minScore: fetchMinScore,
         limit: 50,
         sortBy: "score",
       });
-      setMatchedStudents(matches || []);
+      
+      // Filter for "Poor" matches if -1 is selected
+      const filteredMatches = minMatchScore === -1 
+        ? (matches || []).filter((m: any) => m.matchScore < 40)
+        : matches || [];
+      
+      setMatchedStudents(filteredMatches);
     } catch (error: any) {
       toast({
         title: "Error loading matches",
@@ -758,11 +768,15 @@ const RecruiterDashboard = () => {
                     <div className="mt-4 p-3 rounded-lg bg-white/10 border border-white/20">
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-white/90">
-                          {selectedJob.requiredSkills.length > 0
-                            ? <>Students must match at least <strong>50% of AI-extracted skills</strong> ({Math.ceil(selectedJob.requiredSkills.length * 0.5)} out of {selectedJob.requiredSkills.length} skills) to appear in results.</>
-                            : <>AI is matching candidates based on your job description.</>}
-                        </p>
+                        <div className="text-sm text-white/90">
+                          <p className="font-semibold mb-1">Smart Team-Based Matching</p>
+                          <p>
+                            <strong>If all students combined</strong> have all required skills → Shows all students with at least 1 matching skill
+                          </p>
+                          <p className="mt-1">
+                            <strong>Otherwise</strong> → Shows students with at least 10% skill match ({Math.ceil(selectedJob.requiredSkills.length * 0.1)} out of {selectedJob.requiredSkills.length} skills)
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -783,6 +797,7 @@ const RecruiterDashboard = () => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="0">All Matches</SelectItem>
+                            <SelectItem value="-1">Poor (&lt; 40)</SelectItem>
                             <SelectItem value="40">Fair (40+)</SelectItem>
                             <SelectItem value="60">Good (60+)</SelectItem>
                             <SelectItem value="80">Excellent (80+)</SelectItem>
@@ -839,7 +854,16 @@ const RecruiterDashboard = () => {
                                     <CardDescription>{student.college} • {student.branch}</CardDescription>
                                   </div>
                                 </div>
-                                {getMatchScoreBadge(match.matchScore)}
+                                <div className="flex flex-col items-end gap-2">
+                                  {getMatchScoreBadge(match.matchScore)}
+                                  <LearnerTagBadge
+                                    learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
+                                    learningRate={student.learningMetrics?.learningRate}
+                                    trend={student.learningMetrics?.trend}
+                                    size="sm"
+                                    showRate={true}
+                                  />
+                                </div>
                               </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
@@ -1037,7 +1061,7 @@ const RecruiterDashboard = () => {
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold truncate">{student.name}</p>
                                 <p className="text-sm text-muted-foreground truncate">{student.college}</p>
-                                <div className="flex items-center gap-2 mt-2">
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
                                   <Badge variant="secondary" className="text-xs">
                                     {student.readinessScore || 0}% Ready
                                   </Badge>
@@ -1046,6 +1070,12 @@ const RecruiterDashboard = () => {
                                       {student.skills.length} skills
                                     </Badge>
                                   )}
+                                  <LearnerTagBadge
+                                    learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
+                                    learningRate={student.learningMetrics?.learningRate}
+                                    size="sm"
+                                    showRate={false}
+                                  />
                                 </div>
                               </div>
                             </div>

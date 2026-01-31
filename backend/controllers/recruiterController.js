@@ -213,7 +213,7 @@ const listStudents = asyncHandler(async (req, res) => {
   
   // Don't filter by skills in DB query - we'll score all and filter after
   let students = await Student.find(filter)
-    .select('name college branch readinessScore badges projects skillRadar streakDays skills certifications cgpa email phone location')
+    .select('name college branch readinessScore badges projects skillRadar streakDays skills certifications cgpa email phone location learningMetrics')
     .lean();
   
   console.log(`Found ${students.length} students in database`);
@@ -276,7 +276,7 @@ const listStudents = asyncHandler(async (req, res) => {
 const compareStudents = asyncHandler(async (req, res) => {
   const { studentIds } = req.body;
   const students = await Student.find({ _id: { $in: studentIds } })
-    .select('name college branch readinessScore readinessHistory skillRadar badges projects certifications streakDays')
+    .select('name college branch readinessScore readinessHistory skillRadar badges projects certifications streakDays learningMetrics')
     .lean();
 
   if (!students || students.length === 0) {
