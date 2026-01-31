@@ -5,6 +5,7 @@
 
 const Roadmap = require('../models/Roadmap');
 const Student = require('../models/Student');
+const { logActivity } = require('../services/activityLogger');
 let uuidv4;
 
 async function getUuidV4() {
@@ -67,6 +68,18 @@ async function createRoadmap(studentId, args) {
     });
 
     await roadmap.save();
+
+    // Log roadmap creation
+    await logActivity({
+        studentId,
+        roadmapId: roadmap._id,
+        eventType: 'roadmap_created',
+        metadata: {
+            title,
+            targetRole,
+            milestoneCount: formattedMilestones.length
+        }
+    });
 
     return {
         success: true,

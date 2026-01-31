@@ -51,8 +51,26 @@ const milestoneSchema = new mongoose.Schema({
     projectSubmission: {
         githubLink: { type: String, trim: true },
         submittedAt: { type: Date },
-        status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
-        feedback: { type: String }
+        status: { 
+            type: String, 
+            enum: ['pending', 'verifying', 'verified', 'needs_improvement', 'rejected', 'error'], 
+            default: 'pending' 
+        },
+        verificationScore: { type: Number, min: 0, max: 100 }, // AI-generated score
+        feedback: { type: String },
+        checklist: [{
+            requirement: { type: String },
+            met: { type: Boolean },
+            comment: { type: String }
+        }],
+        verifiedAt: { type: Date },
+        attempts: { type: Number, default: 0 }, // Track resubmission attempts
+        repositoryAnalyzed: {
+            name: { type: String },
+            languages: [{ type: String }],
+            lastCommit: { type: Date },
+            filesAnalyzed: [{ type: String }]
+        }
     }
 }, { _id: true });
 

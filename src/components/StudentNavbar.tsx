@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut, Sparkles, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
@@ -30,10 +30,11 @@ export const StudentNavbar = () => {
         navigate('/');
     };
 
-    const navItems: Array<{ label: string; path: string; private: boolean; special?: boolean }> = [
+    const navItems: Array<{ label: string; path: string; private: boolean; special?: boolean; icon?: typeof Map }> = [
         { label: "Dashboard", path: "/student/dashboard", private: true },
         { label: "Profile", path: "/student/profile", private: true },
         { label: "Interview", path: "/student/interview", private: true },
+        { label: "Roadmaps", path: "/student/roadmaps", private: true, icon: Map },
         { label: "AI Mentor", path: "/student/ai", private: true, special: true },
         { label: "Progress", path: "/student/progress", private: true },
         { label: "Market", path: "/student/market", private: true },
@@ -62,6 +63,9 @@ export const StudentNavbar = () => {
                         >
                             {item.special && (
                                 <Sparkles className={`w-4 h-4 mr-2 ${isActive(item.path) ? "text-white" : "text-amber-500 animate-pulse"}`} />
+                            )}
+                            {item.icon && !item.special && (
+                                <item.icon className="w-4 h-4 mr-2" />
                             )}
                             {item.label}
                         </Button>

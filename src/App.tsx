@@ -24,6 +24,8 @@ import InterviewHub from "./pages/InterviewHub";
 import InterviewSession from "./pages/InterviewSession";
 import LearningHub from "./pages/LearningHub";
 import SkillQuiz from "./pages/SkillQuiz";
+import MyRoadmaps from "./pages/MyRoadmaps";
+import RoadmapDetail from "./pages/RoadmapDetail";
 
 
 
@@ -50,6 +52,8 @@ const App = () => (
           <Route path="/student/interview/:sessionId" element={<InterviewSession />} />
           <Route path="/student/learning/:skillId" element={<LearningHub />} />
           <Route path="/student/quiz/:skillId" element={<SkillQuiz />} />
+          <Route path="/student/roadmaps" element={<MyRoadmaps />} />
+          <Route path="/student/roadmaps/:id" element={<RoadmapDetail />} />
           <Route path="/recruiter/login" element={<RecruiterLogin />} />
           <Route path="/recruiter/dashboard" element={<RecruiterDashboard />} />
           <Route path="/recruiter/settings" element={<RecruiterSettings />} />

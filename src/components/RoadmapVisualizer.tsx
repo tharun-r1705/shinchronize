@@ -19,7 +19,9 @@ import {
     Sparkles,
     RefreshCw,
     Trash2,
-    Lock
+    Lock,
+    AlertCircle,
+    XCircle
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,30 +187,217 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, onProjectSubmi
                                 </div>
                             )}
 
-                            {/* Submitted Project View */}
-                            {isProject && milestone.projectSubmission?.githubLink && milestone.status === 'completed' && (
-                                <div className="mt-4 space-y-2">
-                                    <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                            <div>
-                                                <p className="text-sm font-medium text-green-800">Project Submitted & Verified</p>
-                                                <a href={milestone.projectSubmission?.githubLink || (milestone as any).selectedProject?.githubLink} target="_blank" rel="noopener noreferrer" className="text-xs text-green-700 hover:underline flex items-center gap-1">
-                                                    View on GitHub <ExternalLink className="w-3 h-3" />
-                                                </a>
+                            {/* Project Verification Results */}
+                            {isProject && milestone.projectSubmission?.githubLink && (
+                                <div className="mt-4 space-y-3">
+                                    {/* Verifying Status */}
+                                    {milestone.projectSubmission.status === 'verifying' && (
+                                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                            <div className="flex items-center gap-2">
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-blue-800">AI Verification in Progress...</p>
+                                                    <p className="text-xs text-blue-700">{milestone.projectSubmission.feedback || 'Analyzing your repository...'}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">Completed</Badge>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 text-xs w-full"
-                                        onClick={() => onProjectReset(milestone.id)}
-                                    >
-                                        <Circle className="w-3 h-3 mr-1" />
-                                        Reset & Resubmit Project
-                                    </Button>
+                                    )}
+
+                                    {/* Verified Status */}
+                                    {milestone.projectSubmission.status === 'verified' && (
+                                        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-green-800">Project Verified!</p>
+                                                        <a href={milestone.projectSubmission.githubLink} target="_blank" rel="noopener noreferrer" className="text-xs text-green-700 hover:underline flex items-center gap-1">
+                                                            View on GitHub <ExternalLink className="w-3 h-3" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
+                                                    Score: {milestone.projectSubmission.verificationScore || 0}/100
+                                                </Badge>
+                                            </div>
+
+                                            {/* Feedback */}
+                                            {milestone.projectSubmission.feedback && (
+                                                <div className="text-xs text-muted-foreground bg-white/50 p-2 rounded border">
+                                                    <p className="whitespace-pre-wrap">{milestone.projectSubmission.feedback}</p>
+                                                </div>
+                                            )}
+
+                                            {/* Checklist */}
+                                            {milestone.projectSubmission.checklist && milestone.projectSubmission.checklist.length > 0 && (
+                                                <details className="text-xs">
+                                                    <summary className="cursor-pointer font-medium text-green-800 hover:text-green-900">
+                                                        View Verification Checklist ({milestone.projectSubmission.checklist.filter((c: any) => c.met).length}/{milestone.projectSubmission.checklist.length} requirements met)
+                                                    </summary>
+                                                    <div className="mt-2 space-y-2">
+                                                        {milestone.projectSubmission.checklist.map((item: any, idx: number) => (
+                                                            <div key={idx} className="flex gap-2 items-start p-2 bg-white/50 rounded border">
+                                                                <span className="shrink-0">{item.met ? '✅' : '⚠️'}</span>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="font-medium">{item.requirement}</p>
+                                                                    <p className="text-muted-foreground mt-1">{item.comment}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </details>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Needs Improvement Status */}
+                                    {milestone.projectSubmission.status === 'needs_improvement' && (
+                                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <AlertCircle className="w-4 h-4 text-yellow-600" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-yellow-800">Project Needs Improvement</p>
+                                                        <a href={milestone.projectSubmission.githubLink} target="_blank" rel="noopener noreferrer" className="text-xs text-yellow-700 hover:underline flex items-center gap-1">
+                                                            View on GitHub <ExternalLink className="w-3 h-3" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                <Badge variant="outline" className="text-yellow-700 border-yellow-200 bg-yellow-50">
+                                                    Score: {milestone.projectSubmission.verificationScore || 0}/100
+                                                </Badge>
+                                            </div>
+
+                                            {/* Feedback */}
+                                            {milestone.projectSubmission.feedback && (
+                                                <div className="text-xs text-muted-foreground bg-white/50 p-2 rounded border">
+                                                    <p className="whitespace-pre-wrap">{milestone.projectSubmission.feedback}</p>
+                                                </div>
+                                            )}
+
+                                            {/* Checklist */}
+                                            {milestone.projectSubmission.checklist && milestone.projectSubmission.checklist.length > 0 && (
+                                                <div className="text-xs space-y-2">
+                                                    <p className="font-medium text-yellow-800">Verification Checklist:</p>
+                                                    {milestone.projectSubmission.checklist.map((item: any, idx: number) => (
+                                                        <div key={idx} className="flex gap-2 items-start p-2 bg-white/50 rounded border">
+                                                            <span className="shrink-0">{item.met ? '✅' : '❌'}</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-medium">{item.requirement}</p>
+                                                                <p className="text-muted-foreground mt-1">{item.comment}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Resubmit Button */}
+                                            <Button
+                                                size="sm"
+                                                variant="default"
+                                                className="h-7 text-xs w-full bg-yellow-600 hover:bg-yellow-700"
+                                                onClick={() => onProjectReset(milestone.id)}
+                                            >
+                                                <Circle className="w-3 h-3 mr-1" />
+                                                Improve & Resubmit (Attempt {(milestone.projectSubmission.attempts || 1) + 1})
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Rejected Status */}
+                                    {milestone.projectSubmission.status === 'rejected' && (
+                                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <XCircle className="w-4 h-4 text-red-600" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-red-800">Project Not Approved</p>
+                                                        <a href={milestone.projectSubmission.githubLink} target="_blank" rel="noopener noreferrer" className="text-xs text-red-700 hover:underline flex items-center gap-1">
+                                                            View on GitHub <ExternalLink className="w-3 h-3" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                <Badge variant="outline" className="text-red-700 border-red-200 bg-red-50">
+                                                    Score: {milestone.projectSubmission.verificationScore || 0}/100
+                                                </Badge>
+                                            </div>
+
+                                            {/* Feedback */}
+                                            {milestone.projectSubmission.feedback && (
+                                                <div className="text-xs text-muted-foreground bg-white/50 p-2 rounded border">
+                                                    <p className="whitespace-pre-wrap">{milestone.projectSubmission.feedback}</p>
+                                                </div>
+                                            )}
+
+                                            {/* Checklist */}
+                                            {milestone.projectSubmission.checklist && milestone.projectSubmission.checklist.length > 0 && (
+                                                <div className="text-xs space-y-2">
+                                                    <p className="font-medium text-red-800">Verification Checklist:</p>
+                                                    {milestone.projectSubmission.checklist.map((item: any, idx: number) => (
+                                                        <div key={idx} className="flex gap-2 items-start p-2 bg-white/50 rounded border">
+                                                            <span className="shrink-0">{item.met ? '✅' : '❌'}</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-medium">{item.requirement}</p>
+                                                                <p className="text-muted-foreground mt-1">{item.comment}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Resubmit Button */}
+                                            <Button
+                                                size="sm"
+                                                variant="default"
+                                                className="h-7 text-xs w-full bg-red-600 hover:bg-red-700"
+                                                onClick={() => onProjectReset(milestone.id)}
+                                            >
+                                                <Circle className="w-3 h-3 mr-1" />
+                                                Revise & Resubmit (Attempt {(milestone.projectSubmission.attempts || 1) + 1})
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Error Status */}
+                                    {milestone.projectSubmission.status === 'error' && (
+                                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4 text-red-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-red-800">Verification Error</p>
+                                                    <p className="text-xs text-red-700">{milestone.projectSubmission.feedback}</p>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs w-full"
+                                                onClick={() => onProjectReset(milestone.id)}
+                                            >
+                                                <Circle className="w-3 h-3 mr-1" />
+                                                Try Again
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Repository Info */}
+                                    {milestone.projectSubmission.repositoryAnalyzed && (
+                                        <details className="text-xs text-muted-foreground">
+                                            <summary className="cursor-pointer hover:text-foreground">Repository Details</summary>
+                                            <div className="mt-2 p-2 bg-muted/50 rounded border space-y-1">
+                                                <p><strong>Name:</strong> {milestone.projectSubmission.repositoryAnalyzed.name}</p>
+                                                {milestone.projectSubmission.repositoryAnalyzed.languages && (
+                                                    <p><strong>Languages:</strong> {milestone.projectSubmission.repositoryAnalyzed.languages.join(', ')}</p>
+                                                )}
+                                                {milestone.projectSubmission.repositoryAnalyzed.filesAnalyzed && (
+                                                    <p><strong>Files Analyzed:</strong> {milestone.projectSubmission.repositoryAnalyzed.filesAnalyzed.join(', ')}</p>
+                                                )}
+                                                {milestone.projectSubmission.verifiedAt && (
+                                                    <p><strong>Verified:</strong> {new Date(milestone.projectSubmission.verifiedAt).toLocaleString()}</p>
+                                                )}
+                                            </div>
+                                        </details>
+                                    )}
                                 </div>
                             )}
 
@@ -358,7 +547,11 @@ const MilestoneCard = ({ milestone, index, total, onStatusChange, onProjectSubmi
 };
 
 
-const RoadmapVisualizer = () => {
+interface RoadmapVisualizerProps {
+    roadmapId?: string;  // Optional: if provided, fetch specific roadmap; otherwise fetch active
+}
+
+const RoadmapVisualizer = ({ roadmapId }: RoadmapVisualizerProps = {}) => {
     const { toast } = useToast();
     const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -370,7 +563,10 @@ const RoadmapVisualizer = () => {
 
         try {
             setIsLoading(true);
-            const response = await roadmapApi.getActive(token);
+            // Fetch specific roadmap if ID provided, otherwise fetch active
+            const response = roadmapId 
+                ? await roadmapApi.getById(roadmapId, token)
+                : await roadmapApi.getActive(token);
             setRoadmap(response.roadmap);
         } catch (error) {
             console.error('Failed to fetch roadmap:', error);
@@ -381,7 +577,7 @@ const RoadmapVisualizer = () => {
 
     useEffect(() => {
         fetchRoadmap();
-    }, []);
+    }, [roadmapId]);
 
     const handleStatusChange = async (milestoneId: string, status: RoadmapMilestone['status']) => {
         const token = localStorage.getItem('token');

@@ -9,6 +9,7 @@ const Roadmap = require('../models/Roadmap');
 const Student = require('../models/Student');
 const { authenticate } = require('../utils/authMiddleware');
 const { updateStreak } = require('../utils/streakCalculator');
+const { logActivity } = require('../services/activityLogger');
 
 const normalizeProjectMilestones = (roadmap) => {
     if (!roadmap || !roadmap.milestones) return;
@@ -135,6 +136,7 @@ router.patch('/milestone/:milestoneId', authenticate(['student']), async (req, r
                 });
             }
 
+            const oldStatus = milestone.status;
             milestone.status = status;
 
             // Handle completion
@@ -157,6 +159,19 @@ router.patch('/milestone/:milestoneId', authenticate(['student']), async (req, r
                         }
                     }
                 }
+
+                // Log milestone completion
+                await logActivity({
+                    studentId: req.user.id,
+                    roadmapId: roadmap._id,
+                    milestoneId: milestone.id,
+                    eventType: 'milestone_completed',
+                    metadata: {
+                        title: milestone.title,
+                        category: milestone.category,
+                        skills: milestone.skills
+                    }
+                });
             }
             // Handle restart/reset
             else if (status === 'in-progress' || status === 'not-started') {
@@ -164,6 +179,63 @@ router.patch('/milestone/:milestoneId', authenticate(['student']), async (req, r
                 milestone.quizStatus = 'none';
                 milestone.lastQuizScore = 0;
                 milestone.quizQuestions = []; // Force fresh generation on next attempt
+
+                // Log milestone started or reset
+                if (status === 'in-progress' && oldStatus === 'not-started') {
+                    // Validate resources when starting a milestone
+                    if (milestone.resources && milestone.resources.length > 0) {
+                        try {
+                            const { replaceInvalidResources } = require('../services/resourceReplacer');
+                            const context = {
+                                title: milestone.title,
+                                skills: milestone.skills || [],
+                                description: milestone.description
+                            };
+
+                            const result = await replaceInvalidResources(milestone.resources, context);
+                            if (result.replacements.length > 0) {
+                                milestone.resources = result.resources;
+                                
+                                // Log resource validation
+                                await logActivity({
+                                    studentId: req.user.id,
+                                    roadmapId: roadmap._id,
+                                    milestoneId: milestone.id,
+                                    eventType: 'resource_link_replaced',
+                                    metadata: {
+                                        title: milestone.title,
+                                        replacedCount: result.replacements.length
+                                    }
+                                });
+                            }
+                        } catch (validationError) {
+                            console.error('Resource validation failed:', validationError);
+                            // Don't fail the status update if validation fails
+                        }
+                    }
+
+                    await logActivity({
+                        studentId: req.user.id,
+                        roadmapId: roadmap._id,
+                        milestoneId: milestone.id,
+                        eventType: 'milestone_started',
+                        metadata: {
+                            title: milestone.title,
+                            category: milestone.category
+                        }
+                    });
+                } else if (status === 'not-started' && oldStatus !== 'not-started') {
+                    await logActivity({
+                        studentId: req.user.id,
+                        roadmapId: roadmap._id,
+                        milestoneId: milestone.id,
+                        eventType: 'milestone_reset',
+                        metadata: {
+                            title: milestone.title,
+                            oldStatus
+                        }
+                    });
+                }
             }
             await roadmap.save();
         }
@@ -229,8 +301,34 @@ router.post('/milestone/:milestoneId/quiz', authenticate(['student']), async (re
                     }
                 }
             }
+
+            // Log quiz passed
+            await logActivity({
+                studentId: req.user.id,
+                roadmapId: roadmap._id,
+                milestoneId: milestone.id,
+                eventType: 'quiz_passed',
+                metadata: {
+                    title: milestone.title,
+                    score,
+                    attempts: milestone.quizAttempts.length
+                }
+            });
         } else {
             milestone.quizStatus = 'failed';
+
+            // Log quiz failed
+            await logActivity({
+                studentId: req.user.id,
+                roadmapId: roadmap._id,
+                milestoneId: milestone.id,
+                eventType: 'quiz_failed',
+                metadata: {
+                    title: milestone.title,
+                    score,
+                    attempts: milestone.quizAttempts.length
+                }
+            });
         }
 
         await roadmap.save();
@@ -280,37 +378,158 @@ router.post('/milestone/:milestoneId/project', authenticate(['student']), async 
             return res.status(404).json({ success: false, message: 'Milestone not found' });
         }
 
-        // Update project submission
+        // Check if milestone is a project type
+        if (milestone.category !== 'project') {
+            return res.status(400).json({ success: false, message: 'This milestone is not a project' });
+        }
+
+        // Check if this is a resubmission
+        const isResubmission = milestone.projectSubmission && milestone.projectSubmission.githubLink;
+        const attemptNumber = (milestone.projectSubmission?.attempts || 0) + 1;
+
+        // Set initial submission status to 'verifying'
         milestone.projectSubmission = {
             githubLink: githubLink,
             submittedAt: new Date(),
-            status: 'verified' // Auto-verify for now
+            status: 'verifying',
+            attempts: attemptNumber,
+            feedback: 'Your project is being verified by AI. This may take a minute...'
         };
-
-        // Mark milestone as completed
-        milestone.status = 'completed';
-        milestone.completedAt = new Date();
-
-        // Add skills to student profile
-        if (milestone.skills && milestone.skills.length > 0) {
-            const student = await Student.findById(req.user.id);
-            if (student) {
-                let skillsAdded = false;
-                milestone.skills.forEach(skill => {
-                    if (!student.skills.includes(skill)) {
-                        student.skills.push(skill);
-                        skillsAdded = true;
-                    }
-                });
-                if (skillsAdded) {
-                    await student.save();
-                }
-            }
-        }
 
         await roadmap.save();
 
-        res.json({ success: true, roadmap, message: 'Project submitted successfully!' });
+        // Log project submission
+        await logActivity({
+            studentId: req.user.id,
+            roadmapId: roadmap._id,
+            milestoneId: milestone.id,
+            eventType: isResubmission ? 'project_resubmitted' : 'project_submitted',
+            metadata: {
+                title: milestone.title,
+                githubLink,
+                attempt: attemptNumber
+            }
+        });
+
+        // Return immediately so user doesn't wait
+        res.json({ 
+            success: true, 
+            roadmap, 
+            message: 'Project submitted! AI verification in progress...' 
+        });
+
+        // Perform AI verification asynchronously
+        try {
+            const { verifyProject } = require('../services/projectVerifier');
+            
+            // Get problem statement from milestone
+            const problemStatement = milestone.problemStatements && milestone.problemStatements.length > 0
+                ? milestone.problemStatements[0].statement
+                : milestone.description || 'Complete the project as described';
+
+            // Run verification
+            const verificationResult = await verifyProject(githubLink, problemStatement);
+
+            // Update milestone with verification results
+            const updatedRoadmap = await Roadmap.findOne({
+                student: req.user.id,
+                'milestones.id': milestoneId
+            });
+
+            if (updatedRoadmap) {
+                const updatedMilestone = updatedRoadmap.milestones.find(m => m.id === milestoneId);
+                
+                if (updatedMilestone) {
+                    updatedMilestone.projectSubmission.status = verificationResult.status;
+                    updatedMilestone.projectSubmission.verificationScore = verificationResult.score;
+                    updatedMilestone.projectSubmission.feedback = verificationResult.feedback;
+                    updatedMilestone.projectSubmission.checklist = verificationResult.checklist;
+                    updatedMilestone.projectSubmission.verifiedAt = verificationResult.verifiedAt;
+                    updatedMilestone.projectSubmission.repositoryAnalyzed = verificationResult.repositoryAnalyzed;
+
+                    // If verified (score >= 70%), mark milestone as completed
+                    if (verificationResult.status === 'verified') {
+                        updatedMilestone.status = 'completed';
+                        updatedMilestone.completedAt = new Date();
+
+                        // Add skills to student profile
+                        if (updatedMilestone.skills && updatedMilestone.skills.length > 0) {
+                            const student = await Student.findById(req.user.id);
+                            if (student) {
+                                let skillsAdded = false;
+                                updatedMilestone.skills.forEach(skill => {
+                                    if (!student.skills.includes(skill)) {
+                                        student.skills.push(skill);
+                                        skillsAdded = true;
+                                    }
+                                });
+                                if (skillsAdded) {
+                                    await student.save();
+                                }
+                            }
+                        }
+
+                        // Log verification success
+                        await logActivity({
+                            studentId: req.user.id,
+                            roadmapId: updatedRoadmap._id,
+                            milestoneId: updatedMilestone.id,
+                            eventType: 'project_verified',
+                            metadata: {
+                                title: updatedMilestone.title,
+                                score: verificationResult.score,
+                                attempt: attemptNumber
+                            }
+                        });
+                    } else if (verificationResult.status === 'needs_improvement') {
+                        // Log that improvement is needed
+                        await logActivity({
+                            studentId: req.user.id,
+                            roadmapId: updatedRoadmap._id,
+                            milestoneId: updatedMilestone.id,
+                            eventType: 'project_needs_improvement',
+                            metadata: {
+                                title: updatedMilestone.title,
+                                score: verificationResult.score,
+                                attempt: attemptNumber
+                            }
+                        });
+                    } else {
+                        // Log rejection
+                        await logActivity({
+                            studentId: req.user.id,
+                            roadmapId: updatedRoadmap._id,
+                            milestoneId: updatedMilestone.id,
+                            eventType: 'project_rejected',
+                            metadata: {
+                                title: updatedMilestone.title,
+                                score: verificationResult.score,
+                                attempt: attemptNumber
+                            }
+                        });
+                    }
+
+                    await updatedRoadmap.save();
+                }
+            }
+        } catch (verificationError) {
+            console.error('[Roadmap] Verification error:', verificationError);
+            
+            // Update status to error
+            const errorRoadmap = await Roadmap.findOne({
+                student: req.user.id,
+                'milestones.id': milestoneId
+            });
+
+            if (errorRoadmap) {
+                const errorMilestone = errorRoadmap.milestones.find(m => m.id === milestoneId);
+                if (errorMilestone) {
+                    errorMilestone.projectSubmission.status = 'error';
+                    errorMilestone.projectSubmission.feedback = `Verification failed: ${verificationError.message}`;
+                    await errorRoadmap.save();
+                }
+            }
+        }
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -402,20 +621,105 @@ router.get('/milestone/:milestoneId/quiz', authenticate(['student']), async (req
 });
 
 
+// Validate and replace invalid resource links for a milestone
+router.post('/milestone/:milestoneId/validate-resources', authenticate(['student']), async (req, res) => {
+    try {
+        const { milestoneId } = req.params;
+
+        const roadmap = await Roadmap.findOne({
+            student: req.user.id,
+            isActive: true,
+            'milestones.id': milestoneId
+        });
+
+        if (!roadmap) {
+            return res.status(404).json({ success: false, message: 'Roadmap or milestone not found' });
+        }
+
+        const milestone = roadmap.milestones.find(m => m.id === milestoneId);
+        if (!milestone) {
+            return res.status(404).json({ success: false, message: 'Milestone not found' });
+        }
+
+        if (!milestone.resources || milestone.resources.length === 0) {
+            return res.json({
+                success: true,
+                message: 'No resources to validate',
+                replacements: []
+            });
+        }
+
+        // Validate and replace resources
+        const { replaceInvalidResources } = require('../services/resourceReplacer');
+        const context = {
+            title: milestone.title,
+            skills: milestone.skills || [],
+            description: milestone.description
+        };
+
+        const result = await replaceInvalidResources(milestone.resources, context);
+
+        // Update milestone with validated resources
+        if (result.replacements.length > 0) {
+            milestone.resources = result.resources;
+            await roadmap.save();
+
+            // Log resource validation
+            await logActivity({
+                studentId: req.user.id,
+                roadmapId: roadmap._id,
+                milestoneId: milestone.id,
+                eventType: 'resource_link_replaced',
+                metadata: {
+                    title: milestone.title,
+                    replacedCount: result.replacements.length,
+                    replacements: result.replacements
+                }
+            });
+        }
+
+        res.json({
+            success: true,
+            message: result.replacements.length > 0
+                ? `${result.replacements.length} resource link(s) were updated to working alternatives`
+                : 'All resource links are valid',
+            replacements: result.replacements,
+            roadmap
+        });
+    } catch (error) {
+        console.error('Resource validation error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Delete roadmap
 router.delete('/:id', authenticate(['student']), async (req, res) => {
     try {
-        const result = await Roadmap.findOneAndDelete({
+        const roadmap = await Roadmap.findOne({
             _id: req.params.id,
             student: req.user.id
         });
 
-        if (!result) {
+        if (!roadmap) {
             return res.status(404).json({
                 success: false,
                 message: 'Roadmap not found'
             });
         }
+
+        const roadmapTitle = roadmap.title;
+        await Roadmap.findByIdAndDelete(req.params.id);
+
+        // Log roadmap deletion
+        await logActivity({
+            studentId: req.user.id,
+            roadmapId: req.params.id,
+            eventType: 'roadmap_deleted',
+            metadata: {
+                title: roadmapTitle,
+                targetRole: roadmap.targetRole
+            }
+        });
 
         res.json({ success: true, message: 'Roadmap deleted successfully' });
     } catch (error) {
@@ -445,6 +749,17 @@ router.patch('/:id/activate', authenticate(['student']), async (req, res) => {
                 message: 'Roadmap not found'
             });
         }
+
+        // Log roadmap activation
+        await logActivity({
+            studentId: req.user.id,
+            roadmapId: roadmap._id,
+            eventType: 'roadmap_activated',
+            metadata: {
+                title: roadmap.title,
+                targetRole: roadmap.targetRole
+            }
+        });
 
         res.json({ success: true, roadmap });
     } catch (error) {

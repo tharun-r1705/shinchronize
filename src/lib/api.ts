@@ -808,8 +808,22 @@ export interface RoadmapMilestone {
   projectSubmission?: {
     githubLink: string;
     submittedAt: string;
-    status: 'pending' | 'verified' | 'rejected';
+    status: 'pending' | 'verifying' | 'verified' | 'needs_improvement' | 'rejected' | 'error';
+    verificationScore?: number;
     feedback?: string;
+    checklist?: Array<{
+      requirement: string;
+      met: boolean;
+      comment: string;
+    }>;
+    verifiedAt?: string;
+    attempts?: number;
+    repositoryAnalyzed?: {
+      name: string;
+      languages: string[];
+      lastCommit: string;
+      filesAnalyzed: string[];
+    };
   };
 }
 
@@ -874,6 +888,34 @@ export const roadmapApi = {
   // Get/Generate quiz
   getQuiz: (milestoneId: string, token: string, refresh = false) =>
     api.get<{ success: boolean; questions: any[] }>(`/roadmap/milestone/${milestoneId}/quiz${refresh ? '?refresh=true' : ''}`, token),
+};
+
+// Activity Log API
+export interface ActivityLog {
+  _id: string;
+  student: string;
+  roadmap?: {
+    _id: string;
+    title: string;
+    targetRole: string;
+  };
+  milestoneId?: string;
+  eventType: string;
+  metadata: Record<string, any>;
+  timestamp: string;
+}
+
+export const activityApi = {
+  // Get student's recent activities
+  getActivities: (token: string, limit = 50, roadmapId?: string) => {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (roadmapId) params.append('roadmapId', roadmapId);
+    return api.get<{ success: boolean; activities: ActivityLog[]; count: number }>(`/activity?${params.toString()}`, token);
+  },
+
+  // Get activity statistics
+  getStats: (token: string, days = 30) =>
+    api.get<{ success: boolean; stats: { totalActivities: number; byType: Record<string, number>; byDay: Record<string, number> } }>(`/activity/stats?days=${days}`, token),
 };
 
 
