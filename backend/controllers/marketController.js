@@ -1,5 +1,4 @@
 const skillMarketService = require('../services/skillMarketService');
-const { generateMarketInsights } = require('../utils/marketInsights');
 
 const getSkillMarket = async (req, res) => {
     try {
@@ -41,43 +40,9 @@ const getCompanies = async (req, res) => {
     }
 };
 
-const getMarketInsights = async (req, res) => {
-    try {
-        // Get current market trend data
-        const trends = await skillMarketService.getTrendPredictions();
-        
-        // Combine rising and stable skills for AI analysis
-        const trendData = [
-            ...trends.rising.map(s => ({
-                name: s.skillName,
-                demand: s.demandScore,
-                growth: s.predictedGrowth6m,
-                trend: 'rising',
-                category: s.category
-            })),
-            ...trends.stable.slice(0, 3).map(s => ({
-                name: s.skillName,
-                demand: s.demandScore,
-                growth: s.predictedGrowth6m,
-                trend: 'stable',
-                category: s.category
-            }))
-        ];
-        
-        // Generate AI-powered insights
-        const insights = await generateMarketInsights(trendData);
-        
-        res.json(insights);
-    } catch (error) {
-        console.error('[Market Controller] Error getting insights:', error);
-        res.status(500).json({ message: error.message });
-    }
-};
-
 module.exports = {
     getSkillMarket,
     getTrends,
     getPersonalizedROI,
-    getCompanies,
-    getMarketInsights
+    getCompanies
 };

@@ -337,10 +337,15 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({
+      const errorBody = await response.json().catch(() => ({
         message: `HTTP error! status: ${response.status}`,
       }));
-      throw new Error(error.message || 'An error occurred');
+      const err = new Error(errorBody.message || `HTTP error! status: ${response.status}`);
+      (err as any).status = response.status;
+      if (errorBody && typeof errorBody === 'object' && 'errors' in errorBody) {
+        (err as any).errors = (errorBody as { errors?: Record<string, string> }).errors;
+      }
+      throw err;
     }
 
     const contentType = response.headers.get('content-type') || '';

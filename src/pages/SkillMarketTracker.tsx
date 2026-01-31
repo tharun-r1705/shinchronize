@@ -9,7 +9,9 @@ import {
     Info,
     Building2,
     DollarSign,
-    Briefcase
+    Briefcase,
+    Send,
+    Bot
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,9 +45,12 @@ const SkillMarketTracker = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [companyType, setCompanyType] = useState("all");
     const [studentProfile, setStudentProfile] = useState<any>(null);
-    const [marketInsights, setMarketInsights] = useState<any>(null);
-    const [insightsLoading, setInsightsLoading] = useState(false);
     const [lastDataUpdate, setLastDataUpdate] = useState<Date | null>(null);
+
+    // Chatbot states
+    const [chatMessage, setChatMessage] = useState("");
+    const [chatResponse, setChatResponse] = useState("");
+    const [isChatLoading, setIsChatLoading] = useState(false);
 
     // State for real-time search
     const [isSearching, setIsSearching] = useState(false);
@@ -88,9 +93,6 @@ const SkillMarketTracker = () => {
                     console.log('SkillRadar type:', typeof profileData.skillRadar);
                     console.log('SkillRadar keys:', profileData.skillRadar ? Object.keys(profileData.skillRadar) : 'none');
                 }
-
-                // Fetch market insights
-                await fetchMarketInsights();
             } catch (error: any) {
                 toast({
                     title: "Error loading market data",
@@ -104,21 +106,6 @@ const SkillMarketTracker = () => {
 
         fetchData();
     }, [toast]);
-
-    const fetchMarketInsights = async () => {
-        setInsightsLoading(true);
-        try {
-            const response = await fetch('/api/market/insights');
-            if (!response.ok) throw new Error('Failed to fetch insights');
-            const data = await response.json();
-            setMarketInsights(data);
-        } catch (error: any) {
-            console.error('Error fetching market insights:', error);
-            // Fail silently - insights are supplementary
-        } finally {
-            setInsightsLoading(false);
-        }
-    };
 
     // Load all companies when companyType changes (without search query)
     useEffect(() => {
@@ -135,6 +122,39 @@ const SkillMarketTracker = () => {
             fetchCompanies();
         }
     }, [companyType]);
+
+    const handleChatSubmit = async () => {
+        if (!chatMessage.trim() || isChatLoading) return;
+
+        setIsChatLoading(true);
+        setChatResponse("");
+        
+        try {
+            const response = await fetch('/api/market/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: chatMessage })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to get response');
+            }
+
+            const data = await response.json();
+            setChatResponse(data.response);
+        } catch (error: any) {
+            toast({
+                title: "Chat Error",
+                description: "Failed to get response. Please try again.",
+                variant: "destructive",
+            });
+            setChatResponse("Sorry, I couldn't process your question. Please try again.");
+        } finally {
+            setIsChatLoading(false);
+        }
+    };
 
     const handleSearch = async () => {
         if (!searchQuery.trim() || isSearching) return;
@@ -352,125 +372,97 @@ const SkillMarketTracker = () => {
                             </Card>
                         </motion.div>
 
-                        {/* AI Market Insights */}
-                        {marketInsights && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.15 }}
-                            >
-                                <Card className="border-violet-200 bg-gradient-to-br from-violet-50/50 to-indigo-50/30 shadow-premium overflow-hidden">
-                                    <CardHeader className="border-b bg-gradient-to-r from-violet-500/10 to-indigo-500/10">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <CardTitle className="flex items-center gap-2">
-                                                    <div className="p-2 rounded-lg bg-violet-500/10">
-                                                        <TrendingUp className="w-5 h-5 text-violet-600" />
-                                                    </div>
-                                                    AI-Powered Market Insights
-                                                </CardTitle>
-                                                <CardDescription>Intelligent analysis of current skill trends and recommendations</CardDescription>
-                                            </div>
-                                            {marketInsights.generatedAt && (
-                                                <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-xs">
-                                                    Updated {new Date(marketInsights.generatedAt).toLocaleDateString()}
+                        {/* Skills Chatbot */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.15 }}
+                        >
+                            <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 shadow-premium overflow-hidden">
+                                <CardHeader className="border-b bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <div className="p-2 rounded-lg bg-indigo-500/10">
+                                            <Bot className="w-5 h-5 text-indigo-600" />
+                                        </div>
+                                        Ask About Trending Skills
+                                    </CardTitle>
+                                    <CardDescription>Get instant answers about skill demand, trends, and growth rates</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-6 space-y-4">
+                                    <div className="space-y-3">
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="e.g., How is Python trending? What's the demand for React?"
+                                                value={chatMessage}
+                                                onChange={(e) => setChatMessage(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        handleChatSubmit();
+                                                    }
+                                                }}
+                                                className="flex-1"
+                                                disabled={isChatLoading}
+                                            />
+                                            <Button 
+                                                onClick={handleChatSubmit}
+                                                disabled={isChatLoading || !chatMessage.trim()}
+                                                className="shrink-0"
+                                            >
+                                                {isChatLoading ? (
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <Send className="w-4 h-4" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                        
+                                        {/* Quick suggestion chips */}
+                                        <div className="flex flex-wrap gap-2">
+                                            {['Python demand?', 'React vs Angular?', 'Rust growth rate?'].map((suggestion) => (
+                                                <Badge
+                                                    key={suggestion}
+                                                    variant="outline"
+                                                    className="cursor-pointer hover:bg-indigo-50 transition-colors"
+                                                    onClick={() => setChatMessage(suggestion)}
+                                                >
+                                                    {suggestion}
                                                 </Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Chat Response */}
+                                    {(chatResponse || isChatLoading) && (
+                                        <div className="bg-white/80 p-5 rounded-xl border border-indigo-100 min-h-[100px]">
+                                            {isChatLoading ? (
+                                                <div className="flex items-center gap-3 text-indigo-600">
+                                                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                                    <span className="text-sm font-medium">Analyzing market data...</span>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <Bot className="w-4 h-4 text-indigo-600" />
+                                                        <span className="text-xs font-bold text-indigo-600 uppercase">AI Response</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                                                        {chatResponse}
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
-                                    </CardHeader>
-                                    <CardContent className="p-6 space-y-6">
-                                        {/* Overview */}
-                                        {marketInsights.overview && (
-                                            <div className="bg-white/80 p-5 rounded-xl border border-violet-100">
-                                                <h4 className="font-bold text-sm text-violet-900 mb-2 flex items-center gap-2">
-                                                    <Info className="w-4 h-4" />
-                                                    Market Overview
-                                                </h4>
-                                                <p className="text-sm text-slate-700 leading-relaxed">{marketInsights.overview}</p>
-                                            </div>
-                                        )}
+                                    )}
 
-                                        {/* Trend Insights */}
-                                        {marketInsights.trends && marketInsights.trends.length > 0 && (
-                                            <div className="space-y-3">
-                                                <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                                                    <BarChart3 className="w-4 h-4 text-indigo-600" />
-                                                    Trending Skills Analysis
-                                                </h4>
-                                                <div className="grid gap-3">
-                                                    {marketInsights.trends.map((trend: any, idx: number) => (
-                                                        <div key={idx} className="bg-white p-4 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors">
-                                                            <div className="flex items-start justify-between gap-3 mb-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-bold text-slate-900">{trend.skillName}</span>
-                                                                    <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-700">
-                                                                        {trend.category}
-                                                                    </Badge>
-                                                                </div>
-                                                                <Badge className="bg-emerald-500/10 text-emerald-700 border-none text-xs">
-                                                                    {trend.demandScore}% Demand
-                                                                </Badge>
-                                                            </div>
-                                                            {trend.insight && (
-                                                                <p className="text-xs text-slate-600 leading-relaxed">{trend.insight}</p>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Emerging Skills */}
-                                        {marketInsights.emergingSkills && marketInsights.emergingSkills.length > 0 && (
-                                            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-xl border border-emerald-200">
-                                                <h4 className="font-bold text-sm text-emerald-900 mb-3 flex items-center gap-2">
-                                                    <ArrowUpRight className="w-4 h-4" />
-                                                    Emerging Skills to Watch
-                                                </h4>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {marketInsights.emergingSkills.map((skill: string, idx: number) => (
-                                                        <Badge key={idx} className="bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50">
-                                                            {skill}
-                                                        </Badge>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Recommendations */}
-                                        {marketInsights.recommendations && marketInsights.recommendations.length > 0 && (
-                                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-200">
-                                                <h4 className="font-bold text-sm text-amber-900 mb-3 flex items-center gap-2">
-                                                    <Info className="w-4 h-4" />
-                                                    Strategic Recommendations
-                                                </h4>
-                                                <ul className="space-y-2">
-                                                    {marketInsights.recommendations.map((rec: string, idx: number) => (
-                                                        <li key={idx} className="text-sm text-slate-700 flex items-start gap-2">
-                                                            <span className="text-amber-600 mt-0.5">•</span>
-                                                            <span className="flex-1">{rec}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        )}
-
-                        {insightsLoading && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex items-center justify-center p-8 bg-violet-50/50 rounded-xl border border-violet-200"
-                            >
-                                <div className="flex items-center gap-3 text-violet-600">
-                                    <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
-                                    <span className="text-sm font-medium">Generating AI insights...</span>
-                                </div>
-                            </motion.div>
-                        )}
+                                    {!chatResponse && !isChatLoading && (
+                                        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+                                            <p className="text-xs text-indigo-700 leading-relaxed">
+                                                💡 Ask me anything about the trending skills displayed on this page. I can tell you about demand scores, growth rates, categories, and more!
+                                            </p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </motion.div>
 
                         {/* Personalized ROI Calculator */}
                         <motion.div

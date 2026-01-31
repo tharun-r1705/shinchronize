@@ -45,6 +45,7 @@ import {
   LogOut,
   FileDown,
 } from "lucide-react";
+import { studentProfileSchema, validateField } from "@/lib/validationSchemas";
 
 // Predefined list of common tech skills
 const COMMON_SKILLS = [
@@ -104,6 +105,17 @@ const RequiredLabel = ({ htmlFor, children }: { htmlFor: string; children: React
     <span className="text-red-500" title="Required field">*</span>
   </Label>
 );
+
+// Helper component for field errors
+const FieldError = ({ error }: { error?: string }) => {
+  if (!error) return null;
+  return (
+    <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+      <AlertCircle className="w-3 h-3" />
+      {error}
+    </p>
+  );
+};
 
 const formatDateForInput = (value?: string) => {
   if (!value) return "";
@@ -174,6 +186,7 @@ const StudentProfile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [formState, setFormState] = useState<FormState>(DEFAULT_FORM_STATE);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
@@ -185,6 +198,33 @@ const StudentProfile = () => {
   const [skillInput, setSkillInput] = useState("");
   const [skillDropdownOpen, setSkillDropdownOpen] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+
+  // Field-level validation
+  const validateFieldValue = (fieldName: string, value: any) => {
+    const result = validateField(fieldName as any, value);
+    if (!result.success && result.error) {
+      setFieldErrors(prev => ({ ...prev, [fieldName]: result.error! }));
+    } else {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
+    return result.success;
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (fieldName: keyof FormState, value: string) => {
+    setFormState(prev => ({ ...prev, [fieldName]: value }));
+    // Debounced validation - validate on blur instead of every keystroke for better UX
+  };
+
+  // Handle field blur for validation
+  const handleFieldBlur = (fieldName: keyof FormState) => {
+    const value = formState[fieldName];
+    validateFieldValue(fieldName, value);
+  };
 
   const formatSkills = (skills?: string[] | null) => {
     if (!skills || skills.length === 0) return "";
@@ -396,40 +436,59 @@ const StudentProfile = () => {
         return;
       }
 
-      // Validate required fields
-      const missingFields: string[] = [];
-      // Profile photo is optional
-      if (!formState.firstName?.trim()) missingFields.push("First Name");
-      if (!formState.lastName?.trim()) missingFields.push("Last Name");
-      if (!formState.dateOfBirth) missingFields.push("Date of Birth");
-      if (!formState.gender) missingFields.push("Gender");
-      if (!formState.college?.trim()) missingFields.push("College");
-      if (!formState.phone?.trim()) missingFields.push("Phone Number");
-      // Portfolio URL is optional
-      if (!formState.linkedinUrl?.trim()) missingFields.push("LinkedIn URL");
+      // Prepare data for validation
+      const validationData = {
+        firstName: formState.firstName,
+        lastName: formState.lastName,
+        dateOfBirth: formState.dateOfBirth,
+        gender: formState.gender,
+        college: formState.college,
+        branch: formState.branch,
+        year: formState.year,
+        graduationYear: formState.graduationYear,
+        cgpa: formState.cgpa,
+        phone: formState.phone,
+        location: formState.location,
+        portfolioUrl: formState.portfolioUrl,
+        linkedinUrl: formState.linkedinUrl,
+        githubUrl: formState.githubUrl,
+        githubToken: formState.githubToken,
+        resumeLink: formState.resumeUrl,
+        leetcodeUrl: formState.leetcodeUrl,
+        hackerrankUrl: formState.hackerrankUrl,
+        headline: formState.headline,
+        summary: formState.summary,
+        skills: skillsArray,
+        avatar: formState.avatarUrl,
+      };
 
-      const leetcodeUsername = extractLeetCodeUsername(formState.leetcodeUrl);
-      const hackerrankUsername = extractHackerRankUsername(formState.hackerrankUrl);
-      
-      // Check at least one coding profile
-      if (!leetcodeUsername && !hackerrankUsername) {
-        missingFields.push("LeetCode or HackerRank Profile");
-      }
-      
-      // Check at least one skill
-      if (skillsArray.length === 0) {
-        missingFields.push("At least one Skill");
-      }
+      // Validate using Zod schema
+      const validationResult = studentProfileSchema.safeParse(validationData);
 
-      if (missingFields.length > 0) {
+      if (!validationResult.success) {
+        const errors: Record<string, string> = {};
+        validationResult.error.errors.forEach((err) => {
+          const path = err.path.join('.');
+          errors[path] = err.message;
+        });
+        setFieldErrors(errors);
+
+        // Show first error in toast
+        const firstError = validationResult.error.errors[0];
         toast({
-          title: "Required fields missing",
-          description: `Please fill in: ${missingFields.join(", ")}`,
+          title: "Validation Error",
+          description: firstError.message,
           variant: "destructive",
         });
         setSaving(false);
         return;
       }
+
+      // Clear any previous errors
+      setFieldErrors({});
+
+      const leetcodeUsername = extractLeetCodeUsername(formState.leetcodeUrl);
+      const hackerrankUsername = extractHackerRankUsername(formState.hackerrankUrl);
 
       const updatedCodingProfiles: CodingProfiles = {
         ...(codingProfiles || {}),
@@ -471,7 +530,24 @@ const StudentProfile = () => {
         description: "Your information has been saved successfully.",
       });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Please try again";
+      // Handle backend validation errors
+      let backendErrors: Record<string, string> | null = null;
+      if (error && typeof error === 'object' && 'errors' in error) {
+        backendErrors = (error as any).errors || null;
+        if (backendErrors && typeof backendErrors === 'object') {
+          setFieldErrors(backendErrors);
+        }
+      }
+
+      let message = error instanceof Error ? error.message : "Please try again";
+      if (backendErrors) {
+        const firstBackendError = Object.values(backendErrors).find(
+          (value) => typeof value === 'string' && value.trim().length > 0
+        );
+        if (firstBackendError) {
+          message = firstBackendError;
+        }
+      }
       toast({
         title: "Failed to save profile",
         description: message,
@@ -618,8 +694,11 @@ const StudentProfile = () => {
                     placeholder="John"
                     value={formState.firstName}
                     onChange={handleInputChange}
+                    onBlur={() => handleFieldBlur('firstName')}
+                    className={fieldErrors.firstName ? 'border-red-500' : ''}
                     required
                   />
+                  <FieldError error={fieldErrors.firstName} />
                 </div>
                 <div className="space-y-1">
                   <RequiredLabel htmlFor="lastName">Last name</RequiredLabel>
@@ -629,8 +708,11 @@ const StudentProfile = () => {
                     placeholder="Doe"
                     value={formState.lastName}
                     onChange={handleInputChange}
+                    onBlur={() => handleFieldBlur('lastName')}
+                    className={fieldErrors.lastName ? 'border-red-500' : ''}
                     required
                   />
+                  <FieldError error={fieldErrors.lastName} />
                 </div>
                 <div className="space-y-1">
                   <RequiredLabel htmlFor="dateOfBirth">Date of birth</RequiredLabel>

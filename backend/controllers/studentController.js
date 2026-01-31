@@ -14,6 +14,7 @@ const { syncAutoGoals } = require('../utils/goalSync');
 const { generateDomainInsight } = require('../utils/domainInsights');
 const { updateStreak } = require('../utils/streakCalculator');
 const { extractTextFromPDF } = require('../utils/pdfExtractor');
+const { validateCompleteProfile } = require('../utils/profileValidation');
 
 const buildAuthResponse = (student, breakdown = {}) => ({
   token: generateToken(student._id, 'student'),
@@ -106,6 +107,28 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
+  // Only validate if the essential fields are being updated
+  // This allows partial updates without triggering full validation
+  const hasEssentialFields = req.body.firstName || req.body.lastName || 
+                             req.body.dateOfBirth || req.body.gender || 
+                             req.body.college || req.body.phone || 
+                             req.body.linkedinUrl || req.body.skills;
+  
+  let validatedData = {};
+  
+  if (hasEssentialFields) {
+    const validationResult = validateCompleteProfile(req.body);
+    
+    if (!validationResult.valid) {
+      return res.status(400).json({ 
+        message: 'Validation failed', 
+        errors: validationResult.errors 
+      });
+    }
+    
+    validatedData = validationResult.validated;
+  }
+
   const allowedFields = [
     'name',
     'firstName',
@@ -137,7 +160,10 @@ const updateProfile = asyncHandler(async (req, res) => {
 
   const updates = {};
   allowedFields.forEach((field) => {
-    if (typeof req.body[field] !== 'undefined') {
+    // Use validated data if available, otherwise fall back to req.body
+    if (typeof validatedData[field] !== 'undefined') {
+      updates[field] = validatedData[field];
+    } else if (typeof req.body[field] !== 'undefined') {
       updates[field] = req.body[field];
     }
   });
