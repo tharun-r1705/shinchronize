@@ -34,7 +34,7 @@ export const TopBar = ({ userType }: TopBarProps) => {
   const navigate = useNavigate();
   const { setSidebarOpen, setCommandPaletteOpen, sidebarCollapsed } = useLayout();
   const [isDark, setIsDark] = useState(false);
-  const [notifications] = useState(3); // Mock notification count
+  const [notifications] = useState(0); // Default to no notifications
 
   // Check initial theme
   useEffect(() => {
@@ -155,13 +155,19 @@ export const TopBar = ({ userType }: TopBarProps) => {
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel className="flex items-center justify-between">
               Notifications
-              <Badge variant="secondary" className="text-xs">
-                {notifications} new
-              </Badge>
+              {notifications > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {notifications} new
+                </Badge>
+              )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <div className="py-2 px-2 text-sm text-muted-foreground text-center">
-              <p>Your notifications will appear here</p>
+              <p>
+                {notifications > 0
+                  ? "Your notifications will appear here"
+                  : "You're all caught up"}
+              </p>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>

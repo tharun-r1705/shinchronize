@@ -14,9 +14,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Building2,
   Users,
-  Search,
   Shield,
   CheckCircle,
 } from "lucide-react";
@@ -52,9 +50,6 @@ const studentNavItems: NavItem[] = [
 
 const recruiterNavItems: NavItem[] = [
   { label: "Dashboard", path: "/recruiter/dashboard", icon: LayoutDashboard },
-  { label: "Candidates", path: "/recruiter/candidates", icon: Users },
-  { label: "Search", path: "/recruiter/search", icon: Search },
-  { label: "Company", path: "/recruiter/company", icon: Building2 },
   { label: "Settings", path: "/recruiter/settings", icon: Settings },
 ];
 

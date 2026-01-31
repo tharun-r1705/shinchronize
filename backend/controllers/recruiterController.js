@@ -64,21 +64,8 @@ const updatePreferences = asyncHandler(async (req, res) => {
     runValidators: true,
   });
 
-  // Check if profile is complete and update the field
-  const requiredFields = [
-    recruiter.name,
-    recruiter.email,
-    recruiter.phone,
-    recruiter.company,
-    recruiter.role,
-    // profilePicture is optional
-  ];
-  
-  const hasAllFields = requiredFields.every(field => field && field.toString().trim() !== '');
-  const hasTargetRoles = recruiter.preferences?.roles?.length > 0;
-  const hasPreferredSkills = recruiter.preferences?.skills?.length > 0;
-  
-  recruiter.profileCompleted = hasAllFields && hasTargetRoles && hasPreferredSkills;
+  // Profile completion is optional
+  recruiter.profileCompleted = true;
   await recruiter.save();
 
   res.json(recruiter);
@@ -794,21 +781,8 @@ const uploadProfilePicture = asyncHandler(async (req, res) => {
       { new: true }
     );
 
-    // Check if profile is complete and update the field
-    const requiredFields = [
-      recruiter.name,
-      recruiter.email,
-      recruiter.phone,
-      recruiter.company,
-      recruiter.role,
-      // profilePicture is optional
-    ];
-    
-    const hasAllFields = requiredFields.every(field => field && field.toString().trim() !== '');
-    const hasTargetRoles = recruiter.preferences?.roles?.length > 0;
-    const hasPreferredSkills = recruiter.preferences?.skills?.length > 0;
-    
-    recruiter.profileCompleted = hasAllFields && hasTargetRoles && hasPreferredSkills;
+    // Profile completion is optional
+    recruiter.profileCompleted = true;
     await recruiter.save();
 
     res.json({

@@ -22,22 +22,25 @@ import {
 import { Loader2, Sparkles, X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { jobApi } from "@/lib/api";
-import type { CreateJobPayload } from "@/types/job";
+import type { CreateJobPayload, Job } from "@/types/job";
 
 interface JobCreationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onJobCreated: () => void;
+  job?: Job | null;
 }
 
 export default function JobCreationDialog({
   open,
   onOpenChange,
   onJobCreated,
+  job,
 }: JobCreationDialogProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const isEditMode = Boolean(job);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -57,8 +60,24 @@ export default function JobCreationDialog({
   const [aiResponsibilities, setAiResponsibilities] = useState<string[]>([]);
   const [aiQualifications, setAiQualifications] = useState<string[]>([]);
 
-  // Reset form when dialog closes
+  // Populate form for edit and reset when closed
   useEffect(() => {
+    if (open && job) {
+      setTitle(job.title || "");
+      setLocation(job.location || "");
+      setJobType(job.jobType || "Internship");
+      setRequiredSkills(job.requiredSkills || []);
+      setPreferredSkills(job.preferredSkills || []);
+      setExperienceRequired(job.experienceRequired || "");
+      setMinReadinessScore(String(job.minReadinessScore ?? 50));
+      setMinCGPA(String(job.minCGPA ?? 6.0));
+      setMinProjects(String(job.minProjects ?? 1));
+      setAiDescription(job.description || "");
+      setAiResponsibilities(job.responsibilities || []);
+      setAiQualifications(job.qualifications || []);
+      return;
+    }
+
     if (!open) {
       setTitle("");
       setLocation("");
@@ -73,7 +92,7 @@ export default function JobCreationDialog({
       setAiResponsibilities([]);
       setAiQualifications([]);
     }
-  }, [open]);
+  }, [open, job]);
 
   const addRequiredSkill = () => {
     if (newSkill.trim() && !requiredSkills.includes(newSkill.trim())) {
@@ -97,7 +116,7 @@ export default function JobCreationDialog({
     setPreferredSkills(preferredSkills.filter((s) => s !== skill));
   };
 
-  const handleCreateJob = async (publishNow: boolean = false) => {
+  const handleSaveJob = async (publishNow: boolean = false) => {
     if (!title.trim() || !location.trim() || requiredSkills.length === 0) {
       toast({
         title: "Missing required fields",
@@ -127,20 +146,28 @@ export default function JobCreationDialog({
         minProjects: parseInt(minProjects),
       };
 
-      const { job } = await jobApi.createJob(payload, token);
-
-      // If publish now is selected, publish the job immediately
-      if (publishNow) {
-        await jobApi.publishJob(job._id, token);
+      if (isEditMode && job?._id) {
+        await jobApi.updateJob(job._id, payload, token);
         toast({
-          title: "Job published successfully!",
-          description: "AI is now matching students to this job. This may take a few moments.",
+          title: "Job updated",
+          description: "Your changes have been saved.",
         });
       } else {
-        toast({
-          title: "Job created as draft",
-          description: "You can publish it later from the job list.",
-        });
+        const { job: createdJob } = await jobApi.createJob(payload, token);
+
+        // If publish now is selected, publish the job immediately
+        if (publishNow) {
+          await jobApi.publishJob(createdJob._id, token);
+          toast({
+            title: "Job published successfully!",
+            description: "AI is now matching students to this job. This may take a few moments.",
+          });
+        } else {
+          toast({
+            title: "Job created as draft",
+            description: "You can publish it later from the job list.",
+          });
+        }
       }
 
       onJobCreated();
@@ -162,10 +189,12 @@ export default function JobCreationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
-            Create New Job Posting
+            {isEditMode ? "Edit Job Posting" : "Create New Job Posting"}
           </DialogTitle>
           <DialogDescription>
-            Fill in the basic details and AI will help generate a professional job description.
+            {isEditMode
+              ? "Update the job details below."
+              : "Fill in the basic details and AI will help generate a professional job description."}
           </DialogDescription>
         </DialogHeader>
 
@@ -327,22 +356,31 @@ export default function JobCreationDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>
             Cancel
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => handleCreateJob(false)}
-            disabled={isCreating}
-          >
-            {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save as Draft
-          </Button>
-          <Button
-            onClick={() => handleCreateJob(true)}
-            disabled={isCreating}
-          >
-            {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Sparkles className="mr-2 h-4 w-4" />
-            Publish Now
-          </Button>
+          {isEditMode ? (
+            <Button onClick={() => handleSaveJob(false)} disabled={isCreating}>
+              {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => handleSaveJob(false)}
+                disabled={isCreating}
+              >
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save as Draft
+              </Button>
+              <Button
+                onClick={() => handleSaveJob(true)}
+                disabled={isCreating}
+              >
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Sparkles className="mr-2 h-4 w-4" />
+                Publish Now
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

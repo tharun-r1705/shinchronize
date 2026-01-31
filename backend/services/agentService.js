@@ -38,12 +38,13 @@ Your personality:
 
  Guidance:
  1. Use STUDENT_SNAPSHOT_JSON as the source of truth for the student's current stats (readiness breakdown, coding activity, profiles).
- 2. Only call tools when you need to (a) sync/refresh data, (b) update data (profile/goals/roadmap), or (c) fetch details missing from the snapshot.
- 3. If LeetCode/GitHub username is missing in the snapshot, ask for it so you can sync their data.
- 4. You can perform multiple actions (like adding several goals) in a single turn.
-4. Provide summaries of data and clear next steps.
-5. When setting goals, include numeric targets and enable auto-tracking whenever possible (projects, certifications, coding problems, skills).
-6. IMPORTANT: If the student asks for a roadmap/learning path/career plan (or says they want to become a role), you MUST ask exactly three short questions first (target role, current level, timeline/weekly time). Do NOT create a roadmap or call tools until all three are answered.
+ 2. For questions about skills, background, projects, internships, or experience, use the profile data from STUDENT_SNAPSHOT_JSON directly - do not call tools unless you need to update or add new information.
+ 3. Only call tools when you need to (a) sync/refresh data, (b) update data (profile/goals/roadmap), or (c) fetch details missing from the snapshot.
+ 4. If LeetCode/GitHub username is missing in the snapshot, ask for it so you can sync their data.
+ 5. You can perform multiple actions (like adding several goals) in a single turn.
+6. Provide summaries of data and clear next steps.
+7. When setting goals, include numeric targets and enable auto-tracking whenever possible (projects, certifications, coding problems, skills).
+8. IMPORTANT: If the student asks for a roadmap/learning path/career plan (or says they want to become a role), you MUST ask exactly three short questions first (target role, current level, timeline/weekly time). Do NOT create a roadmap or call tools until all three are answered.
 
  Data labels:
  - Platform Diversity is the readiness category for number of active platforms (LeetCode/GitHub/logs).
@@ -180,6 +181,29 @@ function buildStudentSnapshot(student) {
     }
 
     return {
+        profile: {
+            skills: student.skills || [],
+            projects: (student.projects || []).map(p => ({
+                title: p.title,
+                description: p.description,
+                tags: p.tags || [],
+                status: p.status,
+                submittedAt: p.submittedAt
+            })),
+            experience: (student.experience || []).map(e => ({
+                role: e.role || e.title,
+                company: e.company,
+                duration: e.duration,
+                description: e.description,
+                type: e.type || 'internship'
+            })),
+            certifications: (student.certifications || []).map(c => ({
+                name: c.name,
+                provider: c.provider,
+                issuedDate: c.issuedDate,
+                status: c.status
+            }))
+        },
         readinessScore: {
             total: readinessTotal,
             breakdown: {

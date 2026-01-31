@@ -375,11 +375,11 @@ const SkillMarketTracker = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.15 }}
                         >
-                            <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 shadow-premium overflow-hidden">
-                                <CardHeader className="border-b bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
+                            <Card className="border-border/60 bg-gradient-to-br from-primary/5 via-background/40 to-violet-500/5 dark:from-primary/10 dark:via-background/20 dark:to-violet-500/10 shadow-premium overflow-hidden">
+                                <CardHeader className="border-b border-border/60 bg-gradient-to-r from-primary/10 to-violet-500/10 dark:from-primary/15 dark:to-violet-500/15">
                                     <CardTitle className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-indigo-500/10">
-                                            <Bot className="w-5 h-5 text-indigo-600" />
+                                        <div className="p-2 rounded-lg bg-primary/10">
+                                            <Bot className="w-5 h-5 text-primary" />
                                         </div>
                                         Ask About Trending Skills
                                     </CardTitle>
@@ -397,13 +397,13 @@ const SkillMarketTracker = () => {
                                                         handleChatSubmit();
                                                     }
                                                 }}
-                                                className="flex-1"
+                                                className="flex-1 bg-background/60 border-border/60 focus-visible:ring-primary/40"
                                                 disabled={isChatLoading}
                                             />
                                             <Button 
                                                 onClick={handleChatSubmit}
                                                 disabled={isChatLoading || !chatMessage.trim()}
-                                                className="shrink-0"
+                                                className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
                                             >
                                                 {isChatLoading ? (
                                                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -419,7 +419,7 @@ const SkillMarketTracker = () => {
                                                 <Badge
                                                     key={suggestion}
                                                     variant="outline"
-                                                    className="cursor-pointer hover:bg-indigo-50 transition-colors"
+                                                    className="cursor-pointer border-border/60 hover:bg-primary/10 transition-colors"
                                                     onClick={() => setChatMessage(suggestion)}
                                                 >
                                                     {suggestion}
@@ -430,19 +430,19 @@ const SkillMarketTracker = () => {
 
                                     {/* Chat Response */}
                                     {(chatResponse || isChatLoading) && (
-                                        <div className="bg-white/80 p-5 rounded-xl border border-indigo-100 min-h-[100px]">
+                                        <div className="bg-card/60 dark:bg-card/40 p-5 rounded-xl border border-border/60 min-h-[100px]">
                                             {isChatLoading ? (
-                                                <div className="flex items-center gap-3 text-indigo-600">
-                                                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                                <div className="flex items-center gap-3 text-primary">
+                                                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                                                     <span className="text-sm font-medium">Analyzing market data...</span>
                                                 </div>
                                             ) : (
                                                 <div className="space-y-2">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                        <Bot className="w-4 h-4 text-indigo-600" />
-                                                        <span className="text-xs font-bold text-indigo-600 uppercase">AI Response</span>
+                                                        <Bot className="w-4 h-4 text-primary" />
+                                                        <span className="text-xs font-bold text-primary uppercase">AI Response</span>
                                                     </div>
-                                                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                                                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                                                         {chatResponse}
                                                     </p>
                                                 </div>
@@ -451,8 +451,8 @@ const SkillMarketTracker = () => {
                                     )}
 
                                     {!chatResponse && !isChatLoading && (
-                                        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
-                                            <p className="text-xs text-indigo-700 leading-relaxed">
+                                        <div className="bg-card/40 p-4 rounded-xl border border-border/60">
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
                                                 💡 Ask me anything about the trending skills displayed on this page. I can tell you about demand scores, growth rates, categories, and more!
                                             </p>
                                         </div>
@@ -479,7 +479,7 @@ const SkillMarketTracker = () => {
                                     {roiReport.length > 0 ? (
                                         <>
                                             {/* ROI Visualization Chart */}
-                                            <div className="bg-white/80 rounded-xl p-4 mb-4 border border-slate-100">
+                                            <div className="bg-card/60 dark:bg-card/40 rounded-xl p-4 mb-4 border border-border/60">
                                                 <div className="h-[180px] w-full">
                                                     <ResponsiveContainer width="100%" height="100%">
                                                         <BarChart 
@@ -729,7 +729,7 @@ const SkillMarketTracker = () => {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Trend Chart - Beautiful Area Chart */}
-                                    <div className="mb-6 bg-gradient-to-br from-slate-50 to-indigo-50/50 rounded-xl p-4 border border-slate-100">
+                                    <div className="mb-6 bg-gradient-to-br from-primary/5 via-background/60 to-violet-500/10 rounded-xl p-4 border border-border/60">
                                         <div className="h-[220px] w-full">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <AreaChart data={trends?.rising || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -814,7 +814,7 @@ const SkillMarketTracker = () => {
                                         </div>
                                     </div>
 
-                                    <div className="bg-muted/50 p-4 rounded-xl">
+                                    <div className="bg-card/50 border border-border/60 p-4 rounded-xl">
                                         <h5 className="text-sm font-bold flex items-center gap-2 mb-2 text-primary">
                                             <Info className="w-4 h-4" /> Market Insight
                                         </h5>

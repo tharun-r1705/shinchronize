@@ -24,7 +24,6 @@ import {
   LogOut,
   Moon,
   Sun,
-  Search,
   ArrowRight,
   Plus,
   Zap,
@@ -184,14 +183,6 @@ export const CommandPalette = ({
       icon: Settings,
       action: () => navigateTo("/recruiter/settings"),
       group: "Navigation",
-    },
-    {
-      id: "search-candidates",
-      label: "Search Candidates",
-      icon: Search,
-      shortcut: "⌘F",
-      action: () => navigateTo("/recruiter/dashboard"),
-      group: "Quick Actions",
     },
   ];
 

@@ -3,11 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Settings, Bell, Building2, Save, Upload, X } from "lucide-react";
+import { ArrowLeft, User, Settings, Save, Upload, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
@@ -35,33 +32,6 @@ const RecruiterSettings = () => {
   const [linkedinProfile, setLinkedinProfile] = useState("");
   const [aboutCompany, setAboutCompany] = useState("");
 
-  // Hiring Preferences
-  const [targetRoles, setTargetRoles] = useState<string[]>([]);
-  const [preferredSkills, setPreferredSkills] = useState<string[]>([]);
-  const [minReadinessScore, setMinReadinessScore] = useState(50);
-  const [preferredLocations, setPreferredLocations] = useState<string[]>([]);
-  const [newRole, setNewRole] = useState("");
-  const [newSkill, setNewSkill] = useState("");
-  const [newLocation, setNewLocation] = useState("");
-
-  // Notification Settings
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [weeklyDigest, setWeeklyDigest] = useState(true);
-  const [skillAlerts, setSkillAlerts] = useState(false);
-  const [scoreThresholdAlerts, setScoreThresholdAlerts] = useState(false);
-
-  // Trending skills and roles
-  const trendingSkills = [
-    "JavaScript", "Python", "Java", "TypeScript", "React",
-    "Node.js", "MongoDB", "SQL", "AWS", "Docker",
-    "Kubernetes", "Git", "REST API", "GraphQL", "Machine Learning"
-  ];
-
-  const commonRoles = [
-    "Frontend Developer", "Backend Developer", "Full Stack Developer",
-    "Data Scientist", "DevOps Engineer", "ML Engineer",
-    "Mobile Developer", "UI/UX Designer", "Product Manager"
-  ];
 
   useEffect(() => {
     fetchProfile();
@@ -88,22 +58,6 @@ const RecruiterSettings = () => {
       setAboutCompany(profile.aboutCompany || "");
       setProfilePicture(profile.profilePicture || null);
       setProfilePicturePreview(profile.profilePicture || null);
-
-      // Set preferences
-      if (profile.preferences) {
-        setTargetRoles(profile.preferences.roles || []);
-        setPreferredSkills(profile.preferences.skills || []);
-        setMinReadinessScore(profile.preferences.minScore || 50);
-        setPreferredLocations(profile.preferences.locations || []);
-      }
-
-      // Set notifications (if available)
-      if (profile.notifications) {
-        setEmailAlerts(profile.notifications.emailAlerts ?? true);
-        setWeeklyDigest(profile.notifications.weeklyDigest ?? true);
-        setSkillAlerts(profile.notifications.skillAlerts ?? false);
-        setScoreThresholdAlerts(profile.notifications.scoreThresholdAlerts ?? false);
-      }
 
     } catch (error: any) {
       toast({
@@ -142,18 +96,6 @@ const RecruiterSettings = () => {
         companyWebsite,
         linkedinProfile,
         aboutCompany,
-        preferences: {
-          roles: targetRoles,
-          skills: preferredSkills,
-          minScore: minReadinessScore,
-          locations: preferredLocations,
-        },
-        notifications: {
-          emailAlerts,
-          weeklyDigest,
-          skillAlerts,
-          scoreThresholdAlerts,
-        },
       };
 
       await recruiterApi.updateProfile(updateData, token!);
@@ -178,71 +120,19 @@ const RecruiterSettings = () => {
     }
   };
 
-  const addTargetRole = (role?: string) => {
-    const roleToAdd = role || newRole.trim();
-    if (roleToAdd && !targetRoles.includes(roleToAdd)) {
-      setTargetRoles([...targetRoles, roleToAdd]);
-      setNewRole("");
-      setHasChanges(true);
-    }
-  };
-
-  const removeTargetRole = (role: string) => {
-    setTargetRoles(targetRoles.filter(r => r !== role));
-    setHasChanges(true);
-  };
-
-  const addSkill = (skill?: string) => {
-    const skillToAdd = skill || newSkill.trim();
-    if (skillToAdd && !preferredSkills.includes(skillToAdd)) {
-      setPreferredSkills([...preferredSkills, skillToAdd]);
-      setNewSkill("");
-      setHasChanges(true);
-    }
-  };
-
-  const removeSkill = (skill: string) => {
-    setPreferredSkills(preferredSkills.filter(s => s !== skill));
-    setHasChanges(true);
-  };
-
-  const addLocation = () => {
-    const locationToAdd = newLocation.trim();
-    if (locationToAdd && !preferredLocations.includes(locationToAdd)) {
-      setPreferredLocations([...preferredLocations, locationToAdd]);
-      setNewLocation("");
-      setHasChanges(true);
-    }
-  };
-
-  const removeLocation = (location: string) => {
-    setPreferredLocations(preferredLocations.filter(l => l !== location));
-    setHasChanges(true);
-  };
 
   const markChanged = () => setHasChanges(true);
 
-  // RequiredLabel component
+  // Label component (no required indicator)
   const RequiredLabel = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
     <Label htmlFor={htmlFor} className="flex items-center gap-1">
       {children}
-      <span className="text-red-500">*</span>
     </Label>
   );
 
-  // Validation function
+  // Validation function (profile is optional)
   const validateProfile = () => {
-    const errors: string[] = [];
-    
-    if (!name.trim()) errors.push('Full Name');
-    if (!phone.trim()) errors.push('Phone Number');
-    if (!company.trim()) errors.push('Company Name');
-    if (!role.trim()) errors.push('Job Title/Role');
-    // Profile picture is optional
-    if (targetRoles.length === 0) errors.push('At least one Target Role');
-    if (preferredSkills.length === 0) errors.push('At least one Preferred Skill');
-    
-    return errors;
+    return [] as string[];
   };
 
   const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,7 +240,7 @@ const RecruiterSettings = () => {
           <Button
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
-            className="bg-gradient-secondary"
+            className="bg-gradient-secondary text-white shadow-md hover:opacity-95 disabled:opacity-60 disabled:text-white/80"
           >
             <Save className="w-4 h-4 mr-2" />
             {isSaving ? "Saving..." : "Save Changes"}
@@ -370,23 +260,15 @@ const RecruiterSettings = () => {
                 Recruiter Settings
               </CardTitle>
               <CardDescription>
-                Manage your profile, hiring preferences, and notifications
+                Manage your profile information
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-1">
                   <TabsTrigger value="profile">
                     <User className="w-4 h-4 mr-2" />
                     Profile
-                  </TabsTrigger>
-                  <TabsTrigger value="preferences">
-                    <Building2 className="w-4 h-4 mr-2" />
-                    Hiring Preferences
-                  </TabsTrigger>
-                  <TabsTrigger value="notifications">
-                    <Bell className="w-4 h-4 mr-2" />
-                    Notifications
                   </TabsTrigger>
                 </TabsList>
 
@@ -452,13 +334,12 @@ const RecruiterSettings = () => {
 
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <RequiredLabel htmlFor="name">Full Name</RequiredLabel>
+                      <Label htmlFor="name">Full Name</Label>
                       <Input
                         id="name"
                         value={name}
                         onChange={(e) => { setName(e.target.value); markChanged(); }}
                         placeholder="John Doe"
-                        required
                       />
                     </div>
 
@@ -473,35 +354,32 @@ const RecruiterSettings = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <RequiredLabel htmlFor="phone">Phone Number</RequiredLabel>
+                      <Label htmlFor="phone">Phone Number</Label>
                       <Input
                         id="phone"
                         value={phone}
                         onChange={(e) => { setPhone(e.target.value); markChanged(); }}
                         placeholder="+1 555-123-4567"
-                        required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <RequiredLabel htmlFor="company">Company Name</RequiredLabel>
+                      <Label htmlFor="company">Company Name</Label>
                       <Input
                         id="company"
                         value={company}
                         onChange={(e) => { setCompany(e.target.value); markChanged(); }}
                         placeholder="TechCorp Inc."
-                        required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <RequiredLabel htmlFor="role">Job Title/Role</RequiredLabel>
+                      <Label htmlFor="role">Job Title/Role</Label>
                       <Input
                         id="role"
                         value={role}
                         onChange={(e) => { setRole(e.target.value); markChanged(); }}
                         placeholder="Senior Technical Recruiter"
-                        required
                       />
                     </div>
 
@@ -538,218 +416,6 @@ const RecruiterSettings = () => {
                   </div>
                 </TabsContent>
 
-                {/* Hiring Preferences Tab */}
-                <TabsContent value="preferences" className="space-y-6 mt-6">
-                  {/* Target Roles */}
-                  <div className="space-y-3">
-                    <RequiredLabel>Target Roles</RequiredLabel>
-                    <p className="text-sm text-muted-foreground">
-                      At least one role is required - These roles will be saved as your hiring focus
-                    </p>
-                    
-                    {/* Common Roles */}
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Quick add (click to add):</p>
-                      <div className="flex flex-wrap gap-2">
-                        {commonRoles.map((role) => (
-                          <Badge
-                            key={role}
-                            variant={targetRoles.includes(role) ? "default" : "outline"}
-                            className="cursor-pointer hover:bg-secondary transition-colors"
-                            onClick={() => targetRoles.includes(role) ? removeTargetRole(role) : addTargetRole(role)}
-                          >
-                            {role} {targetRoles.includes(role) && "✓"}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Custom Role Input */}
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Add custom role..."
-                        value={newRole}
-                        onChange={(e) => setNewRole(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && addTargetRole()}
-                      />
-                      <Button onClick={() => addTargetRole()} variant="outline">
-                        Add
-                      </Button>
-                    </div>
-
-                    {/* Selected Roles */}
-                    {targetRoles.length > 0 && (
-                      <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
-                        {targetRoles.map((role) => (
-                          <Badge key={role} variant="secondary" className="cursor-pointer" onClick={() => removeTargetRole(role)}>
-                            {role} ✕
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Preferred Skills */}
-                  <div className="space-y-3">
-                    <RequiredLabel>Preferred Skills (Default Filter)</RequiredLabel>
-                    <p className="text-sm text-muted-foreground">
-                      At least one skill is required - These skills will be auto-applied as filters on your dashboard
-                    </p>
-                    
-                    {/* Trending Skills */}
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Trending skills (click to add):</p>
-                      <div className="flex flex-wrap gap-2">
-                        {trendingSkills.map((skill) => (
-                          <Badge
-                            key={skill}
-                            variant={preferredSkills.includes(skill) ? "default" : "outline"}
-                            className="cursor-pointer hover:bg-secondary transition-colors"
-                            onClick={() => preferredSkills.includes(skill) ? removeSkill(skill) : addSkill(skill)}
-                          >
-                            {skill} {preferredSkills.includes(skill) && "✓"}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Custom Skill Input */}
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Add custom skill..."
-                        value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && addSkill()}
-                      />
-                      <Button onClick={() => addSkill()} variant="outline">
-                        Add
-                      </Button>
-                    </div>
-
-                    {/* Selected Skills */}
-                    {preferredSkills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
-                        {preferredSkills.map((skill) => (
-                          <Badge key={skill} variant="secondary" className="cursor-pointer" onClick={() => removeSkill(skill)}>
-                            {skill} ✕
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Minimum Readiness Score */}
-                  <div className="space-y-3">
-                    <Label>Minimum Readiness Score (Default Filter)</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Students below this score will be filtered out by default: {minReadinessScore}
-                    </p>
-                    <Slider
-                      value={[minReadinessScore]}
-                      onValueChange={(value) => { setMinReadinessScore(value[0]); markChanged(); }}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>0</span>
-                      <span>50</span>
-                      <span>100</span>
-                    </div>
-                  </div>
-
-                  {/* Preferred Locations */}
-                  <div className="space-y-3">
-                    <Label>Preferred Locations</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Add locations you're hiring for
-                    </p>
-                    
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="City, State or Remote"
-                        value={newLocation}
-                        onChange={(e) => setNewLocation(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && addLocation()}
-                      />
-                      <Button onClick={addLocation} variant="outline">
-                        Add
-                      </Button>
-                    </div>
-
-                    {/* Selected Locations */}
-                    {preferredLocations.length > 0 && (
-                      <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
-                        {preferredLocations.map((location) => (
-                          <Badge key={location} variant="secondary" className="cursor-pointer" onClick={() => removeLocation(location)}>
-                            {location} ✕
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                {/* Notifications Tab */}
-                <TabsContent value="notifications" className="space-y-6 mt-6">
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <Label htmlFor="email-alerts">Email Alerts</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive email notifications for important updates
-                        </p>
-                      </div>
-                      <Switch
-                        id="email-alerts"
-                        checked={emailAlerts}
-                        onCheckedChange={(checked) => { setEmailAlerts(checked); markChanged(); }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <Label htmlFor="weekly-digest">Weekly Digest</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Get a weekly summary of top candidates and trends
-                        </p>
-                      </div>
-                      <Switch
-                        id="weekly-digest"
-                        checked={weeklyDigest}
-                        onCheckedChange={(checked) => { setWeeklyDigest(checked); markChanged(); }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <Label htmlFor="skill-alerts">Skill Match Alerts</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Notify when students with your preferred skills join
-                        </p>
-                      </div>
-                      <Switch
-                        id="skill-alerts"
-                        checked={skillAlerts}
-                        onCheckedChange={(checked) => { setSkillAlerts(checked); markChanged(); }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <Label htmlFor="score-alerts">Score Threshold Alerts</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Notify when students cross your minimum readiness score
-                        </p>
-                      </div>
-                      <Switch
-                        id="score-alerts"
-                        checked={scoreThresholdAlerts}
-                        onCheckedChange={(checked) => { setScoreThresholdAlerts(checked); markChanged(); }}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>

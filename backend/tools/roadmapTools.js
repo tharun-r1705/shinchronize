@@ -52,7 +52,9 @@ async function createRoadmap(studentId, args) {
         quizStatus: 'none',
         // Project specific
         problemStatements: m.category === 'project' ? (m.problemStatements || []) : [],
-        projectSubmission: null
+        projectSubmission: m.category === 'project'
+            ? { status: 'pending', attempts: 0 }
+            : undefined
     }));
 
     const roadmap = new Roadmap({
@@ -212,7 +214,9 @@ async function addMilestone(studentId, args) {
         requiresQuiz: category === 'project' ? false : true,
         quizStatus: 'none',
         problemStatements: category === 'project' ? [] : undefined,
-        projectSubmission: null
+        projectSubmission: category === 'project'
+            ? { status: 'pending', attempts: 0 }
+            : undefined
     };
 
     // Insert after specific milestone if specified
