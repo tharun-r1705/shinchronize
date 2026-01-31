@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { Link2, RefreshCw, CheckCircle, XCircle, LogOut } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -793,10 +793,8 @@ const Progress = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <StudentNavbar />
-
-      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+    <StudentLayout>
+      <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">Progress Analytics</h2>
@@ -1691,8 +1689,8 @@ const Progress = () => {
           </div>
 
         </div>
-      </div >
-    </div >
+      </div>
+    </StudentLayout>
   );
 };
 

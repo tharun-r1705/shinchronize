@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Brain, Loader2, Play, History, Target, Gauge, Upload, X } from "lucide-react";
 
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,10 +150,8 @@ export default function InterviewHub() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <StudentNavbar />
-      <div className="container mx-auto px-4 py-10">
-        <motion.div
+    <StudentLayout>
+      <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
@@ -449,7 +447,6 @@ export default function InterviewHub() {
             </Card>
           </div>
         </div>
-      </div>
-    </div>
+    </StudentLayout>
   );
 }

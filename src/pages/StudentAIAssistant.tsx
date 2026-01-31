@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { agentApi, AgentMessage } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { MessageBubble, TypingIndicator } from "@/components/AgentChat";
 import RoadmapVisualizer from "@/components/RoadmapVisualizer";
 
@@ -177,10 +177,8 @@ const StudentAIAssistant = () => {
     };
 
     return (
-        <div className="min-h-screen bg-muted/30 flex flex-col">
-            <StudentNavbar />
-
-            <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl flex flex-col">
+        <StudentLayout>
+            <div className="flex flex-col h-[calc(100vh-120px)]">
                 {/* Header */}
                 <header className="mb-6 flex flex-col items-center">
                     <div className="w-full relative overflow-hidden p-6 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 border border-amber-500/20 text-center mb-4">
@@ -374,8 +372,8 @@ const StudentAIAssistant = () => {
                         </Card>
                     </TabsContent>
                 </Tabs>
-            </main>
-        </div>
+            </div>
+        </StudentLayout>
     );
 };
 

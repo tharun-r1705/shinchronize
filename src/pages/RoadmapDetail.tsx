@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { roadmapApi, Roadmap } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import RoadmapVisualizer from "@/components/RoadmapVisualizer";
 import ActivityTimeline from "@/components/ActivityTimeline";
 
@@ -46,47 +46,38 @@ const RoadmapDetail = () => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-muted/30">
-                <StudentNavbar />
-                <div className="container mx-auto px-4 py-8">
-                    <Skeleton className="h-10 w-48 mb-8" />
-                    <div className="grid lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2">
-                            <Skeleton className="h-[600px]" />
-                        </div>
-                        <div>
-                            <Skeleton className="h-[600px]" />
-                        </div>
+            <StudentLayout>
+                <Skeleton className="h-10 w-48 mb-8" />
+                <div className="grid lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                        <Skeleton className="h-[600px]" />
+                    </div>
+                    <div>
+                        <Skeleton className="h-[600px]" />
                     </div>
                 </div>
-            </div>
+            </StudentLayout>
         );
     }
 
     if (!roadmap) {
         return (
-            <div className="min-h-screen bg-muted/30">
-                <StudentNavbar />
-                <div className="container mx-auto px-4 py-8">
-                    <div className="text-center py-16">
-                        <h2 className="text-2xl font-bold mb-4">Roadmap Not Found</h2>
-                        <Button onClick={() => navigate('/student/roadmaps')}>
-                            <ArrowLeft className="w-4 h-4 mr-2" />
-                            Back to Roadmaps
-                        </Button>
-                    </div>
+            <StudentLayout>
+                <div className="text-center py-16">
+                    <h2 className="text-2xl font-bold mb-4">Roadmap Not Found</h2>
+                    <Button onClick={() => navigate('/student/roadmaps')}>
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Roadmaps
+                    </Button>
                 </div>
-            </div>
+            </StudentLayout>
         );
     }
 
     return (
-        <div className="min-h-screen bg-muted/30">
-            <StudentNavbar />
-            
-            <div className="container mx-auto px-4 py-8">
-                {/* Back Button */}
-                <Button
+        <StudentLayout>
+            {/* Back Button */}
+            <Button
                     variant="ghost"
                     onClick={() => navigate('/student/roadmaps')}
                     className="mb-6"
@@ -109,8 +100,7 @@ const RoadmapDetail = () => {
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+        </StudentLayout>
     );
 };
 

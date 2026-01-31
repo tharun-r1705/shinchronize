@@ -27,7 +27,7 @@ import {
   History,
   Star
 } from 'lucide-react';
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { studentApi } from '@/lib/api';
 
 interface ResumeAnalysis {
@@ -210,11 +210,10 @@ export default function ResumeAnalyzer() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-20">
-      <StudentNavbar />
-
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-card border-b">
+    <StudentLayout>
+      <div className="pb-20">
+        {/* Hero Section */}
+        <div className="relative overflow-hidden bg-card border-b">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
         <div className="container mx-auto px-4 py-16 relative z-10">
           <motion.div
@@ -775,6 +774,7 @@ export default function ResumeAnalyzer() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </StudentLayout>
   );
 }

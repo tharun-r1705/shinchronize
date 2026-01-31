@@ -33,7 +33,7 @@ import {
   LinkedInProfileAutofill,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -571,10 +571,8 @@ const StudentProfile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <StudentNavbar />
-
-      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+    <StudentLayout>
+      <div className="space-y-6">
         <Button
           variant="ghost"
           className="px-0 text-muted-foreground hover:text-foreground"
@@ -1071,7 +1069,7 @@ const StudentProfile = () => {
           </Button>
         </div>
       </div>
-    </div>
+    </StudentLayout>
   );
 };
 

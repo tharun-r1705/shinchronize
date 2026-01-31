@@ -30,7 +30,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 
 const MyRoadmaps = () => {
     const navigate = useNavigate();
@@ -115,30 +115,24 @@ const MyRoadmaps = () => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-muted/30">
-                <StudentNavbar />
-                <div className="container mx-auto px-4 py-8">
-                    <div className="mb-8">
-                        <Skeleton className="h-10 w-64 mb-2" />
-                        <Skeleton className="h-5 w-96" />
-                    </div>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {[1, 2, 3].map((i) => (
-                            <Skeleton key={i} className="h-64" />
-                        ))}
-                    </div>
+            <StudentLayout>
+                <div className="mb-8">
+                    <Skeleton className="h-10 w-64 mb-2" />
+                    <Skeleton className="h-5 w-96" />
                 </div>
-            </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-64" />
+                    ))}
+                </div>
+            </StudentLayout>
         );
     }
 
     return (
-        <div className="min-h-screen bg-muted/30">
-            <StudentNavbar />
-            
-            <div className="container mx-auto px-4 py-8">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+        <StudentLayout>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-3xl font-bold flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
@@ -314,8 +308,7 @@ const MyRoadmaps = () => {
                         })}
                     </div>
                 )}
-            </div>
-        </div>
+        </StudentLayout>
     );
 };
 

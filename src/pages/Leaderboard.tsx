@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { studentApi } from "@/lib/api";
 
 type LeaderboardEntry = {
@@ -267,12 +267,9 @@ const Leaderboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <StudentNavbar />
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <motion.div
+    <StudentLayout>
+      {/* Header */}
+      <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
@@ -720,8 +717,7 @@ const Leaderboard = () => {
             )}
           </DialogContent>
         </Dialog>
-      </div>
-    </div>
+    </StudentLayout>
   );
 };
 

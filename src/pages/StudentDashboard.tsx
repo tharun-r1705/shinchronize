@@ -21,7 +21,7 @@ import { LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 import { useEffect, useState } from "react";
 import { studentApi, marketApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 
 interface MentorSuggestions {
   overview: string;
@@ -818,25 +818,29 @@ const StudentDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your dashboard...</p>
+      <StudentLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
         </div>
-      </div>
+      </StudentLayout>
     );
   }
 
   if (!student) {
     return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">Failed to load student data</p>
-          <Button onClick={() => navigate('/student/login')} className="mt-4">
-            Back to Login
-          </Button>
+      <StudentLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <p className="text-muted-foreground">Failed to load student data</p>
+            <Button onClick={() => navigate('/student/login')} className="mt-4">
+              Back to Login
+            </Button>
+          </div>
         </div>
-      </div>
+      </StudentLayout>
     );
   }
 
@@ -846,68 +850,65 @@ const StudentDashboard = () => {
   const activeGoals = getActiveGoals();
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <StudentNavbar />
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Profile Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Card className="mb-8 shadow-card">
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-                <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center text-3xl font-bold text-primary-foreground">
-                  {student.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold mb-1">{student.name || 'Student'}</h2>
-                  <p className="text-muted-foreground mb-3">
-                    {student.branch || 'Computer Science'} {student.year && `• ${student.year} Year`} {student.college && `• ${student.college}`}
-                  </p>
-                  <div className="grid grid-cols-1 gap-4 mt-3">
-                    <div className="rounded-xl border bg-card/60 p-4">
-                      <p className="text-sm text-muted-foreground">Readiness</p>
-                      <div className="flex items-end justify-between gap-3 mt-1">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                            {student.baseReadinessScore || 0}
-                          </span>
-                          <span className="text-sm text-muted-foreground">/ 100</span>
-                        </div>
-                        <TrendingUp className="w-5 h-5 text-primary" />
+    <StudentLayout>
+      {/* Profile Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Card variant="elevated" className="mb-8">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+              <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-glow">
+                {student.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
+              </div>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold mb-1">{student.name || 'Student'}</h2>
+                <p className="text-muted-foreground mb-3">
+                  {student.branch || 'Computer Science'} {student.year && `• ${student.year} Year`} {student.college && `• ${student.college}`}
+                </p>
+                <div className="grid grid-cols-1 gap-4 mt-3">
+                  <div className="rounded-xl border bg-card/60 p-4">
+                    <p className="text-sm text-muted-foreground">Readiness</p>
+                    <div className="flex items-end justify-between gap-3 mt-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold text-gradient">
+                          {student.baseReadinessScore || 0}
+                        </span>
+                        <span className="text-sm text-muted-foreground">/ 100</span>
                       </div>
-                      <Progress value={Math.max(0, Math.min(100, student.baseReadinessScore || 0))} className="h-2 mt-3" />
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Powered by projects, recent activity (logs + synced stats), skills, and streak.
-                      </p>
+                      <TrendingUp className="w-5 h-5 text-primary" />
                     </div>
+                    <Progress value={Math.max(0, Math.min(100, student.baseReadinessScore || 0))} className="h-2 mt-3" />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Powered by projects, recent activity (logs + synced stats), skills, and streak.
+                    </p>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Market Tracker Glimpse */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-8"
-        >
-          <Card className="border-none shadow-premium bg-gradient-to-r from-indigo-600/10 via-background to-primary/10 overflow-hidden relative group cursor-pointer hover:shadow-2xl transition-all duration-500" onClick={() => navigate('/student/market')}>
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
-              <TrendingUp className="w-32 h-32" />
             </div>
-            <CardContent className="p-6">
-              <div className="flex flex-col lg:flex-row items-center justify-between gap-6 relative z-10">
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className="bg-primary text-primary-foreground hover:bg-primary/90">New: Market Analytics</Badge>
-                    <div className="flex items-center gap-1 text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-tighter">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Market Tracker Glimpse */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="mb-8"
+      >
+        <Card variant="glow" className="border-none bg-gradient-to-r from-indigo-600/10 via-background to-primary/10 overflow-hidden relative group cursor-pointer" onClick={() => navigate('/student/market')}>
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+            <TrendingUp className="w-32 h-32" />
+          </div>
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge className="bg-primary text-primary-foreground hover:bg-primary/90">New: Market Analytics</Badge>
+                  <div className="flex items-center gap-1 text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-tighter">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Live Trends
                     </div>
                   </div>
@@ -1969,7 +1970,7 @@ const StudentDashboard = () => {
           transition={{ delay: 0.5 }}
           className="mt-6"
         >
-          <Card className="shadow-card border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 p-8 text-center">
+          <Card variant="glow" className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 p-8 text-center">
             <div className="max-w-md mx-auto">
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-6 h-6 text-primary" />
@@ -1978,15 +1979,14 @@ const StudentDashboard = () => {
               <p className="text-muted-foreground mb-6">
                 Get a comprehensive analysis of your trajectory, core competencies, and a personalized strategic action plan.
               </p>
-              <Button onClick={() => navigate('/student/ai')} className="bg-gradient-primary rounded-full px-8">
+              <Button variant="glow" onClick={() => navigate('/student/ai')} className="rounded-full px-8">
                 View My AI Recommendations
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
           </Card>
         </motion.div>
-      </div>
-    </div>
+    </StudentLayout>
   );
 };
 

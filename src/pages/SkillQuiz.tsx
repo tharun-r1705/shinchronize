@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -162,33 +162,34 @@ const SkillQuiz = () => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-                <StudentNavbar />
-                <div className="flex-1 flex flex-col items-center justify-center">
+            <StudentLayout>
+                <div className="flex-1 flex flex-col items-center justify-center py-32">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
                     <p className="text-muted-foreground animate-pulse">Generating your unique assessment...</p>
                 </div>
-            </div>
+            </StudentLayout>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-                <StudentNavbar />
-                <Card className="max-w-md w-full p-8 text-center border-red-200 bg-red-50 dark:bg-red-900/10">
-                    <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-2">Quiz Load Failed</h2>
-                    <p className="text-muted-foreground mb-6">{error}</p>
-                    <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
-                </Card>
-            </div>
+            <StudentLayout>
+                <div className="flex-1 flex flex-col items-center justify-center py-32">
+                    <Card className="max-w-md w-full p-8 text-center border-red-200 bg-red-50 dark:bg-red-900/10">
+                        <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-2">Quiz Load Failed</h2>
+                        <p className="text-muted-foreground mb-6">{error}</p>
+                        <Button onClick={() => navigate(-1)} variant="outline">Go Back</Button>
+                    </Card>
+                </div>
+            </StudentLayout>
         );
     }
 
     if (result) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+            <StudentLayout>
+                <div className="flex flex-col items-center justify-center py-32">
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -242,14 +243,17 @@ const SkillQuiz = () => {
                     </Card>
                 </motion.div>
             </div>
+            </StudentLayout>
         );
     }
 
     if (questions.length === 0) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <p>No questions found.</p>
-            </div>
+            <StudentLayout>
+                <div className="flex items-center justify-center py-32">
+                    <p>No questions found.</p>
+                </div>
+            </StudentLayout>
         );
     }
 
@@ -258,10 +262,8 @@ const SkillQuiz = () => {
     const progress = ((currentStep + 1) / questions.length) * 100;
 
     return (
-        <div className="min-h-screen bg-background">
-            <StudentNavbar />
-            <main className="container mx-auto px-4 py-8 max-w-4xl">
-                <div className="flex items-center justify-between mb-8">
+        <StudentLayout>
+            <div className="flex items-center justify-between mb-8">
                     <Button variant="ghost" onClick={() => navigate(-1)} className="text-muted-foreground">
                         <ChevronLeft className="mr-2 h-4 w-4" /> Cancel Test
                     </Button>
@@ -364,8 +366,7 @@ const SkillQuiz = () => {
                         <strong>Passing Requirement:</strong> You must score at least <strong>75%</strong> to unlock the next milestone in your roadmap. If you fail, you can review the materials and try again anytime.
                     </p>
                 </div>
-            </main>
-        </div>
+        </StudentLayout>
     );
 };
 

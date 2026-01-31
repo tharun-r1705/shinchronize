@@ -5,7 +5,7 @@ import { TrendingUp, Download, Target, Sparkles, Calendar, LogOut } from "lucide
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 
 const ReadinessReport = () => {
   const navigate = useNavigate();
@@ -28,12 +28,9 @@ const ReadinessReport = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <StudentNavbar />
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <motion.div
+    <StudentLayout>
+      {/* Header */}
+      <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -265,8 +262,7 @@ const ReadinessReport = () => {
             </CardContent>
           </Card>
         </motion.div>
-      </div>
-    </div>
+    </StudentLayout>
   );
 };
 

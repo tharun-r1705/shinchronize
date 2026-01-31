@@ -25,7 +25,7 @@ import {
     ResponsiveContainer, Area, AreaChart, Cell, RadialBarChart, RadialBar, Legend,
     PieChart, Pie
 } from "recharts";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { marketApi, studentApi, SkillMarketData, TrendPredictions, SkillROIRecommendation, CompanySkillProfile } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -197,21 +197,18 @@ const SkillMarketTracker = () => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-muted/30">
-                <StudentNavbar />
-                <div className="container mx-auto px-4 py-32 flex flex-col items-center justify-center">
+            <StudentLayout>
+                <div className="py-32 flex flex-col items-center justify-center">
                     <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
                     <p className="text-muted-foreground animate-pulse">Analyzing real-time market data...</p>
                 </div>
-            </div>
+            </StudentLayout>
         );
     }
 
     return (
-        <div className="min-h-screen bg-muted/30 pb-12">
-            <StudentNavbar />
-
-            <div className="container mx-auto px-4 py-8">
+        <StudentLayout>
+            <div className="pb-12">
                 <header className="mb-8">
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
@@ -831,7 +828,7 @@ const SkillMarketTracker = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </StudentLayout>
     );
 };
 

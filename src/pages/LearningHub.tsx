@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -137,13 +137,11 @@ const LearningHub = () => {
     if (!skill && skillId) {
         // Fallback for skills not in our static data
         return (
-            <div className="min-h-screen bg-background">
-                <StudentNavbar />
-                <main className="container mx-auto px-4 py-8 max-w-6xl">
-                    <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
-                        <ChevronLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-                    </Button>
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
+            <StudentLayout>
+                <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
+                    <ChevronLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                </Button>
+                <div className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
                             <BookOpen className="w-10 h-10 text-muted-foreground" />
                         </div>
@@ -156,16 +154,13 @@ const LearningHub = () => {
                             Go to Dashboard
                         </Button>
                     </div>
-                </main>
-            </div>
+            </StudentLayout>
         );
     }
 
     return (
-        <div className="min-h-screen bg-background">
-            <StudentNavbar />
-
-            <main className="container mx-auto px-4 py-8 max-w-6xl">
+        <StudentLayout>
+            <div className="max-w-6xl">
                 {/* Header Section */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -403,8 +398,8 @@ const LearningHub = () => {
                         </Card>
                     </div>
                 </div>
-            </main>
-        </div>
+            </div>
+        </StudentLayout>
     );
 };
 

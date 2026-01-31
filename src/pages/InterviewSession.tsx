@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Brain, ChevronLeft, Loader2, Send, CheckCircle2, Info, Mic, Square, Trash2, Volume2 } from "lucide-react";
 
-import { StudentNavbar } from "@/components/StudentNavbar";
+import { StudentLayout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -476,10 +476,8 @@ export default function InterviewSession() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <StudentNavbar />
-      <div className="container mx-auto px-4 py-10">
-        <motion.div
+    <StudentLayout>
+      <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
@@ -825,7 +823,6 @@ export default function InterviewSession() {
             ) : null}
           </div>
         </div>
-      </div>
-    </div>
+    </StudentLayout>
   );
 }
