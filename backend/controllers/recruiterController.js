@@ -214,15 +214,22 @@ const calculateDynamicScore = (student, filters) => {
 };
 
 const listStudents = asyncHandler(async (req, res) => {
+  console.log('📋 listStudents called by recruiter:', req.user.email);
+  console.log('Query params:', req.query);
+  
   const { skills, minScore, college, minProjects, minCGPA } = req.query;
 
   const filter = {};
   if (college) filter.college = new RegExp(college, 'i');
   
+  console.log('DB filter:', filter);
+  
   // Don't filter by skills in DB query - we'll score all and filter after
   let students = await Student.find(filter)
     .select('name college branch readinessScore badges projects skillRadar streakDays skills certifications cgpa email phone location')
     .lean();
+  
+  console.log(`Found ${students.length} students in database`);
 
   // Parse filter criteria
   const filterCriteria = {
@@ -231,6 +238,8 @@ const listStudents = asyncHandler(async (req, res) => {
     minProjects: minProjects ? Number(minProjects) : 0,
     minCGPA: minCGPA ? Number(minCGPA) : 0,
   };
+  
+  console.log('Filter criteria:', filterCriteria);
 
   // Calculate dynamic score for each student
   students = students.map(student => {
@@ -273,6 +282,7 @@ const listStudents = asyncHandler(async (req, res) => {
   // Sort by dynamic score (highest first)
   students.sort((a, b) => b.dynamicScore - a.dynamicScore);
 
+  console.log(`Returning ${students.length} students after filtering`);
   res.json(students);
 });
 
@@ -503,27 +513,58 @@ const contactStudent = asyncHandler(async (req, res) => {
   try {
     const nodemailer = require('nodemailer');
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    // Determine which SMTP credentials to use
+    let smtpConfig;
+    let fromEmail;
+
+    // Priority 1: Use recruiter's own email settings if configured
+    if (recruiter.emailSettings?.isConfigured && 
+        recruiter.emailSettings.smtpHost && 
+        recruiter.emailSettings.smtpPort && 
+        recruiter.emailSettings.smtpUser && 
+        recruiter.emailSettings.smtpPass) {
+      
+      smtpConfig = {
+        host: recruiter.emailSettings.smtpHost,
+        port: Number(recruiter.emailSettings.smtpPort),
+        secure: Number(recruiter.emailSettings.smtpPort) === 465,
+        auth: {
+          user: recruiter.emailSettings.smtpUser,
+          pass: recruiter.emailSettings.smtpPass,
+        },
+      };
+      fromEmail = recruiter.emailSettings.fromEmail || recruiter.email;
+      console.log(`📧 Using recruiter's personal SMTP: ${fromEmail}`);
+    } 
+    // Priority 2: Fall back to global SMTP settings
+    else if (process.env.SMTP_HOST && process.env.SMTP_PORT && 
+             process.env.SMTP_USER && process.env.SMTP_PASS) {
+      
+      smtpConfig = {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        secure: Number(process.env.SMTP_PORT) === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      };
+      fromEmail = process.env.FROM_EMAIL || recruiter.email;
+      console.log(`📧 Using global SMTP (recruiter hasn't configured personal email)`);
+    } 
+    // Priority 3: No SMTP configured
+    else {
       console.warn('⚠️  SMTP not configured. Contact queued without email.');
       return res.status(202).json({
         message: 'Contact queued (email service not configured)',
-        note: 'Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, FROM_EMAIL in environment to enable email sending.',
+        note: 'Please configure your email settings in your profile to send emails.',
         contactedStudent: { id: student._id, name: student.name, email: student.email },
         queuedAt: new Date(),
       });
     }
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: Number(process.env.SMTP_PORT) === 465,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    const transporter = nodemailer.createTransport(smtpConfig);
 
-    const fromEmail = process.env.FROM_EMAIL || recruiter.email;
     const signature = `\n\nBest regards,\n${recruiter.name}${recruiter.company ? `\n${recruiter.company}` : ''}`;
     const text = `Dear ${student.name},\n\n${message}${signature}\n\n— Sent via EvolvEd`;
     const html = `
@@ -556,6 +597,182 @@ const contactStudent = asyncHandler(async (req, res) => {
       message: 'Failed to send email to candidate',
       error: err.message,
       hint: 'Check SMTP configuration in backend environment variables',
+    });
+  }
+});
+
+const contactMultipleStudents = asyncHandler(async (req, res) => {
+  console.log('📧 Bulk contact request received');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  
+  const { studentIds, subject, message } = req.body;
+
+  if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+    console.log('❌ Invalid studentIds:', studentIds);
+    return res.status(400).json({ 
+      message: 'Student IDs array is required and must not be empty',
+      received: { studentIds, isArray: Array.isArray(studentIds), length: studentIds?.length }
+    });
+  }
+
+  if (!subject || !message) {
+    console.log('❌ Missing subject or message:', { hasSubject: !!subject, hasMessage: !!message });
+    return res.status(400).json({ 
+      message: 'Subject and message are required',
+      received: { hasSubject: !!subject, hasMessage: !!message }
+    });
+  }
+
+  // Verify the recruiter is authenticated
+  if (!req.user || !req.user._id) {
+    return res.status(401).json({ message: 'Recruiter not authenticated. Please log in again.' });
+  }
+
+  // Get recruiter info with email settings (including password field)
+  const recruiter = await Recruiter.findById(req.user._id).select('+emailSettings.smtpPass');
+  if (!recruiter) {
+    return res.status(404).json({ message: 'Recruiter not found' });
+  }
+
+  // Find all students
+  const students = await Student.find({ _id: { $in: studentIds } }).select('name email college');
+  if (students.length === 0) {
+    return res.status(404).json({ message: 'No students found' });
+  }
+
+  // Track contacts
+  if (!recruiter.contactedCandidates) {
+    recruiter.contactedCandidates = [];
+  }
+
+  students.forEach(student => {
+    const existingContact = recruiter.contactedCandidates.find(
+      contact => contact.studentId && contact.studentId.toString() === student._id.toString()
+    );
+
+    if (existingContact) {
+      existingContact.lastContactedAt = new Date();
+      existingContact.contactCount = (existingContact.contactCount || 1) + 1;
+    } else {
+      recruiter.contactedCandidates.push({
+        studentId: student._id,
+        lastContactedAt: new Date(),
+        contactCount: 1,
+      });
+    }
+  });
+
+  await recruiter.save();
+
+  // Send emails
+  const emailResults = {
+    sent: [],
+    failed: [],
+    queued: [],
+  };
+
+  try {
+    const nodemailer = require('nodemailer');
+
+    // Determine which SMTP credentials to use
+    let smtpConfig;
+    let fromEmail;
+
+    // Priority 1: Use recruiter's own email settings if configured
+    if (recruiter.emailSettings?.isConfigured && 
+        recruiter.emailSettings.smtpHost && 
+        recruiter.emailSettings.smtpPort && 
+        recruiter.emailSettings.smtpUser && 
+        recruiter.emailSettings.smtpPass) {
+      
+      smtpConfig = {
+        host: recruiter.emailSettings.smtpHost,
+        port: Number(recruiter.emailSettings.smtpPort),
+        secure: Number(recruiter.emailSettings.smtpPort) === 465,
+        auth: {
+          user: recruiter.emailSettings.smtpUser,
+          pass: recruiter.emailSettings.smtpPass,
+        },
+      };
+      fromEmail = recruiter.emailSettings.fromEmail || recruiter.email;
+      console.log(`📧 Bulk sending using recruiter's personal SMTP: ${fromEmail}`);
+    } 
+    // Priority 2: Fall back to global SMTP settings
+    else if (process.env.SMTP_HOST && process.env.SMTP_PORT && 
+             process.env.SMTP_USER && process.env.SMTP_PASS) {
+      
+      smtpConfig = {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        secure: Number(process.env.SMTP_PORT) === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      };
+      fromEmail = process.env.FROM_EMAIL || recruiter.email;
+      console.log(`📧 Bulk sending using global SMTP`);
+    } 
+    // Priority 3: No SMTP configured
+    else {
+      console.warn('⚠️  SMTP not configured. Contacts queued without email.');
+      return res.status(202).json({
+        message: `Contacts queued for ${students.length} students (email service not configured)`,
+        note: 'Please configure your email settings in your profile to send emails.',
+        contactedStudents: students.map(s => ({ id: s._id, name: s.name, email: s.email })),
+        queuedAt: new Date(),
+      });
+    }
+
+    const transporter = nodemailer.createTransport(smtpConfig);
+    const signature = `\n\nBest regards,\n${recruiter.name}${recruiter.company ? `\n${recruiter.company}` : ''}`;
+
+    // Send emails to all students
+    for (const student of students) {
+      try {
+        const text = `Dear ${student.name},\n\n${message}${signature}\n\n— Sent via EvolvEd`;
+        const html = `
+          <p>Dear ${student.name},</p>
+          <p>${message.replace(/\n/g, '<br>')}</p>
+          <p>${signature.replace(/\n/g, '<br>')}</p>
+          <hr/>
+          <p style="color: #666; font-size: 12px;">— Sent via EvolvEd</p>
+        `;
+
+        await transporter.sendMail({
+          from: `"${recruiter.name}" <${fromEmail}>`,
+          to: student.email,
+          subject: subject,
+          text: text,
+          html: html,
+        });
+
+        emailResults.sent.push({
+          id: student._id,
+          name: student.name,
+          email: student.email,
+        });
+      } catch (emailError) {
+        console.error(`Failed to send email to ${student.email}:`, emailError);
+        emailResults.failed.push({
+          id: student._id,
+          name: student.name,
+          email: student.email,
+          error: emailError.message,
+        });
+      }
+    }
+
+    res.json({
+      message: `Successfully contacted ${emailResults.sent.length} of ${students.length} students`,
+      results: emailResults,
+      totalContacted: students.length,
+    });
+  } catch (error) {
+    console.error('Bulk contact error:', error);
+    res.status(500).json({
+      message: 'Failed to send bulk messages',
+      error: error.message,
     });
   }
 });
@@ -607,6 +824,126 @@ const uploadProfilePicture = asyncHandler(async (req, res) => {
   }
 });
 
+const updateEmailSettings = asyncHandler(async (req, res) => {
+  console.log('📧 updateEmailSettings called');
+  console.log('Request body:', req.body);
+  console.log('User:', req.user);
+  
+  const { smtpHost, smtpPort, smtpUser, smtpPass, fromEmail } = req.body;
+
+  if (!req.user || !req.user._id) {
+    console.log('❌ Authentication failed');
+    return res.status(401).json({ message: 'Recruiter not authenticated' });
+  }
+
+  // Validate required fields
+  if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+    console.log('❌ Missing required fields:', { smtpHost, smtpPort, smtpUser, hasPass: !!smtpPass });
+    return res.status(400).json({ 
+      message: 'All email settings are required: smtpHost, smtpPort, smtpUser, smtpPass',
+      received: { smtpHost, smtpPort, smtpUser, hasPass: !!smtpPass }
+    });
+  }
+
+  // Validate port is a number
+  const port = Number(smtpPort);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    return res.status(400).json({ message: 'Invalid SMTP port number' });
+  }
+
+  try {
+    // Optional: Test the SMTP connection before saving
+    const nodemailer = require('nodemailer');
+    const testTransporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: port,
+      secure: port === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    // Verify SMTP connection
+    await testTransporter.verify();
+    console.log('✅ SMTP settings verified successfully');
+
+    // Update recruiter's email settings
+    const recruiter = await Recruiter.findByIdAndUpdate(
+      req.user._id,
+      {
+        emailSettings: {
+          smtpHost,
+          smtpPort: port,
+          smtpUser,
+          smtpPass,
+          fromEmail: fromEmail || smtpUser,
+          isConfigured: true,
+        },
+      },
+      { new: true }
+    );
+
+    if (!recruiter) {
+      return res.status(404).json({ message: 'Recruiter not found' });
+    }
+
+    // Return success without sensitive data
+    res.json({
+      message: 'Email settings saved and verified successfully',
+      emailSettings: {
+        smtpHost: recruiter.emailSettings.smtpHost,
+        smtpPort: recruiter.emailSettings.smtpPort,
+        smtpUser: recruiter.emailSettings.smtpUser,
+        fromEmail: recruiter.emailSettings.fromEmail,
+        isConfigured: recruiter.emailSettings.isConfigured,
+      },
+    });
+  } catch (error) {
+    console.error('Email settings update error:', error);
+    
+    // Check if it's an SMTP verification error
+    if (error.code === 'EAUTH' || error.responseCode === 535) {
+      return res.status(401).json({
+        message: 'SMTP authentication failed',
+        error: 'Invalid email or password. Please check your credentials.',
+      });
+    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+      return res.status(503).json({
+        message: 'Cannot connect to SMTP server',
+        error: 'Please check your SMTP host and port settings.',
+      });
+    }
+
+    res.status(500).json({
+      message: 'Failed to save email settings',
+      error: error.message,
+    });
+  }
+});
+
+const getEmailSettings = asyncHandler(async (req, res) => {
+  if (!req.user || !req.user._id) {
+    return res.status(401).json({ message: 'Recruiter not authenticated' });
+  }
+
+  const recruiter = await Recruiter.findById(req.user._id);
+  if (!recruiter) {
+    return res.status(404).json({ message: 'Recruiter not found' });
+  }
+
+  // Return email settings without the password
+  res.json({
+    emailSettings: {
+      smtpHost: recruiter.emailSettings?.smtpHost || null,
+      smtpPort: recruiter.emailSettings?.smtpPort || null,
+      smtpUser: recruiter.emailSettings?.smtpUser || null,
+      fromEmail: recruiter.emailSettings?.fromEmail || null,
+      isConfigured: recruiter.emailSettings?.isConfigured || false,
+    },
+  });
+});
+
 module.exports = {
   signup,
   login,
@@ -620,5 +957,8 @@ module.exports = {
   getStudentProfile,
   aiAssistant,
   contactStudent,
+  contactMultipleStudents,
   uploadProfilePicture,
+  updateEmailSettings,
+  getEmailSettings,
 };

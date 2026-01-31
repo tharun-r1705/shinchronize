@@ -11,6 +11,7 @@ const recruiterSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     profilePicture: { type: String, default: null }, // URL to profile picture
     savedCandidates: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
+    activeJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Job' }],
     contactedCandidates: [
       {
         studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
@@ -22,6 +23,14 @@ const recruiterSchema = new mongoose.Schema(
       roles: { type: [String], default: [] },
       minScore: { type: Number, default: 0 },
       skills: { type: [String], default: [] },
+    },
+    emailSettings: {
+      smtpHost: { type: String, default: null },
+      smtpPort: { type: Number, default: null },
+      smtpUser: { type: String, default: null },
+      smtpPass: { type: String, default: null, select: false }, // Keep password secure
+      fromEmail: { type: String, default: null },
+      isConfigured: { type: Boolean, default: false },
     },
     lastLoginAt: { type: Date },
     isVerified: { type: Boolean, default: false },
