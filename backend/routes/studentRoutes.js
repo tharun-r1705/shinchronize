@@ -62,6 +62,10 @@ const {
   updateGitHubStats,
   importLinkedInProfile,
   getDomainInsights,
+  getLearningRate,
+  recalculateLearningRate,
+  getLearningRateBreakdown,
+  getStudentLearningRate,
 } = require('../controllers/studentController');
 const { authenticate } = require('../utils/authMiddleware');
 const {
@@ -201,6 +205,11 @@ router.get('/leaderboard', getLeaderboard);
 // Domain insights (AI-powered)
 router.get('/domain-insights', authenticate(['student']), getDomainInsights);
 
+// Learning Rate endpoints
+router.get('/learning-rate', authenticate(['student']), getLearningRate);
+router.post('/learning-rate/recalculate', authenticate(['student']), recalculateLearningRate);
+router.get('/learning-rate/breakdown', authenticate(['student']), getLearningRateBreakdown);
+
 // Coding profiles and sync
 router.put('/coding-profiles', authenticate(['student']), updateCodingProfiles);
 router.post('/coding-sync', authenticate(['student']), syncCodingActivity);
@@ -212,6 +221,7 @@ router.post('/:id/update-github', authenticate(['student', 'admin']), updateGitH
 
 router.get('/', authenticate(['admin']), listStudents);
 router.get('/:id', authenticate(['admin']), idParamValidation, handleValidation, getStudentById);
+router.get('/:id/learning-rate', authenticate(['recruiter', 'admin']), getStudentLearningRate);
 router.delete('/:id', authenticate(['admin']), idParamValidation, handleValidation, deleteStudent);
 
 module.exports = router;

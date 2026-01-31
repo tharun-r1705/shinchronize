@@ -298,7 +298,7 @@ async function matchStudentsToJob(jobId) {
 
     // Fetch all students
     const students = await Student.find({})
-      .select('name email college branch readinessScore readinessHistory skills projects certifications cgpa leetcodeStats githubStats')
+      .select('name email college branch readinessScore readinessHistory skills projects certifications cgpa leetcodeStats githubStats learningMetrics')
       .lean();
 
     console.log(`Matching ${students.length} students to job: ${job.title}`);

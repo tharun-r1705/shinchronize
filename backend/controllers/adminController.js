@@ -3,6 +3,7 @@ const Student = require('../models/Student');
 const asyncHandler = require('../utils/asyncHandler');
 const { generateToken } = require('../utils/authMiddleware');
 const { calculateReadinessScore } = require('../utils/readinessScore');
+const learningRateService = require('../services/learningRateService');
 
 const buildAuthResponse = (admin) => ({
   token: generateToken(admin._id, 'admin'),
@@ -216,10 +217,66 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
 const listStudents = asyncHandler(async (req, res) => {
   const students = await Student.find()
-    .select('name email college branch readinessScore projects certifications events badges')
+    .select('name email college branch readinessScore projects certifications events badges learningMetrics')
     .lean();
 
   res.json(students);
+});
+
+/**
+ * Calculate learning rates for all students (bulk operation)
+ * POST /api/admin/calculate-learning-rates
+ */
+const calculateAllLearningRates = asyncHandler(async (req, res) => {
+  const students = await Student.find({}).select('_id name email');
+  
+  const results = {
+    total: students.length,
+    calculated: 0,
+    skipped: 0,
+    errors: 0,
+    details: []
+  };
+
+  for (const student of students) {
+    try {
+      const metrics = await learningRateService.calculateLearningRate(student._id);
+      await learningRateService.saveLearningRate(student._id, metrics);
+      
+      if (metrics.learningRate !== null) {
+        results.calculated++;
+        results.details.push({
+          studentId: student._id,
+          name: student.name || student.email,
+          learningRate: metrics.learningRate,
+          category: metrics.learningCategory,
+          status: 'calculated'
+        });
+      } else {
+        results.skipped++;
+        results.details.push({
+          studentId: student._id,
+          name: student.name || student.email,
+          category: 'not_determined',
+          status: 'insufficient_data',
+          message: metrics.message
+        });
+      }
+    } catch (error) {
+      results.errors++;
+      results.details.push({
+        studentId: student._id,
+        name: student.name || student.email,
+        status: 'error',
+        message: error.message
+      });
+    }
+  }
+
+  res.json({
+    message: 'Learning rates calculation completed',
+    results
+  });
 });
 
 module.exports = {
@@ -230,4 +287,5 @@ module.exports = {
   verifyItem,
   getDashboardStats,
   listStudents,
+  calculateAllLearningRates,
 };

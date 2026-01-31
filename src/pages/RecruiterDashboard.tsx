@@ -23,6 +23,7 @@ import { RecruiterLayout } from "@/components/layout";
 import AIRecruiterAssistant from "@/components/AIRecruiterAssistant";
 import JobCreationDialog from "@/components/JobCreationDialog";
 import MatchExplanationModal from "@/components/MatchExplanationModal";
+import LearnerTagBadge from "@/components/LearnerTagBadge";
 import type { Job } from "@/types/job";
 
 const RecruiterDashboard = () => {
@@ -800,7 +801,16 @@ const RecruiterDashboard = () => {
                                     <CardDescription>{student.college} • {student.branch}</CardDescription>
                                   </div>
                                 </div>
-                                {getMatchScoreBadge(match.matchScore)}
+                                <div className="flex flex-col items-end gap-2">
+                                  {getMatchScoreBadge(match.matchScore)}
+                                  <LearnerTagBadge
+                                    learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
+                                    learningRate={student.learningMetrics?.learningRate}
+                                    trend={student.learningMetrics?.trend}
+                                    size="sm"
+                                    showRate={true}
+                                  />
+                                </div>
                               </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
@@ -921,7 +931,7 @@ const RecruiterDashboard = () => {
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold truncate">{student.name}</p>
                                 <p className="text-sm text-muted-foreground truncate">{student.college}</p>
-                                <div className="flex items-center gap-2 mt-2">
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
                                   <Badge variant="secondary" className="text-xs">
                                     {student.readinessScore || 0}% Ready
                                   </Badge>
@@ -930,6 +940,12 @@ const RecruiterDashboard = () => {
                                       {student.skills.length} skills
                                     </Badge>
                                   )}
+                                  <LearnerTagBadge
+                                    learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
+                                    learningRate={student.learningMetrics?.learningRate}
+                                    size="sm"
+                                    showRate={false}
+                                  />
                                 </div>
                               </div>
                             </div>

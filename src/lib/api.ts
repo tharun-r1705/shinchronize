@@ -961,12 +961,13 @@ export const jobApi = {
   getMatches: (
     jobId: string,
     token: string,
-    params?: { minScore?: number; limit?: number; sortBy?: 'score' | 'name' | 'readiness' }
+    params?: { minScore?: number; limit?: number; sortBy?: 'score' | 'name' | 'readiness'; learningCategory?: string }
   ) => {
     const queryParams = new URLSearchParams();
     if (params?.minScore) queryParams.set('minScore', String(params.minScore));
     if (params?.limit) queryParams.set('limit', String(params.limit));
     if (params?.sortBy) queryParams.set('sortBy', params.sortBy);
+    if (params?.learningCategory) queryParams.set('learningCategory', params.learningCategory);
     const query = queryParams.toString();
     return api.get<{ matches: any[] }>(`/jobs/${jobId}/matches${query ? `?${query}` : ''}`, token);
   },
