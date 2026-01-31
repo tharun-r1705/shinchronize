@@ -19,7 +19,6 @@ import {
   Search,
   Shield,
   CheckCircle,
-  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useLayout } from "./AppShell";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { LogoutConfirmDialog } from "@/components/LogoutConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -70,7 +69,7 @@ interface AppSidebarProps {
   userType: "student" | "recruiter" | "admin";
 }
 
-export const AppSidebar = ({ userType }: AppSidebarProps) => {
+export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -267,11 +266,6 @@ export const AppSidebar = ({ userType }: AppSidebarProps) => {
             </Tooltip>
           )}
 
-          {/* Help */}
-          <NavItemComponent
-            item={{ label: "Help & Support", path: "/help", icon: HelpCircle }}
-          />
-
           {/* Logout */}
           {sidebarCollapsed ? (
             <Tooltip delayDuration={0}>
@@ -390,6 +384,8 @@ export const AppSidebar = ({ userType }: AppSidebarProps) => {
       />
     </>
   );
-};
+});
+
+AppSidebar.displayName = "AppSidebar";
 
 export default AppSidebar;

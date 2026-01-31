@@ -73,10 +73,25 @@ export const MessageBubble = ({
                             }
                             // Handle bullet points
                             if (line.startsWith('- ') || line.startsWith('* ')) {
+                                const text = line.slice(2);
+                                // Check if the text contains bold markers
+                                if (text.includes('**')) {
+                                    const parts = text.split(/\*\*(.*?)\*\*/g);
+                                    return (
+                                        <div key={i} className="flex items-start gap-2 my-0.5">
+                                            <span className="text-primary mt-1">•</span>
+                                            <span>
+                                                {parts.map((part, j) =>
+                                                    j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+                                                )}
+                                            </span>
+                                        </div>
+                                    );
+                                }
                                 return (
                                     <div key={i} className="flex items-start gap-2 my-0.5">
                                         <span className="text-primary mt-1">•</span>
-                                        <span>{line.slice(2)}</span>
+                                        <span>{text}</span>
                                     </div>
                                 );
                             }
@@ -84,10 +99,25 @@ export const MessageBubble = ({
                             if (/^\d+\.\s/.test(line)) {
                                 const match = line.match(/^(\d+)\.\s(.*)$/);
                                 if (match) {
+                                    const text = match[2];
+                                    // Check if the text contains bold markers
+                                    if (text.includes('**')) {
+                                        const parts = text.split(/\*\*(.*?)\*\*/g);
+                                        return (
+                                            <div key={i} className="flex items-start gap-2 my-0.5">
+                                                <span className="text-primary font-semibold">{match[1]}.</span>
+                                                <span>
+                                                    {parts.map((part, j) =>
+                                                        j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+                                                    )}
+                                                </span>
+                                            </div>
+                                        );
+                                    }
                                     return (
                                         <div key={i} className="flex items-start gap-2 my-0.5">
                                             <span className="text-primary font-semibold">{match[1]}.</span>
-                                            <span>{match[2]}</span>
+                                            <span>{text}</span>
                                         </div>
                                     );
                                 }

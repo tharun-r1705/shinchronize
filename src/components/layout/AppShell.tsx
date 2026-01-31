@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -72,17 +72,20 @@ export const AppShell = ({
     setSidebarOpen(false);
   }, [location.pathname]);
 
+  const layoutValue = useMemo(
+    () => ({
+      sidebarCollapsed,
+      setSidebarCollapsed,
+      sidebarOpen,
+      setSidebarOpen,
+      commandPaletteOpen,
+      setCommandPaletteOpen,
+    }),
+    [sidebarCollapsed, sidebarOpen, commandPaletteOpen]
+  );
+
   return (
-    <LayoutContext.Provider
-      value={{
-        sidebarCollapsed,
-        setSidebarCollapsed,
-        sidebarOpen,
-        setSidebarOpen,
-        commandPaletteOpen,
-        setCommandPaletteOpen,
-      }}
-    >
+    <LayoutContext.Provider value={layoutValue}>
       <div className="min-h-screen bg-background bg-gradient-mesh">
         {/* Mobile sidebar overlay */}
         <AnimatePresence>
