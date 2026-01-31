@@ -117,12 +117,21 @@ export default function TalentPoolPage() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
+      // For "Poor (< 40)" filter (value -1), fetch all matches and filter client-side
+      const actualMinScore = minMatchScore === -1 ? 0 : minMatchScore;
+
       const { matches } = await jobApi.getMatches(jobId, token, {
-        minScore: minMatchScore,
+        minScore: actualMinScore,
         limit: 50,
         sortBy: "score",
       });
-      setMatchedStudents(matches || []);
+
+      // Filter for "Poor (< 40)" matches if selected
+      const filteredMatches = minMatchScore === -1
+        ? (matches || []).filter((match: any) => match.matchScore < 40)
+        : matches || [];
+
+      setMatchedStudents(filteredMatches);
     } catch (error: any) {
       toast({
         title: "Error loading matches",
@@ -445,9 +454,10 @@ export default function TalentPoolPage() {
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                         <div className="text-sm">
-                          <p className="font-semibold mb-1">Quality Matching Active</p>
+                          <p className="font-semibold mb-1">Smart Team-Based Matching</p>
                           <p className="text-white/90">
-                            Students must match at least <strong>80% of required skills</strong> ({Math.ceil(selectedJob.requiredSkills.length * 0.8)} out of {selectedJob.requiredSkills.length} skills) to appear in results.
+                            <strong>If all students combined</strong> have all required skills → Shows all students with at least 1 matching skill.
+                            <strong> Otherwise</strong> → Shows students with at least 10% skill match ({Math.ceil(selectedJob.requiredSkills.length * 0.1)} out of {selectedJob.requiredSkills.length} skills).
                             Click "Refresh Matches" to update with latest matching algorithm.
                           </p>
                         </div>
@@ -479,6 +489,7 @@ export default function TalentPoolPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="0">All Matches</SelectItem>
+                          <SelectItem value="-1">Poor (&lt; 40)</SelectItem>
                           <SelectItem value="40">Fair (40+)</SelectItem>
                           <SelectItem value="60">Good (60+)</SelectItem>
                           <SelectItem value="80">Excellent (80+)</SelectItem>
