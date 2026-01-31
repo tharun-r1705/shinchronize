@@ -340,7 +340,23 @@ class ApiClient {
       const error = await response.json().catch(() => ({
         message: `HTTP error! status: ${response.status}`,
       }));
-      throw new Error(error.message || 'An error occurred');
+      
+      // Include more error details
+      const errorMessage = error.message || error.error || `HTTP ${response.status}: ${response.statusText}`;
+      const fullError = new Error(errorMessage);
+      
+      // Attach additional error details for debugging
+      (fullError as any).status = response.status;
+      (fullError as any).details = error;
+      
+      console.error('API Error:', {
+        endpoint,
+        status: response.status,
+        statusText: response.statusText,
+        error: error,
+      });
+      
+      throw fullError;
     }
 
     const contentType = response.headers.get('content-type') || '';

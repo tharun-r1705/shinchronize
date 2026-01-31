@@ -16,6 +16,8 @@ const {
   contactStudent,
   contactMultipleStudents,
   uploadProfilePicture,
+  updateEmailSettings,
+  getEmailSettings,
 } = require('../controllers/recruiterController');
 const { authenticate } = require('../utils/authMiddleware');
 const {
@@ -62,18 +64,19 @@ router.delete(
 
 router.post('/ai-assistant', authenticate(['recruiter']), aiAssistant);
 
+// IMPORTANT: Put /contact/bulk BEFORE /contact/:studentId to avoid route conflict
+router.post(
+  '/contact/bulk',
+  authenticate(['recruiter']),
+  contactMultipleStudents
+);
+
 router.post(
   '/contact/:studentId',
   authenticate(['recruiter']),
   studentIdParamValidation,
   handleValidation,
   contactStudent
-);
-
-router.post(
-  '/contact/bulk',
-  authenticate(['recruiter']),
-  contactMultipleStudents
 );
 
 const multer = require('multer');
@@ -85,5 +88,9 @@ router.post(
   upload.single('profilePicture'),
   uploadProfilePicture
 );
+
+// Email settings routes
+router.get('/email-settings', authenticate(['recruiter']), getEmailSettings);
+router.put('/email-settings', authenticate(['recruiter']), updateEmailSettings);
 
 module.exports = router;
