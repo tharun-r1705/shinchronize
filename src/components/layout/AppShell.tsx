@@ -44,6 +44,18 @@ export const AppShell = ({
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const location = useLocation();
 
+  // Set dark mode on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    if (!savedTheme) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+      document.documentElement.classList.toggle("light", savedTheme === "light");
+    }
+  }, []);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -86,20 +98,18 @@ export const AppShell = ({
 
   return (
     <LayoutContext.Provider value={layoutValue}>
-      <div className="min-h-screen bg-background bg-gradient-mesh">
-        {/* Mobile sidebar overlay */}
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-        </AnimatePresence>
+      <div className="min-h-screen bg-background relative overflow-x-hidden">
+        {/* Background gradient mesh */}
+        <div 
+          className="fixed inset-0 bg-gradient-hero opacity-50 pointer-events-none"
+          aria-hidden="true"
+        />
+        
+        {/* Dot pattern overlay */}
+        <div 
+          className="fixed inset-0 bg-dot-pattern bg-dot-pattern opacity-[0.015] pointer-events-none"
+          aria-hidden="true"
+        />
 
         {/* Sidebar */}
         {showSidebar && (
@@ -109,24 +119,24 @@ export const AppShell = ({
         {/* Main content area */}
         <div
           className={cn(
-            "flex flex-col min-h-screen transition-all duration-300 ease-out-expo",
-            showSidebar && !sidebarCollapsed && "lg:pl-[280px]",
-            showSidebar && sidebarCollapsed && "lg:pl-[72px]"
+            "relative flex flex-col min-h-screen transition-all duration-200 ease-out-expo",
+            showSidebar && !sidebarCollapsed && "lg:pl-[240px]",
+            showSidebar && sidebarCollapsed && "lg:pl-[68px]"
           )}
         >
           {/* Top bar */}
           {showTopBar && <TopBar userType={userType} />}
 
           {/* Page content with animation */}
-          <main className="flex-1">
+          <main className="flex-1 relative">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
+                exit={{ opacity: 0, y: -6 }}
                 transition={{
-                  duration: 0.3,
+                  duration: 0.2,
                   ease: [0.16, 1, 0.3, 1],
                 }}
                 className="h-full"

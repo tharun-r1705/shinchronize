@@ -17,12 +17,13 @@ import {
   Users,
   Shield,
   CheckCircle,
+  Briefcase,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useLayout } from "./AppShell";
 import { useState, memo } from "react";
 import { LogoutConfirmDialog } from "@/components/LogoutConfirmDialog";
@@ -39,17 +40,19 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
   { label: "Profile", path: "/student/profile", icon: User },
-  { label: "Interview", path: "/student/interview", icon: Mic },
+  { label: "Interview Prep", path: "/student/interview", icon: Mic },
   { label: "Roadmaps", path: "/student/roadmaps", icon: Map },
   { label: "AI Mentor", path: "/student/ai", icon: Sparkles, special: true },
   { label: "Progress", path: "/student/progress", icon: TrendingUp },
-  { label: "Market", path: "/student/market", icon: BarChart3 },
+  { label: "Skill Market", path: "/student/market", icon: BarChart3 },
   { label: "Resume", path: "/student/resume", icon: FileText },
   { label: "Leaderboard", path: "/leaderboard", icon: Trophy },
 ];
 
 const recruiterNavItems: NavItem[] = [
   { label: "Dashboard", path: "/recruiter/dashboard", icon: LayoutDashboard },
+  { label: "Jobs", path: "/recruiter/jobs", icon: Briefcase },
+  { label: "Candidates", path: "/recruiter/candidates", icon: Users },
   { label: "Settings", path: "/recruiter/settings", icon: Settings },
 ];
 
@@ -102,37 +105,38 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
       <motion.button
         onClick={() => navigate(item.path)}
         className={cn(
-          "relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium",
-          "transition-all duration-200 ease-out-quart group",
+          "relative w-full flex items-center rounded-lg text-sm font-medium",
+          "transition-all duration-200 group",
+          sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
           active
             ? "bg-primary/10 text-primary"
             : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-          item.special && !active && "text-amber-600 dark:text-amber-400"
+          item.special && !active && "text-amber-500"
         )}
-        whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
       >
         {/* Active indicator */}
         {active && (
           <motion.div
             layoutId="activeNavIndicator"
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-full"
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full"
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
           />
         )}
 
         {/* Icon */}
         <div
           className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-md",
-            "transition-all duration-200",
-            active
-              ? "bg-primary text-primary-foreground shadow-glow"
-              : "bg-muted/50 group-hover:bg-muted",
-            item.special && !active && "bg-amber-500/10 text-amber-500"
+            "flex items-center justify-center transition-all duration-200",
+            sidebarCollapsed ? "w-5 h-5" : "w-5 h-5",
+            active && "text-primary",
+            item.special && !active && "text-amber-500"
           )}
         >
-          <Icon className={cn("w-4 h-4", item.special && !active && "animate-pulse")} />
+          <Icon className={cn(
+            "w-[18px] h-[18px]",
+            item.special && !active && "animate-pulse"
+          )} />
         </div>
 
         {/* Label */}
@@ -142,7 +146,7 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: "auto" }}
               exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
               className="whitespace-nowrap overflow-hidden"
             >
               {item.label}
@@ -152,9 +156,14 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
 
         {/* Badge */}
         {item.badge && !sidebarCollapsed && (
-          <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
+          <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-md">
             {item.badge}
           </span>
+        )}
+
+        {/* Special glow for AI Mentor */}
+        {item.special && active && (
+          <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg -z-10" />
         )}
       </motion.button>
     );
@@ -163,7 +172,7 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
       return (
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>{content}</TooltipTrigger>
-          <TooltipContent side="right" className="font-medium">
+          <TooltipContent side="right" sideOffset={10} className="font-medium">
             {item.label}
           </TooltipContent>
         </Tooltip>
@@ -173,69 +182,69 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
     return content;
   };
 
+  const LogoSection = ({ collapsed }: { collapsed: boolean }) => (
+    <div className={cn(
+      "flex items-center h-14 border-b border-sidebar-border",
+      collapsed ? "justify-center px-2" : "justify-between px-4"
+    )}>
+      <motion.button
+        onClick={() => navigate("/")}
+        className="flex items-center gap-2.5"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-glow">
+          <span className="text-sm font-bold text-white">S</span>
+        </div>
+        <AnimatePresence mode="wait">
+          {!collapsed && (
+            <motion.span
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="text-lg font-heading font-semibold text-gradient"
+            >
+              Shinchronize
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
+
+      {/* Collapse button - desktop only */}
+      {!collapsed && (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground hidden lg:flex"
+          onClick={() => setSidebarCollapsed(true)}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <>
       {/* Desktop Sidebar */}
       <motion.aside
         initial={false}
         animate={{
-          width: sidebarCollapsed ? 72 : 280,
+          width: sidebarCollapsed ? 68 : 240,
         }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
           "fixed left-0 top-0 h-screen z-30",
           "hidden lg:flex flex-col",
-          "bg-sidebar border-r border-sidebar-border",
-          "glass-strong"
+          "bg-sidebar/95 border-r border-sidebar-border",
+          "backdrop-blur-xl"
         )}
       >
-        {/* Logo Area */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
-          <AnimatePresence mode="wait">
-            {!sidebarCollapsed ? (
-              <motion.button
-                key="full-logo"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => navigate("/")}
-                className="flex items-center gap-2"
-              >
-                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow">
-                  <span className="text-sm font-bold text-white">S</span>
-                </div>
-                <span className="text-lg font-bold text-gradient">Shinchronize</span>
-              </motion.button>
-            ) : (
-              <motion.button
-                key="mini-logo"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => navigate("/")}
-                className="w-8 h-8 mx-auto rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow"
-              >
-                <span className="text-sm font-bold text-white">S</span>
-              </motion.button>
-            )}
-          </AnimatePresence>
-
-          {/* Collapse button */}
-          {!sidebarCollapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => setSidebarCollapsed(true)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+        <LogoSection collapsed={sidebarCollapsed} />
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="space-y-1">
+        <ScrollArea className="flex-1 py-4">
+          <nav className={cn("space-y-1", sidebarCollapsed ? "px-2" : "px-3")}>
             {navItems.map((item) => (
               <NavItemComponent key={item.path} item={item} />
             ))}
@@ -243,7 +252,10 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
         </ScrollArea>
 
         {/* Bottom section */}
-        <div className="p-3 border-t border-sidebar-border space-y-1">
+        <div className={cn(
+          "py-3 border-t border-sidebar-border space-y-1",
+          sidebarCollapsed ? "px-2" : "px-3"
+        )}>
           {/* Expand button when collapsed */}
           {sidebarCollapsed && (
             <Tooltip delayDuration={0}>
@@ -251,13 +263,13 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-full h-10"
+                  className="w-full h-9"
                   onClick={() => setSidebarCollapsed(false)}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Expand sidebar</TooltipContent>
+              <TooltipContent side="right" sideOffset={10}>Expand sidebar</TooltipContent>
             </Tooltip>
           )}
 
@@ -268,28 +280,39 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="w-full h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   onClick={() => setShowLogoutDialog(true)}
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Logout</TooltipContent>
+              <TooltipContent side="right" sideOffset={10}>Logout</TooltipContent>
             </Tooltip>
           ) : (
             <Button
               variant="ghost"
-              className="w-full justify-start gap-3 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="w-full justify-start gap-3 px-3 h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               onClick={() => setShowLogoutDialog(true)}
             >
-              <div className="flex items-center justify-center w-8 h-8 rounded-md bg-destructive/10">
-                <LogOut className="h-4 w-4" />
-              </div>
+              <LogOut className="h-4 w-4" />
               <span>Logout</span>
             </Button>
           )}
         </div>
       </motion.aside>
+
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Mobile Sidebar */}
       <AnimatePresence>
@@ -298,24 +321,24 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
             initial={{ x: -280 }}
             animate={{ x: 0 }}
             exit={{ x: -280 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="fixed left-0 top-0 h-screen w-[280px] z-50 lg:hidden flex flex-col bg-sidebar border-r border-sidebar-border"
           >
             {/* Logo Area */}
-            <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
-              <button onClick={() => navigate("/")} className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow">
+            <div className="flex items-center justify-between h-14 px-4 border-b border-sidebar-border">
+              <button onClick={() => navigate("/")} className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-glow">
                   <span className="text-sm font-bold text-white">S</span>
                 </div>
-                <span className="text-lg font-bold text-gradient">Shinchronize</span>
+                <span className="text-lg font-heading font-semibold text-gradient">Shinchronize</span>
               </button>
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-xs"
                 className="h-8 w-8"
                 onClick={() => setSidebarOpen(false)}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
 
@@ -337,17 +360,14 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
                         "transition-all duration-200",
                         active
                           ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                        item.special && !active && "text-amber-500"
                       )}
                     >
-                      <div
-                        className={cn(
-                          "flex items-center justify-center w-8 h-8 rounded-md",
-                          active ? "bg-primary text-primary-foreground" : "bg-muted/50"
-                        )}
-                      >
-                        <Icon className="w-4 h-4" />
-                      </div>
+                      {active && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full" />
+                      )}
+                      <Icon className={cn("w-[18px] h-[18px]", item.special && !active && "animate-pulse")} />
                       <span>{item.label}</span>
                     </button>
                   );
@@ -359,12 +379,10 @@ export const AppSidebar = memo(({ userType }: AppSidebarProps) => {
             <div className="p-3 border-t border-sidebar-border">
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-3 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="w-full justify-start gap-3 px-3 h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 onClick={() => setShowLogoutDialog(true)}
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-destructive/10">
-                  <LogOut className="h-4 w-4" />
-                </div>
+                <LogOut className="h-4 w-4" />
                 <span>Logout</span>
               </Button>
             </div>

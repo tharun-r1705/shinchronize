@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
+import { Progress, ProgressRing } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search, TrendingUp, Award, CheckCircle2, Brain, Users, Briefcase,
   Plus, Eye, Trash2, PlayCircle, Sparkles, AlertTriangle, Loader2,
-  Mail, Send, ArrowRight, Building2, Target, Star, UserCheck, Filter, Pencil
+  Mail, Send, ArrowRight, Building2, Target, Star, UserCheck, Filter, Pencil,
+  Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +26,20 @@ import JobCreationDialog from "@/components/JobCreationDialog";
 import MatchExplanationModal from "@/components/MatchExplanationModal";
 import LearnerTagBadge from "@/components/LearnerTagBadge";
 import type { Job } from "@/types/job";
+import { cn } from "@/lib/utils";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
 const RecruiterDashboard = () => {
   const navigate = useNavigate();
@@ -382,25 +397,25 @@ const RecruiterDashboard = () => {
   };
 
   const getStatusBadge = (status: Job["status"]) => {
-    const variants: Record<string, { variant: any; className: string }> = {
-      draft: { variant: "secondary", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-      active: { variant: "default", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
-      closed: { variant: "outline", className: "bg-gray-100 text-gray-600" },
-      expired: { variant: "destructive", className: "" },
+    const variants: Record<string, { className: string; label: string }> = {
+      draft: { className: "bg-slate-500/15 text-slate-400 border-slate-500/30", label: "Draft" },
+      active: { className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", label: "Active" },
+      closed: { className: "bg-muted text-muted-foreground border-border/50", label: "Closed" },
+      expired: { className: "bg-red-500/15 text-red-400 border-red-500/30", label: "Expired" },
     };
     const config = variants[status] || variants.draft;
     return (
-      <Badge variant={config.variant} className={config.className}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <Badge variant="outline" className={config.className}>
+        {config.label}
       </Badge>
     );
   };
 
   const getMatchScoreBadge = (score: number) => {
-    if (score >= 80) return <Badge className="bg-emerald-500 hover:bg-emerald-600">Excellent ({score}%)</Badge>;
-    if (score >= 60) return <Badge className="bg-blue-500 hover:bg-blue-600">Good ({score}%)</Badge>;
-    if (score >= 40) return <Badge className="bg-amber-500 hover:bg-amber-600">Fair ({score}%)</Badge>;
-    return <Badge variant="outline">Limited ({score}%)</Badge>;
+    if (score >= 80) return <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Excellent ({score}%)</Badge>;
+    if (score >= 60) return <Badge className="bg-primary/15 text-primary border border-primary/30">Good ({score}%)</Badge>;
+    if (score >= 40) return <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30">Fair ({score}%)</Badge>;
+    return <Badge variant="outline" className="border-border/50">Limited ({score}%)</Badge>;
   };
 
   const filteredJobs = jobs.filter((job) => {
@@ -430,8 +445,11 @@ const RecruiterDashboard = () => {
     return (
       <RecruiterLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="absolute inset-0 bg-gradient-radial from-emerald-500/5 via-transparent to-transparent" />
+          <div className="text-center relative">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+            </div>
             <p className="text-muted-foreground">Loading your dashboard...</p>
           </div>
         </div>
@@ -441,488 +459,705 @@ const RecruiterDashboard = () => {
 
   return (
     <RecruiterLayout>
-      {/* Profile Header Card */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
       >
-        <Card variant="elevated" className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg">
-                {recruiterProfile?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'RC'}
-              </div>
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold mb-1">{recruiterProfile?.name || 'Recruiter'}</h2>
-                <p className="text-muted-foreground mb-3">
-                  <span className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    {recruiterProfile?.company || 'Company'} • {recruiterProfile?.designation || 'HR'}
-                  </span>
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  <div className="rounded-xl border bg-card/60 p-4 text-center">
-                    <Briefcase className="w-5 h-5 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold">{totalJobs}</p>
-                    <p className="text-xs text-muted-foreground">Total Jobs</p>
-                  </div>
-                  <div className="rounded-xl border bg-card/60 p-4 text-center">
-                    <PlayCircle className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                    <p className="text-2xl font-bold">{activeJobs}</p>
-                    <p className="text-xs text-muted-foreground">Active Jobs</p>
-                  </div>
-                  <div className="rounded-xl border bg-card/60 p-4 text-center">
-                    <Users className="w-5 h-5 mx-auto mb-2 text-blue-500" />
-                    <p className="text-2xl font-bold">{totalMatches}</p>
-                    <p className="text-xs text-muted-foreground">Total Matches</p>
-                  </div>
-                  <div className="rounded-xl border bg-card/60 p-4 text-center">
-                    <Target className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                    <p className="text-2xl font-bold">{students.length}</p>
-                    <p className="text-xs text-muted-foreground">Talent Pool</p>
+        {/* Profile Header Card */}
+        <motion.div variants={itemVariants}>
+          <Card variant="bento" className="relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-primary/5" />
+            <CardContent className="pt-6 relative">
+              <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-emerald-500/20">
+                  {recruiterProfile?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'RC'}
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold mb-1 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    {recruiterProfile?.name || 'Recruiter'}
+                  </h2>
+                  <p className="text-muted-foreground mb-4">
+                    <span className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-emerald-400" />
+                      {recruiterProfile?.company || 'Company'} • {recruiterProfile?.designation || 'HR'}
+                    </span>
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Total Jobs */}
+                    <div className="rounded-xl border border-border/50 bg-card/50 p-4 text-center group hover:border-primary/30 transition-colors">
+                      <div className="p-2 rounded-lg bg-primary/10 w-fit mx-auto mb-2 group-hover:bg-primary/15 transition-colors">
+                        <Briefcase className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="text-2xl font-bold">{totalJobs}</p>
+                      <p className="text-xs text-muted-foreground">Total Jobs</p>
+                    </div>
+                    {/* Active Jobs */}
+                    <div className="rounded-xl border border-border/50 bg-card/50 p-4 text-center group hover:border-emerald-500/30 transition-colors">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 w-fit mx-auto mb-2 group-hover:bg-emerald-500/15 transition-colors">
+                        <PlayCircle className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <p className="text-2xl font-bold text-emerald-400">{activeJobs}</p>
+                      <p className="text-xs text-muted-foreground">Active Jobs</p>
+                    </div>
+                    {/* Total Matches */}
+                    <div className="rounded-xl border border-border/50 bg-card/50 p-4 text-center group hover:border-sky-500/30 transition-colors">
+                      <div className="p-2 rounded-lg bg-sky-500/10 w-fit mx-auto mb-2 group-hover:bg-sky-500/15 transition-colors">
+                        <Users className="w-5 h-5 text-sky-400" />
+                      </div>
+                      <p className="text-2xl font-bold text-sky-400">{totalMatches}</p>
+                      <p className="text-xs text-muted-foreground">Total Matches</p>
+                    </div>
+                    {/* Talent Pool */}
+                    <div className="rounded-xl border border-border/50 bg-card/50 p-4 text-center group hover:border-amber-500/30 transition-colors">
+                      <div className="p-2 rounded-lg bg-amber-500/10 w-fit mx-auto mb-2 group-hover:bg-amber-500/15 transition-colors">
+                        <Target className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <p className="text-2xl font-bold text-amber-400">{students.length}</p>
+                      <p className="text-xs text-muted-foreground">Talent Pool</p>
+                    </div>
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Quick Actions Banner */}
+        <motion.div variants={itemVariants}>
+          <Card variant="bento" className="relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-transparent to-primary/10" />
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
+              <Sparkles className="w-32 h-32" />
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Quick Actions Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="mb-8"
-      >
-        <Card className="border-none bg-gradient-to-r from-violet-600/10 via-background to-purple-600/10 overflow-hidden relative group">
-          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
-            <Sparkles className="w-32 h-32" />
-          </div>
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 relative z-10">
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-primary text-primary-foreground hover:bg-primary/90">AI-Powered Matching</Badge>
-                </div>
-                <h3 className="text-2xl font-bold tracking-tight">Find Your Perfect Candidates</h3>
-                <p className="text-muted-foreground max-w-lg">
-                  Create job postings and let our AI match you with the most qualified students based on skills, projects, and readiness scores.
-                </p>
-              </div>
-              <Button
-                size="lg"
-                onClick={() => {
-                  setJobDialogJob(null);
-                  setJobDialogOpen(true);
-                }}
-                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Create New Job
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Main Content Tabs */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <Tabs defaultValue="jobs" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="jobs" className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4" />
-              Job Postings
-            </TabsTrigger>
-            <TabsTrigger value="talent" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Talent Pool
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Jobs Tab */}
-          <TabsContent value="jobs" className="space-y-6">
-            {/* Filters */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                  <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      placeholder="Search jobs..."
-                      value={jobSearchQuery}
-                      onChange={(e) => setJobSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
+            <CardContent className="p-6 relative">
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <Zap className="w-3 h-3 mr-1" />
+                      AI-Powered Matching
+                    </Badge>
                   </div>
-                  <div className="flex gap-2">
-                    <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-                      <SelectTrigger className="w-[150px]">
-                        <Filter className="w-4 h-4 mr-2" />
-                        <SelectValue placeholder="Filter" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Jobs</SelectItem>
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={() => {
+                  <h3 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    Find Your Perfect Candidates
+                  </h3>
+                  <p className="text-muted-foreground max-w-lg">
+                    Create job postings and let our AI match you with the most qualified students based on skills, projects, and readiness scores.
+                  </p>
+                </div>
+                <Button
+                  variant="gradient-accent"
+                  size="lg"
+                  onClick={() => {
+                    setJobDialogJob(null);
+                    setJobDialogOpen(true);
+                  }}
+                  className="shadow-lg shadow-emerald-500/20"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create New Job
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Main Content Tabs */}
+        <motion.div variants={itemVariants}>
+          <Tabs defaultValue="jobs" className="space-y-6">
+            <TabsList className="bg-muted/50 border border-border/50 p-1">
+              <TabsTrigger value="jobs" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <Briefcase className="w-4 h-4" />
+                Job Postings
+              </TabsTrigger>
+              <TabsTrigger value="talent" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <Users className="w-4 h-4" />
+                Talent Pool
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Jobs Tab */}
+            <TabsContent value="jobs" className="space-y-6">
+              {/* Filters */}
+              <Card variant="bento">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input
+                        placeholder="Search jobs..."
+                        value={jobSearchQuery}
+                        onChange={(e) => setJobSearchQuery(e.target.value)}
+                        className="pl-10 bg-muted/30 border-border/50 focus:border-primary/50"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+                        <SelectTrigger className="w-[150px] bg-muted/30 border-border/50">
+                          <Filter className="w-4 h-4 mr-2" />
+                          <SelectValue placeholder="Filter" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Jobs</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={() => {
+                        setJobDialogJob(null);
+                        setJobDialogOpen(true);
+                      }} variant="gradient-accent">
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Job
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Job Cards Grid */}
+              {isLoadingJobs ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} variant="bento">
+                      <CardHeader>
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-20 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : filteredJobs.length === 0 ? (
+                <Card variant="bento">
+                  <CardContent className="py-16 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/50 flex items-center justify-center">
+                      <Briefcase className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">No Jobs Found</h3>
+                    <p className="text-muted-foreground mb-6">
+                      Create your first job posting to start matching with talented students.
+                    </p>
+                    <Button variant="gradient-accent" onClick={() => {
                       setJobDialogJob(null);
                       setJobDialogOpen(true);
                     }}>
                       <Plus className="w-4 h-4 mr-2" />
-                      New Job
+                      Create Your First Job
                     </Button>
-                  </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredJobs.map((job, index) => (
+                    <motion.div
+                      key={job._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card variant="interactive" className="h-full">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-lg truncate">{job.title}</CardTitle>
+                              <CardDescription className="mt-1">
+                                {job.location} • {job.jobType}
+                              </CardDescription>
+                            </div>
+                            {getStatusBadge(job.status)}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 rounded-lg bg-emerald-500/10">
+                                <UserCheck className="w-4 h-4 text-emerald-400" />
+                              </div>
+                              <span className="text-sm font-medium">Matches</span>
+                            </div>
+                            <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
+                              {job.matchCount || 0} students
+                            </Badge>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5">
+                            {job.requiredSkills.length > 0 ? (
+                              <>
+                                {job.requiredSkills.slice(0, 3).map((skill) => (
+                                  <Badge key={skill} variant="outline" className="text-xs font-normal border-border/50">
+                                    {skill}
+                                  </Badge>
+                                ))}
+                                {job.requiredSkills.length > 3 && (
+                                  <Badge variant="outline" className="text-xs font-normal border-border/50">
+                                    +{job.requiredSkills.length - 3}
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <Badge variant="outline" className="text-xs font-normal border-border/50">
+                                AI Parsed Skills
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2 pt-2">
+                            {job.status === "draft" ? (
+                              <Button
+                                size="sm"
+                                variant="gradient-accent"
+                                className="flex-1"
+                                onClick={() => handlePublishJob(job._id)}
+                              >
+                                <PlayCircle className="w-4 h-4 mr-1" />
+                                Publish
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="gradient"
+                                className="flex-1"
+                                onClick={() => handleViewMatches(job)}
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View Matches
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-border/50"
+                              onClick={() => {
+                                setJobDialogJob(job);
+                                setJobDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-border/50 text-destructive hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                              onClick={() => handleDeleteJob(job._id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              )}
 
-            {/* Job Cards Grid */}
-            {isLoadingJobs ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i}>
-                    <CardHeader>
-                      <Skeleton className="h-6 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-20 w-full" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : filteredJobs.length === 0 ? (
-              <Card>
-                <CardContent className="py-16 text-center">
-                  <Briefcase className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-                  <h3 className="text-xl font-semibold mb-2">No Jobs Found</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Create your first job posting to start matching with talented students.
-                  </p>
-                  <Button onClick={() => {
-                    setJobDialogJob(null);
-                    setJobDialogOpen(true);
-                  }}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Your First Job
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredJobs.map((job, index) => (
-                  <motion.div
-                    key={job._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <Card className="h-full hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-lg truncate">{job.title}</CardTitle>
-                            <CardDescription className="mt-1">
-                              {job.location} • {job.jobType}
-                            </CardDescription>
-                          </div>
-                          {getStatusBadge(job.status)}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                          <div className="flex items-center gap-2">
-                            <UserCheck className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium">Matches</span>
-                          </div>
-                          <Badge variant="secondary" className="font-bold">
-                            {job.matchCount || 0} students
-                          </Badge>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1.5">
-                          {job.requiredSkills.length > 0 ? (
-                            <>
-                              {job.requiredSkills.slice(0, 3).map((skill) => (
-                                <Badge key={skill} variant="outline" className="text-xs font-normal">
+              {/* Selected Job Matches Section */}
+              {selectedJob && (
+                <motion.div
+                  id="matched-students-section"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4"
+                >
+                  {/* Selected Job Header */}
+                  <Card variant="bento" className="relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent" />
+                    <CardContent className="p-6 relative">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-emerald-500/15">
+                              <Briefcase className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            {selectedJob.title}
+                          </h3>
+                          <p className="text-muted-foreground ml-11">
+                            {selectedJob.location} • {selectedJob.matchCount || 0} matches found
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-3 ml-11">
+                            {selectedJob.requiredSkills.length > 0 ? (
+                              selectedJob.requiredSkills.map((skill) => (
+                                <Badge key={skill} className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                   {skill}
                                 </Badge>
-                              ))}
-                              {job.requiredSkills.length > 3 && (
-                                <Badge variant="outline" className="text-xs font-normal">
-                                  +{job.requiredSkills.length - 3}
-                                </Badge>
-                              )}
-                            </>
-                          ) : (
-                            <Badge variant="outline" className="text-xs font-normal">
-                              AI Parsed Skills
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex gap-2 pt-2">
-                          {job.status === "draft" ? (
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600"
-                              onClick={() => handlePublishJob(job._id)}
-                            >
-                              <PlayCircle className="w-4 h-4 mr-1" />
-                              Publish
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => handleViewMatches(job)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View Matches
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setJobDialogJob(job);
-                              setJobDialogOpen(true);
-                            }}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => handleDeleteJob(job._id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Selected Job Matches Section */}
-            {selectedJob && (
-              <motion.div
-                id="matched-students-section"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                {/* Selected Job Header */}
-                <Card className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-none">
-                  <CardContent className="p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-xl font-bold mb-1">{selectedJob.title}</h3>
-                        <p className="text-white/80">
-                          {selectedJob.location} • {selectedJob.matchCount || 0} matches found
-                        </p>
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          {selectedJob.requiredSkills.length > 0 ? (
-                            selectedJob.requiredSkills.map((skill) => (
-                              <Badge key={skill} className="bg-white/20 text-white border-white/30">
-                                {skill}
+                              ))
+                            ) : (
+                              <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                AI-parsed skills will appear here
                               </Badge>
-                            ))
-                          ) : (
-                            <Badge className="bg-white/20 text-white border-white/30">
-                              AI-parsed skills will appear here
-                            </Badge>
-                          )}
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                            onClick={() => handleRefreshMatches(selectedJob._id)}
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Refresh Matches
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-border/50"
+                            onClick={() => setSelectedJob(null)}
+                          >
+                            Close
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleRefreshMatches(selectedJob._id)}
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Refresh Matches
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setSelectedJob(null)}
-                        >
-                          Close
-                        </Button>
-                      </div>
-                    </div>
 
-                    <div className="mt-4 p-3 rounded-lg bg-white/10 border border-white/20">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-white/90">
-                          <p className="font-semibold mb-1">Smart Team-Based Matching</p>
-                          <p>
-                            <strong>If all students combined</strong> have all required skills → Shows all students with at least 1 matching skill
-                          </p>
-                          <p className="mt-1">
-                            <strong>Otherwise</strong> → Shows students with at least 10% skill match ({Math.ceil(selectedJob.requiredSkills.length * 0.1)} out of {selectedJob.requiredSkills.length} skills)
-                          </p>
+                      <div className="mt-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="flex items-start gap-3">
+                          <div className="p-1.5 rounded-lg bg-amber-500/15 mt-0.5">
+                            <AlertTriangle className="w-4 h-4 text-amber-400" />
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            <p className="font-semibold text-foreground mb-1">Smart Team-Based Matching</p>
+                            <p>
+                              <strong className="text-foreground">If all students combined</strong> have all required skills → Shows all students with at least 1 matching skill
+                            </p>
+                            <p className="mt-1">
+                              <strong className="text-foreground">Otherwise</strong> → Shows students with at least 10% skill match ({Math.ceil(selectedJob.requiredSkills.length * 0.1)} out of {selectedJob.requiredSkills.length} skills)
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Match Filters */}
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <Label className="text-sm font-medium whitespace-nowrap">Min Match Score:</Label>
-                        <Select
-                          value={String(minMatchScore)}
-                          onValueChange={(v) => setMinMatchScore(Number(v))}
-                        >
-                          <SelectTrigger className="w-[150px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">All Matches</SelectItem>
-                            <SelectItem value="-1">Poor (&lt; 40)</SelectItem>
-                            <SelectItem value="40">Fair (40+)</SelectItem>
-                            <SelectItem value="60">Good (60+)</SelectItem>
-                            <SelectItem value="80">Excellent (80+)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {matchedStudents.length > 0 && (
-                        <Button onClick={handleContactAll}>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Contact All ({matchedStudents.length})
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Matched Students Grid */}
-                {isLoadingMatches ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                  </div>
-                ) : matchedStudents.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-12 text-center">
-                      <Award className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No Matches Found</h3>
-                      <p className="text-muted-foreground">
-                        Try adjusting your filters or refresh matches to find candidates.
-                      </p>
                     </CardContent>
                   </Card>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {matchedStudents.map((match: any, index: number) => {
-                      const student = typeof match.studentId === 'object' ? match.studentId : null;
-                      if (!student) return null;
 
-                      return (
+                  {/* Match Filters */}
+                  <Card variant="bento">
+                    <CardContent className="pt-6">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <Label className="text-sm font-medium whitespace-nowrap">Min Match Score:</Label>
+                          <Select
+                            value={String(minMatchScore)}
+                            onValueChange={(v) => setMinMatchScore(Number(v))}
+                          >
+                            <SelectTrigger className="w-[150px] bg-muted/30 border-border/50">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">All Matches</SelectItem>
+                              <SelectItem value="-1">Poor (&lt; 40)</SelectItem>
+                              <SelectItem value="40">Fair (40+)</SelectItem>
+                              <SelectItem value="60">Good (60+)</SelectItem>
+                              <SelectItem value="80">Excellent (80+)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {matchedStudents.length > 0 && (
+                          <Button onClick={handleContactAll} variant="gradient-accent">
+                            <Mail className="w-4 h-4 mr-2" />
+                            Contact All ({matchedStudents.length})
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Matched Students Grid */}
+                  {isLoadingMatches ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+                      </div>
+                    </div>
+                  ) : matchedStudents.length === 0 ? (
+                    <Card variant="bento">
+                      <CardContent className="py-12 text-center">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/50 flex items-center justify-center">
+                          <Award className="w-8 h-8 text-muted-foreground/50" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">No Matches Found</h3>
+                        <p className="text-muted-foreground">
+                          Try adjusting your filters or refresh matches to find candidates.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {matchedStudents.map((match: any, index: number) => {
+                        const student = typeof match.studentId === 'object' ? match.studentId : null;
+                        if (!student) return null;
+
+                        return (
+                          <motion.div
+                            key={student._id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: index * 0.05 }}
+                          >
+                            <Card variant="interactive" className="h-full">
+                              <CardHeader className="pb-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-lg font-bold text-white shadow-lg shadow-emerald-500/20">
+                                      {student.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
+                                    </div>
+                                    <div>
+                                      <CardTitle className="text-lg">{student.name || student.email}</CardTitle>
+                                      <CardDescription>{student.college} • {student.branch}</CardDescription>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end gap-2">
+                                    {getMatchScoreBadge(match.matchScore)}
+                                    <LearnerTagBadge
+                                      learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
+                                      learningRate={student.learningMetrics?.learningRate}
+                                      trend={student.learningMetrics?.trend}
+                                      size="sm"
+                                      showRate={true}
+                                    />
+                                  </div>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
+                                  <div className="flex items-start gap-2">
+                                    <div className="p-1 rounded-lg bg-primary/10 mt-0.5">
+                                      <Brain className="w-3.5 h-3.5 text-primary" />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{match.matchReason}</p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                  <div className="flex justify-between p-2 rounded-lg bg-muted/30">
+                                    <span className="text-muted-foreground">CGPA:</span>
+                                    <span className="font-medium">{student.cgpa || "N/A"}</span>
+                                  </div>
+                                  <div className="flex justify-between p-2 rounded-lg bg-muted/30">
+                                    <span className="text-muted-foreground">Readiness:</span>
+                                    <span className="font-medium">{student.readinessScore || "N/A"}%</span>
+                                  </div>
+                                  <div className="flex justify-between p-2 rounded-lg bg-muted/30">
+                                    <span className="text-muted-foreground">Projects:</span>
+                                    <span className="font-medium">{student.projects?.length || 0}</span>
+                                  </div>
+                                  <div className="flex justify-between p-2 rounded-lg bg-muted/30">
+                                    <span className="text-muted-foreground">Skills:</span>
+                                    <span className="font-medium">{student.skills?.length || 0}</span>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-2">Skills Matched:</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {match.skillsMatched?.slice(0, 5).map((skill: string) => (
+                                      <Badge key={skill} className="text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                        {skill}
+                                      </Badge>
+                                    ))}
+                                    {match.skillsMatched?.length > 5 && (
+                                      <Badge variant="outline" className="text-xs border-border/50">
+                                        +{match.skillsMatched.length - 5}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-2 pt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 border-border/50"
+                                    onClick={() => handleShowExplanation(student._id, student.name || student.email, match.matchScore)}
+                                  >
+                                    <Brain className="w-4 h-4 mr-1" />
+                                    Why?
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 border-border/50"
+                                    onClick={() => openContactModal(student)}
+                                  >
+                                    <Mail className="w-4 h-4 mr-1" />
+                                    Contact
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="gradient"
+                                    className="flex-1"
+                                    onClick={() => navigate(`/recruiter/student/${student._id}`)}
+                                  >
+                                    <Eye className="w-4 h-4 mr-1" />
+                                    Profile
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Why This Candidate Chat */}
+                  <Card variant="bento">
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <Brain className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Ask Why This Candidate Was Chosen</CardTitle>
+                          <CardDescription>
+                            Select a candidate and ask a question. The AI will justify the match.
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Candidate</Label>
+                          <Select value={whyChatStudentId} onValueChange={setWhyChatStudentId}>
+                            <SelectTrigger className="bg-muted/30 border-border/50">
+                              <SelectValue placeholder="Select candidate" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {matchedStudents.map((match: any) => {
+                                const student = typeof match.studentId === 'object' ? match.studentId : null;
+                                if (!student) return null;
+                                return (
+                                  <SelectItem key={student._id} value={student._id}>
+                                    {student.name || student.email}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Question</Label>
+                          <Input
+                            placeholder="Why did you choose this person?"
+                            value={whyChatInput}
+                            onChange={(e) => setWhyChatInput(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleWhyChatSubmit();
+                              }
+                            }}
+                            className="bg-muted/30 border-border/50"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button onClick={handleWhyChatSubmit} disabled={whyChatLoading || !whyChatInput.trim()} variant="gradient">
+                          {whyChatLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Thinking...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4 mr-2" />
+                              Ask AI
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {whyChatMessages.length > 0 && (
+                        <div className="space-y-3 max-h-64 overflow-y-auto rounded-xl border border-border/50 p-4 bg-muted/20">
+                          {whyChatMessages.map((msg, idx) => (
+                            <div key={idx} className={msg.role === "user" ? "text-right" : "text-left"}>
+                              <div className={cn(
+                                "inline-block rounded-xl px-4 py-2.5 text-sm max-w-[80%]",
+                                msg.role === "user" 
+                                  ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground" 
+                                  : "bg-card border border-border/50"
+                              )}>
+                                {msg.content}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </TabsContent>
+
+            {/* Talent Pool Tab */}
+            <TabsContent value="talent" className="space-y-6">
+              <Card variant="bento">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Users className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle>Browse Talent Pool</CardTitle>
+                      <CardDescription>
+                        Explore {students.length} students registered on the platform
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {students.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/50 flex items-center justify-center">
+                        <Users className="w-8 h-8 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-muted-foreground">No students available yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {students.slice(0, 12).map((student, index) => (
                         <motion.div
                           key={student._id}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: index * 0.05 }}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
                         >
-                          <Card className="hover:shadow-lg transition-all duration-300">
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center text-lg font-bold text-white">
-                                    {student.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
-                                  </div>
-                                  <div>
-                                    <CardTitle className="text-lg">{student.name || student.email}</CardTitle>
-                                    <CardDescription>{student.college} • {student.branch}</CardDescription>
-                                  </div>
+                          <Card variant="interactive" className="h-full">
+                            <CardContent className="pt-6">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg shadow-emerald-500/20">
+                                  {student.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
-                                  {getMatchScoreBadge(match.matchScore)}
-                                  <LearnerTagBadge
-                                    learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
-                                    learningRate={student.learningMetrics?.learningRate}
-                                    trend={student.learningMetrics?.trend}
-                                    size="sm"
-                                    showRate={true}
-                                  />
-                                </div>
-                              </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                              <div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800">
-                                <div className="flex items-start gap-2">
-                                  <Brain className="w-4 h-4 text-violet-600 dark:text-violet-400 mt-0.5 flex-shrink-0" />
-                                  <p className="text-sm text-muted-foreground">{match.matchReason}</p>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">CGPA:</span>
-                                  <span className="font-medium">{student.cgpa || "N/A"}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Readiness:</span>
-                                  <span className="font-medium">{student.readinessScore || "N/A"}%</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Projects:</span>
-                                  <span className="font-medium">{student.projects?.length || 0}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Skills:</span>
-                                  <span className="font-medium">{student.skills?.length || 0}</span>
-                                </div>
-                              </div>
-
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-2">Skills Matched:</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {match.skillsMatched?.slice(0, 5).map((skill: string) => (
-                                    <Badge key={skill} className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                      {skill}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold truncate">{student.name}</p>
+                                  <p className="text-sm text-muted-foreground truncate">{student.college}</p>
+                                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                    <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                      {student.readinessScore || 0}% Ready
                                     </Badge>
-                                  ))}
-                                  {match.skillsMatched?.length > 5 && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      +{match.skillsMatched.length - 5}
-                                    </Badge>
-                                  )}
+                                    {student.skills?.length > 0 && (
+                                      <Badge variant="outline" className="text-xs border-border/50">
+                                        {student.skills.length} skills
+                                      </Badge>
+                                    )}
+                                    <LearnerTagBadge
+                                      learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
+                                      learningRate={student.learningMetrics?.learningRate}
+                                      size="sm"
+                                      showRate={false}
+                                    />
+                                  </div>
                                 </div>
                               </div>
-
-                              <div className="flex gap-2 pt-2">
+                              <div className="flex gap-2 mt-4">
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="flex-1"
-                                  onClick={() => handleShowExplanation(student._id, student.name || student.email, match.matchScore)}
-                                >
-                                  <Brain className="w-4 h-4 mr-1" />
-                                  Why?
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="flex-1"
+                                  className="flex-1 border-border/50"
                                   onClick={() => openContactModal(student)}
                                 >
                                   <Mail className="w-4 h-4 mr-1" />
@@ -930,192 +1165,33 @@ const RecruiterDashboard = () => {
                                 </Button>
                                 <Button
                                   size="sm"
+                                  variant="gradient"
                                   className="flex-1"
                                   onClick={() => navigate(`/recruiter/student/${student._id}`)}
                                 >
                                   <Eye className="w-4 h-4 mr-1" />
-                                  Profile
+                                  View
                                 </Button>
                               </div>
                             </CardContent>
                           </Card>
                         </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Why This Candidate Chat */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Brain className="w-5 h-5" />
-                      Ask Why This Candidate Was Chosen
-                    </CardTitle>
-                    <CardDescription>
-                      Select a candidate and ask a question. The AI will justify the match.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Candidate</Label>
-                        <Select value={whyChatStudentId} onValueChange={setWhyChatStudentId}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select candidate" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {matchedStudents.map((match: any) => {
-                              const student = typeof match.studentId === 'object' ? match.studentId : null;
-                              if (!student) return null;
-                              return (
-                                <SelectItem key={student._id} value={student._id}>
-                                  {student.name || student.email}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Question</Label>
-                        <Input
-                          placeholder="Why did you choose this person?"
-                          value={whyChatInput}
-                          onChange={(e) => setWhyChatInput(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleWhyChatSubmit();
-                            }
-                          }}
-                        />
-                      </div>
+                      ))}
                     </div>
-                    <div className="flex justify-end">
-                      <Button onClick={handleWhyChatSubmit} disabled={whyChatLoading || !whyChatInput.trim()}>
-                        {whyChatLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Thinking...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4 mr-2" />
-                            Ask AI
-                          </>
-                        )}
+                  )}
+                  {students.length > 12 && (
+                    <div className="text-center mt-6">
+                      <Button variant="outline" onClick={() => navigate('/recruiter/talent')} className="border-border/50">
+                        View All {students.length} Students
+                        <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
-
-                    {whyChatMessages.length > 0 && (
-                      <div className="space-y-3 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30">
-                        {whyChatMessages.map((msg, idx) => (
-                          <div key={idx} className={msg.role === "user" ? "text-right" : "text-left"}>
-                            <div className={msg.role === "user" ? "inline-block rounded-lg bg-primary text-primary-foreground px-3 py-2 text-sm" : "inline-block rounded-lg bg-card px-3 py-2 text-sm"}>
-                              {msg.content}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </TabsContent>
-
-          {/* Talent Pool Tab */}
-          <TabsContent value="talent" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" />
-                  Browse Talent Pool
-                </CardTitle>
-                <CardDescription>
-                  Explore {students.length} students registered on the platform
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {students.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Users className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                    <p className="text-muted-foreground">No students available yet.</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {students.slice(0, 12).map((student, index) => (
-                      <motion.div
-                        key={student._id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.03 }}
-                      >
-                        <Card className="hover:shadow-md transition-shadow">
-                          <CardContent className="pt-6">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center text-sm font-bold text-white">
-                                {student.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold truncate">{student.name}</p>
-                                <p className="text-sm text-muted-foreground truncate">{student.college}</p>
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {student.readinessScore || 0}% Ready
-                                  </Badge>
-                                  {student.skills?.length > 0 && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {student.skills.length} skills
-                                    </Badge>
-                                  )}
-                                  <LearnerTagBadge
-                                    learningCategory={student.learningMetrics?.learningCategory || 'not_determined'}
-                                    learningRate={student.learningMetrics?.learningRate}
-                                    size="sm"
-                                    showRate={false}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 mt-4">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => openContactModal(student)}
-                              >
-                                <Mail className="w-4 h-4 mr-1" />
-                                Contact
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => navigate(`/recruiter/student/${student._id}`)}
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                View
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-                {students.length > 12 && (
-                  <div className="text-center mt-6">
-                    <Button variant="outline" onClick={() => navigate('/recruiter/talent')}>
-                      View All {students.length} Students
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
       </motion.div>
 
       {/* AI Assistant */}
@@ -1147,10 +1223,12 @@ const RecruiterDashboard = () => {
 
       {/* Contact Student Dialog */}
       <Dialog open={!!contactStudent} onOpenChange={(open) => !open && setContactStudent(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl border-border/50 bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5 text-primary" />
+              <div className="p-2 rounded-lg bg-emerald-500/10">
+                <Mail className="w-4 h-4 text-emerald-400" />
+              </div>
               Contact {contactStudent?.name}
             </DialogTitle>
             <DialogDescription>
@@ -1159,9 +1237,9 @@ const RecruiterDashboard = () => {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="p-3 rounded-lg bg-muted/50 border">
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center text-lg font-bold text-white">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-lg font-bold text-white shadow-lg shadow-emerald-500/20">
                   {contactStudent?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'ST'}
                 </div>
                 <div className="flex-1">
@@ -1169,7 +1247,9 @@ const RecruiterDashboard = () => {
                   <p className="text-sm text-muted-foreground">{contactStudent?.email}</p>
                   <p className="text-sm text-muted-foreground">{contactStudent?.college}</p>
                 </div>
-                <Badge variant="secondary">{contactStudent?.readinessScore || 0}% Ready</Badge>
+                <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  {contactStudent?.readinessScore || 0}% Ready
+                </Badge>
               </div>
             </div>
 
@@ -1180,6 +1260,7 @@ const RecruiterDashboard = () => {
                 value={contactSubject}
                 onChange={(e) => setContactSubject(e.target.value)}
                 placeholder="e.g., Opportunity at TechCorp"
+                className="bg-muted/30 border-border/50"
               />
             </div>
 
@@ -1191,15 +1272,16 @@ const RecruiterDashboard = () => {
                 onChange={(e) => setContactMessage(e.target.value)}
                 placeholder="Write your message here..."
                 rows={8}
-                className="resize-none"
+                className="resize-none bg-muted/30 border-border/50"
               />
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setContactStudent(null)} disabled={isSendingContact}>
+              <Button variant="outline" onClick={() => setContactStudent(null)} disabled={isSendingContact} className="border-border/50">
                 Cancel
               </Button>
               <Button
+                variant="gradient-accent"
                 onClick={handleSendContact}
                 disabled={isSendingContact || !contactSubject.trim() || !contactMessage.trim()}
               >
@@ -1222,22 +1304,27 @@ const RecruiterDashboard = () => {
 
       {/* Bulk Contact Dialog */}
       <Dialog open={showBulkContactDialog} onOpenChange={setShowBulkContactDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto border-border/50 bg-card">
           <DialogHeader>
-            <DialogTitle>Contact All Matched Candidates</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-emerald-500/10">
+                <Mail className="w-4 h-4 text-emerald-400" />
+              </div>
+              Contact All Matched Candidates
+            </DialogTitle>
             <DialogDescription>
               Send a message to all {matchedStudents.length} matched candidate{matchedStudents.length !== 1 ? 's' : ''} for {selectedJob?.title}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="border border-border/50 rounded-xl p-4 bg-muted/20">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-sm flex items-center gap-2">
-                  <Award className="w-4 h-4" />
+                  <Award className="w-4 h-4 text-emerald-400" />
                   Recipients ({matchedStudents.length})
                 </h4>
-                <Badge variant="secondary">
+                <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                   {matchedStudents.filter((m: any) => m.matchScore >= 80).length} Excellent • {matchedStudents.filter((m: any) => m.matchScore >= 60 && m.matchScore < 80).length} Good
                 </Badge>
               </div>
@@ -1250,10 +1337,10 @@ const RecruiterDashboard = () => {
                   return (
                     <div
                       key={student._id}
-                      className="flex items-center justify-between p-2 bg-card rounded border text-sm"
+                      className="flex items-center justify-between p-3 bg-card rounded-xl border border-border/50 text-sm"
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                        <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center text-xs font-bold text-white">
                           {index + 1}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1275,6 +1362,7 @@ const RecruiterDashboard = () => {
                 placeholder="Email subject"
                 value={bulkContactSubject}
                 onChange={(e) => setBulkContactSubject(e.target.value)}
+                className="bg-muted/30 border-border/50"
               />
             </div>
 
@@ -1286,15 +1374,17 @@ const RecruiterDashboard = () => {
                 value={bulkContactMessage}
                 onChange={(e) => setBulkContactMessage(e.target.value)}
                 rows={10}
+                className="bg-muted/30 border-border/50"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowBulkContactDialog(false)} disabled={isSendingBulkContact}>
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-border/50">
+            <Button variant="outline" onClick={() => setShowBulkContactDialog(false)} disabled={isSendingBulkContact} className="border-border/50">
               Cancel
             </Button>
             <Button
+              variant="gradient-accent"
               onClick={handleSendBulkContact}
               disabled={isSendingBulkContact || !bulkContactSubject.trim() || !bulkContactMessage.trim()}
             >
