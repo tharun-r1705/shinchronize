@@ -15,17 +15,17 @@ export interface StatCardProps {
 }
 
 const variantStyles = {
-    default: 'bg-card hover:bg-card/80',
-    primary: 'bg-primary/10 border-primary/20 hover:bg-primary/15',
-    success: 'bg-success/10 border-success/20 hover:bg-success/15',
-    warning: 'bg-warning/10 border-warning/20 hover:bg-warning/15',
-    destructive: 'bg-destructive/10 border-destructive/20 hover:bg-destructive/15',
+    default: 'bg-card border-border/50',
+    primary: 'bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 border-primary/20',
+    success: 'bg-gradient-to-br from-success/10 via-transparent to-emerald-400/5 border-success/20',
+    warning: 'bg-gradient-to-br from-warning/10 via-transparent to-amber-400/5 border-warning/20',
+    destructive: 'bg-gradient-to-br from-destructive/10 via-transparent to-rose-400/5 border-destructive/20',
 };
 
 const iconStyles = {
-    default: 'bg-muted text-muted-foreground',
-    primary: 'bg-primary/20 text-primary',
-    success: 'bg-success/20 text-success',
+    default: 'bg-muted/60 text-muted-foreground',
+    primary: 'bg-primary/20 text-primary shadow-glow',
+    success: 'bg-success/20 text-success shadow-glow-accent',
     warning: 'bg-warning/20 text-warning',
     destructive: 'bg-destructive/20 text-destructive',
 };
@@ -43,9 +43,9 @@ export function StatCard({
     return (
         <Card
             className={cn(
-                'border transition-all duration-200',
+                'stat-card border transition-all duration-300 ease-out-quart',
                 variantStyles[variant],
-                onClick && 'cursor-pointer hover:shadow-lg',
+                onClick && 'cursor-pointer',
                 className
             )}
             onClick={onClick}
@@ -55,7 +55,7 @@ export function StatCard({
                     <div className="space-y-3">
                         <p className="text-sm font-medium text-muted-foreground">{title}</p>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold tracking-tight">{value}</span>
+                            <span className="text-3xl font-bold tracking-tight text-foreground">{value}</span>
                             {subtitle && (
                                 <span className="text-sm text-muted-foreground">{subtitle}</span>
                             )}

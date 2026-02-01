@@ -199,14 +199,19 @@ export default function MatchExplanationModal({
 
             {/* Learning Rate Card */}
             {explanation.student.learningMetrics && (
-              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
-                <CardHeader>
+              <Card
+                variant="glow"
+                className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-accent/5"
+              >
+                <div className="absolute -top-16 -right-16 w-40 h-40 bg-primary/15 rounded-full blur-3xl" />
+                <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-accent/10 rounded-full blur-3xl" />
+                <CardHeader className="relative">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Rocket className="h-5 w-5 text-purple-600" />
+                    <Rocket className="h-5 w-5 text-primary" />
                     Learning Rate Analysis
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 relative">
                   {/* Main Learning Badge */}
                   <div className="flex items-center justify-between">
                     <div>
@@ -222,8 +227,10 @@ export default function MatchExplanationModal({
                     {explanation.student.learningMetrics.learningRate !== null && (
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">Learning Score</p>
-                        <p className="text-3xl font-bold text-purple-600">
-                          {explanation.student.learningMetrics.learningRate}
+                        <p className="text-3xl font-bold">
+                          <span className="text-gradient">
+                            {explanation.student.learningMetrics.learningRate}
+                          </span>
                           <span className="text-lg text-muted-foreground">/100</span>
                         </p>
                       </div>
@@ -232,7 +239,7 @@ export default function MatchExplanationModal({
 
                   {/* Learning Components Breakdown */}
                   {explanation.student.learningMetrics.components && (
-                    <div className="space-y-3 pt-4 border-t">
+                    <div className="space-y-3 pt-4 border-t border-border/50">
                       <p className="text-sm font-medium text-muted-foreground">Learning Components</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
@@ -243,7 +250,7 @@ export default function MatchExplanationModal({
                             </span>
                             <span className="font-medium">{explanation.student.learningMetrics.components.readinessVelocity}</span>
                           </div>
-                          <Progress value={explanation.student.learningMetrics.components.readinessVelocity} className="h-1.5" />
+                          <Progress value={explanation.student.learningMetrics.components.readinessVelocity} className="h-1.5 bg-muted/50" />
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
@@ -253,7 +260,7 @@ export default function MatchExplanationModal({
                             </span>
                             <span className="font-medium">{explanation.student.learningMetrics.components.milestoneSpeed}</span>
                           </div>
-                          <Progress value={explanation.student.learningMetrics.components.milestoneSpeed} className="h-1.5" />
+                          <Progress value={explanation.student.learningMetrics.components.milestoneSpeed} className="h-1.5 bg-muted/50" />
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
@@ -263,7 +270,7 @@ export default function MatchExplanationModal({
                             </span>
                             <span className="font-medium">{explanation.student.learningMetrics.components.quizPerformance}</span>
                           </div>
-                          <Progress value={explanation.student.learningMetrics.components.quizPerformance} className="h-1.5" />
+                          <Progress value={explanation.student.learningMetrics.components.quizPerformance} className="h-1.5 bg-muted/50" />
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
@@ -273,7 +280,7 @@ export default function MatchExplanationModal({
                             </span>
                             <span className="font-medium">{explanation.student.learningMetrics.components.codingGrowth}</span>
                           </div>
-                          <Progress value={explanation.student.learningMetrics.components.codingGrowth} className="h-1.5" />
+                          <Progress value={explanation.student.learningMetrics.components.codingGrowth} className="h-1.5 bg-muted/50" />
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
@@ -283,7 +290,7 @@ export default function MatchExplanationModal({
                             </span>
                             <span className="font-medium">{explanation.student.learningMetrics.components.skillAcquisition}</span>
                           </div>
-                          <Progress value={explanation.student.learningMetrics.components.skillAcquisition} className="h-1.5" />
+                          <Progress value={explanation.student.learningMetrics.components.skillAcquisition} className="h-1.5 bg-muted/50" />
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
@@ -293,7 +300,7 @@ export default function MatchExplanationModal({
                             </span>
                             <span className="font-medium">{explanation.student.learningMetrics.components.projectVelocity}</span>
                           </div>
-                          <Progress value={explanation.student.learningMetrics.components.projectVelocity} className="h-1.5" />
+                          <Progress value={explanation.student.learningMetrics.components.projectVelocity} className="h-1.5 bg-muted/50" />
                         </div>
                       </div>
                     </div>
@@ -301,11 +308,11 @@ export default function MatchExplanationModal({
 
                   {/* Trend Indicator */}
                   {explanation.student.learningMetrics.trend && (
-                    <div className="pt-2 border-t">
+                    <div className="pt-2 border-t border-border/50">
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-muted-foreground">Learning Trend:</span>
                         <Badge variant={
-                          explanation.student.learningMetrics.trend === 'accelerating' ? 'default' :
+                          explanation.student.learningMetrics.trend === 'accelerating' ? 'success' :
                           explanation.student.learningMetrics.trend === 'slowing' ? 'destructive' : 'secondary'
                         }>
                           {explanation.student.learningMetrics.trend === 'accelerating' && '↑ '}
@@ -322,10 +329,10 @@ export default function MatchExplanationModal({
 
             {/* Skills Match */}
             <div className="grid grid-cols-2 gap-4">
-              <Card>
+              <Card className="stat-card border-success/20 bg-gradient-to-br from-success/10 via-transparent to-emerald-400/5">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <CheckCircle2 className="h-5 w-5 text-success" />
                     Skills Matched
                   </CardTitle>
                 </CardHeader>
@@ -333,7 +340,7 @@ export default function MatchExplanationModal({
                   <div className="flex flex-wrap gap-2">
                     {explanation.skillsMatched.length > 0 ? (
                       explanation.skillsMatched.map((skill) => (
-                        <Badge key={skill} variant="default" className="bg-green-500">
+                        <Badge key={skill} variant="success">
                           {skill}
                         </Badge>
                       ))
@@ -344,10 +351,10 @@ export default function MatchExplanationModal({
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="stat-card border-destructive/20 bg-gradient-to-br from-destructive/10 via-transparent to-rose-400/5">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <X className="h-5 w-5 text-red-500" />
+                    <X className="h-5 w-5 text-destructive" />
                     Skills Missing
                   </CardTitle>
                 </CardHeader>
@@ -355,7 +362,7 @@ export default function MatchExplanationModal({
                   <div className="flex flex-wrap gap-2">
                     {explanation.skillsMissing.length > 0 ? (
                       explanation.skillsMissing.map((skill) => (
-                        <Badge key={skill} variant="outline" className="border-red-500 text-red-500">
+                        <Badge key={skill} variant="destructive">
                           {skill}
                         </Badge>
                       ))
