@@ -139,7 +139,7 @@ Make it professional, specific to the role, and exciting for candidates. Focus o
     };
   } catch (error) {
     console.error('Error generating job description:', error);
-    
+
     // Fallback to basic template
     return {
       description: `We are looking for a talented ${title} to join our team in ${location}. This role requires expertise in ${requiredSkills.join(', ')} and offers excellent growth opportunities.`,
@@ -183,7 +183,7 @@ function calculateJobMatchScore(student, job) {
   const requiredMatched = job.requiredSkills.filter(skill => {
     const skillLower = String(skill).trim().toLowerCase();
     // Check both: if student skill includes job skill OR job skill includes student skill
-    const matched = studentSkills.some(s => 
+    const matched = studentSkills.some(s =>
       s.includes(skillLower) || skillLower.includes(s) || s === skillLower
     );
     if (matched) {
@@ -193,26 +193,26 @@ function calculateJobMatchScore(student, job) {
     }
     return matched;
   });
-  
+
   const requiredScore = job.requiredSkills.length > 0
     ? (requiredMatched.length / job.requiredSkills.length) * 30
     : 15;
-  
+
   score += requiredScore;
   breakdown.requiredSkills = Math.round(requiredScore);
 
   // 2. Preferred Skills Match (10 points) - BONUS
   const preferredMatched = (job.preferredSkills || []).filter(skill => {
     const skillLower = String(skill).trim().toLowerCase();
-    return studentSkills.some(s => 
+    return studentSkills.some(s =>
       s.includes(skillLower) || skillLower.includes(s) || s === skillLower
     );
   });
-  
+
   const preferredScore = job.preferredSkills?.length > 0
     ? Math.min((preferredMatched.length / job.preferredSkills.length) * 10, 10)
     : 5;
-  
+
   score += preferredScore;
   breakdown.preferredSkills = Math.round(preferredScore);
 
@@ -227,13 +227,13 @@ function calculateJobMatchScore(student, job) {
   ) || [];
 
   const verifiedRelevantProjects = relevantProjects.filter(p => p.status === 'verified' || p.verified);
-  
+
   // Base project score
   projectScore += Math.min(relevantProjects.length * 4, 15);
-  
+
   // Bonus for verified projects
   projectScore += Math.min(verifiedRelevantProjects.length * 2, 5);
-  
+
   // Bonus for diversity of skills in projects
   const uniqueSkillsInProjects = new Set(
     relevantProjects.flatMap(p => p.tags || [])
@@ -277,7 +277,7 @@ function calculateJobMatchScore(student, job) {
   const leetcodeStreak = student.leetcodeStats?.streak || 0;
   const githubStreak = student.githubStats?.streak || 0;
   const maxStreak = Math.max(leetcodeStreak, githubStreak);
-  
+
   consistencyScore = Math.min(maxStreak / 20, 5); // 100-day streak = 5 points
   score += consistencyScore;
   breakdown.consistency = Math.round(consistencyScore * 10) / 10;
@@ -359,7 +359,7 @@ Keep it positive, specific, and actionable. Maximum 3 sentences.`;
     return response.trim();
   } catch (error) {
     console.error('Error generating match reason:', error);
-    
+
     // Fallback template
     if (totalScore >= 80) {
       return `Strong match with ${skillsMatched.length}/${job.requiredSkills.length} required skills and ${relevantProjectsCount} relevant projects. Demonstrates consistent growth with ${student.readinessScore}% readiness score. ${skillsMissing.length > 0 ? `May benefit from developing: ${skillsMissing.slice(0, 2).join(', ')}.` : 'Excellent skill coverage.'}`;
@@ -405,14 +405,14 @@ async function matchStudentsToJob(jobId) {
     }
 
     const requiredSkills = job.requiredSkills.map(s => s.toLowerCase().trim());
-    const coveredSkills = requiredSkills.filter(reqSkill => 
-      Array.from(allStudentSkills).some(studentSkill => 
+    const coveredSkills = requiredSkills.filter(reqSkill =>
+      Array.from(allStudentSkills).some(studentSkill =>
         studentSkill.includes(reqSkill) || reqSkill.includes(studentSkill)
       )
     );
-    
+
     const allSkillsCovered = coveredSkills.length === requiredSkills.length;
-    const coveragePercentage = requiredSkills.length > 0 
+    const coveragePercentage = requiredSkills.length > 0
       ? (coveredSkills.length / requiredSkills.length * 100).toFixed(1)
       : 0;
 
@@ -425,26 +425,27 @@ async function matchStudentsToJob(jobId) {
 
     // Calculate match scores for all students
     const matches = [];
+    const allCandidates = []; // Track all candidates for potential fallback
     let filteredBySkills = 0;
-    
+
     console.log('NOTE: Readiness Score, CGPA, and Projects filters are DISABLED for maximum candidate pool');
-    
+
     for (const student of students) {
       // REMOVED: Basic filters (minReadinessScore, minCGPA, minProjects)
       // These filters were too restrictive and excluded good candidates with matching skills
       // The match score already factors in these attributes, so they still affect ranking
 
       const matchData = calculateJobMatchScore(student, job);
-      
+
       // TEAM-BASED MATCHING LOGIC:
       // If ALL required skills are covered by the combined student pool,
       // include ANY student who has at least ONE matching skill
       // Otherwise, use the 10% individual threshold
-      
+
       const requiredSkillsCount = job.requiredSkills.length;
       const matchedSkillsCount = matchData.skillsMatched.length;
-      const skillMatchPercentage = requiredSkillsCount > 0 
-        ? (matchedSkillsCount / requiredSkillsCount) * 100 
+      const skillMatchPercentage = requiredSkillsCount > 0
+        ? (matchedSkillsCount / requiredSkillsCount) * 100
         : 100;
 
       // Keep all candidates for potential fallback
@@ -452,10 +453,10 @@ async function matchStudentsToJob(jobId) {
         student,
         matchData,
       });
-      
+
       let shouldIncludeStudent = false;
       let matchingReason = '';
-      
+
       if (allSkillsCovered) {
         // Team-based matching: Include if student has at least 1 matching skill
         if (matchedSkillsCount > 0) {
@@ -471,7 +472,7 @@ async function matchStudentsToJob(jobId) {
       } else {
         // Individual matching: Require 10% threshold
         const MINIMUM_SKILL_MATCH_PERCENTAGE = parseInt(process.env.MIN_SKILL_MATCH_PERCENTAGE) || 10;
-        
+
         if (skillMatchPercentage >= MINIMUM_SKILL_MATCH_PERCENTAGE) {
           shouldIncludeStudent = true;
           matchingReason = 'INDIVIDUAL MATCH';
@@ -488,7 +489,7 @@ async function matchStudentsToJob(jobId) {
           console.log(`✗ FILTERED (no skills match): ${student.name || student.email}`);
         }
       }
-      
+
       if (shouldIncludeStudent) {
         matches.push({
           student,
@@ -516,7 +517,7 @@ async function matchStudentsToJob(jobId) {
     for (const match of topMatches) {
       try {
         const matchReason = await generateMatchReason(match.student, job, match.matchData);
-        
+
         matchedStudentsData.push({
           studentId: match.student._id,
           matchScore: match.matchData.totalScore,
@@ -576,13 +577,13 @@ async function matchStudentsToJob(jobId) {
 async function refreshJobMatches(studentId = null) {
   try {
     const activeJobs = await Job.find({ status: 'active' });
-    
+
     console.log(`Refreshing matches for ${activeJobs.length} active jobs...`);
-    
+
     for (const job of activeJobs) {
       await matchStudentsToJob(job._id);
     }
-    
+
     console.log('Job matches refreshed successfully');
   } catch (error) {
     console.error('Error refreshing job matches:', error);
